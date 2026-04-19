@@ -2,11 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Dashboard from '@/components/Dashboard';
 import { getSession, isLoggedIn } from '@/lib/session';
-import { withFreshToken, fetchActivities, fetchAthlete } from '@/lib/strava';
-import { summaryToRun, buildStrideData } from '@/lib/ingest-runtime';
+import { fetchActivities, fetchAthlete } from '@/lib/strava';
+import { summaryToRun, buildStrideData, estimateHrMax } from '@/lib/ingest-runtime';
 
-// Small in-memory cache so re-rendering doesn't refetch on every request.
-// Same shape + TTL as /api/runs. Safe to share since it's server-only module state.
+// In-memory cache so re-rendering doesn't refetch on every request.
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const userCache = new Map();
 
@@ -16,24 +15,33 @@ function loadDemoData() {
   return JSON.parse(fs.readFileSync(p, 'utf8'));
 }
 
+// Fetch the user's activities. Uses the stored access token directly —
+// Server Components can't mutate cookies, so refresh lives in /api/runs
+// (which IS a route handler). If the stored token is close to expiry we
+// return null, letting the page fall back to demo mode + reconnect hint.
 async function loadUserData(session) {
   const hit = userCache.get(session.athleteId);
   if (hit && Date.now() - hit.fetchedAt < CACHE_TTL_MS) return hit.data;
 
-  const accessToken = await withFreshToken(session);
-  await session.save(); // persist any rotated tokens
+  if (!session.accessToken) return null;
+  // Strava access tokens live 6 h. If we're within 60 s of expiry we bail
+  // rather than risk a 401 mid-render. User clicks Connect again → Strava
+  // auto-approves (app is already authorized) → fresh tokens.
+  if (session.expiresAt && session.expiresAt < Date.now() + 60_000) return null;
 
   const [athlete, activities] = await Promise.all([
-    fetchAthlete(accessToken),
-    fetchActivities(accessToken, { page: 1, perPage: 200 }),
+    fetchAthlete(session.accessToken),
+    fetchActivities(session.accessToken, { page: 1, perPage: 200 }),
   ]);
 
-  const runs = (activities || [])
-    .filter((a) => a?.type === 'Run' || a?.sport_type === 'Run')
-    .map((a) => summaryToRun(a))
+  const runActivities = (activities || [])
+    .filter((a) => a?.type === 'Run' || a?.sport_type === 'Run');
+  const hrMax = estimateHrMax(runActivities.map((a) => a.max_heartrate));
+  const runs = runActivities
+    .map((a) => summaryToRun(a, { hrMax }))
     .filter(Boolean);
 
-  const data = buildStrideData(runs, athlete);
+  const data = buildStrideData(runs, athlete, { hrMax });
   userCache.set(session.athleteId, { data, fetchedAt: Date.now() });
   return data;
 }

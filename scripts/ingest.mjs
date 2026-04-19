@@ -27,6 +27,7 @@ import {
   inferType,
   clusterRoutes,
   isoWeek,
+  estimateHrMax,
 } from '../lib/ingest-runtime.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -37,7 +38,10 @@ const STRAVA_CSV = path.join(STRAVA_DIR, 'activities.csv');
 const DATA_DIR = path.join(ROOT, 'data');
 const OUT = path.join(DATA_DIR, 'runs.json');
 
-const HR_MAX = Number(process.env.HR_MAX) || 190;
+// HR_MAX: explicit env override takes precedence. Otherwise we auto-detect
+// from the observed data (highest single-run max HR + 2% buffer) later,
+// inside each ingest path.
+const HR_MAX_ENV = Number(process.env.HR_MAX) || null;
 const PROFILE = {
   name: process.env.PROFILE_NAME || 'Runner',
   city: process.env.PROFILE_CITY || '',
@@ -302,6 +306,9 @@ function ingestStrava() {
   const runs = rows.filter((r) => r['Activity Type'] === 'Run');
   console.log(`Found ${rows.length} activities → ${runs.length} runs`);
 
+  const HR_MAX = HR_MAX_ENV || estimateHrMax(runs.map((r) => r['Max Heart Rate']));
+  console.log(`HR_MAX = ${HR_MAX} ${HR_MAX_ENV ? '(env)' : '(auto-detected)'}`);
+
   const activities = [];
   let parsed = 0, skippedNoFile = 0;
 
@@ -315,8 +322,13 @@ function ingestStrava() {
     const pace = distKm > 0 ? durMin / distKm : 0;
     const avgHrRaw = Number(r['Average Heart Rate']);
     const avgHr = isFinite(avgHrRaw) && avgHrRaw >= 40 ? Math.round(avgHrRaw) : null;
+    const maxHrRaw = Number(r['Max Heart Rate']);
+    const maxHr = isFinite(maxHrRaw) && maxHrRaw >= 40 ? Math.round(maxHrRaw) : null;
     const elevRaw = Number(r['Elevation Gain']);
     const elev = isFinite(elevRaw) && r['Elevation Gain'] !== '' ? Math.round(elevRaw) : null;
+    // Strava CSV exposes suffer_score as "Relative Effort".
+    const sufferRaw = Number(r['Relative Effort']);
+    const sufferScore = isFinite(sufferRaw) && sufferRaw > 0 ? sufferRaw : null;
 
     // Parse date as UTC to match ISO
     const dt = new Date(r['Activity Date']);
@@ -347,14 +359,14 @@ function ingestStrava() {
       }
     }
 
-    // Type: Strava CSV flags + name regex + physiology (unified in lib).
+    // Type: Strava CSV flags + name regex + laps + intensity bands.
     const type = inferType({
       name: r['Activity Name'] || '',
       description: r['Activity Description'] || '',
       isRace: !!r.Competition,
       isLong: !!r['Long Run'],
       isRecovery: !!r.Recovery,
-      distKm, durMin, avgHr,
+      distKm, durMin, avgHr, maxHr, sufferScore,
       laps: streamLaps,
       hrMax: HR_MAX,
     });
@@ -390,6 +402,23 @@ function ingestLooseFits() {
     .map((f) => path.join(ACTIVITIES_DIR, f));
   console.log(`Found ${files.length} .fit file(s)`);
 
+  // Two-pass: decode sessions once to collect max HRs, then re-use.
+  // Cheap relative to stream decoding.
+  const sessionPeek = files.map((f) => {
+    try {
+      const buf = readMaybeGz(f);
+      const dec = new Decoder(FitStream.fromByteArray(buf));
+      const { messages } = dec.read({
+        applyScaleAndOffset: true,
+        convertTypesToStrings: true,
+        convertDateTimesToDates: true,
+      });
+      return messages.sessionMesgs?.[0]?.maxHeartRate;
+    } catch { return null; }
+  });
+  const HR_MAX = HR_MAX_ENV || estimateHrMax(sessionPeek);
+  console.log(`HR_MAX = ${HR_MAX} ${HR_MAX_ENV ? '(env)' : '(auto-detected)'}`);
+
   const activities = [];
   for (const f of files) {
     const stream = parseStream(f);
@@ -416,6 +445,7 @@ function ingestLooseFits() {
     const iso = dt.toISOString().slice(0, 10);
 
     const hrRaw = Number(session.avgHeartRate);
+    const maxHrRaw = Number(session.maxHeartRate);
     const elevRaw = Number(session.totalAscent);
     activities.push({
       stravaId: null,
@@ -426,6 +456,8 @@ function ingestLooseFits() {
         isRace: false, isLong: false, isRecovery: false,
         distKm, durMin,
         avgHr: session.avgHeartRate,
+        maxHr: isFinite(maxHrRaw) ? maxHrRaw : null,
+        sufferScore: null, // FIT files don't carry Strava's suffer score
         laps: stream.laps,
         hrMax: HR_MAX,
       }),
@@ -533,7 +565,6 @@ async function finalize(activities) {
   for (const r of runs) byType[r.type] = (byType[r.type] || 0) + 1;
   console.log('By type:', byType);
   console.log(`Date range: ${runs[0].date} → ${runs[runs.length - 1].date}`);
-  console.log(`HR_MAX used: ${HR_MAX}`);
 }
 
 // ---------- entrypoint ----------

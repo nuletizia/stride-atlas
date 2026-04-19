@@ -7,7 +7,7 @@
 import { NextResponse } from 'next/server';
 import { getSession, isLoggedIn } from '@/lib/session';
 import { withFreshToken, fetchActivities, fetchAthlete } from '@/lib/strava';
-import { summaryToRun, buildStrideData } from '@/lib/ingest-runtime';
+import { summaryToRun, buildStrideData, estimateHrMax } from '@/lib/ingest-runtime';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,12 +49,14 @@ export async function GET(request) {
       fetchActivities(accessToken, { page: 1, perPage: 200 }),
     ]);
 
-    const runs = (activities || [])
-      .filter((a) => a?.type === 'Run' || a?.sport_type === 'Run')
-      .map((a) => summaryToRun(a))
+    const runActivities = (activities || [])
+      .filter((a) => a?.type === 'Run' || a?.sport_type === 'Run');
+    const hrMax = estimateHrMax(runActivities.map((a) => a.max_heartrate));
+    const runs = runActivities
+      .map((a) => summaryToRun(a, { hrMax }))
       .filter(Boolean);
 
-    const data = buildStrideData(runs, athlete);
+    const data = buildStrideData(runs, athlete, { hrMax });
     cache.set(session.athleteId, { data, fetchedAt: Date.now() });
     return NextResponse.json(data);
   } catch (e) {

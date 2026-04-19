@@ -6,17 +6,6 @@ import {
   fmtDate, fmtPace, fmtHr, hasValidHr, pad,
 } from '@/lib/shared';
 
-function solve3(A, b) {
-  const det = (m) =>
-    m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
-    m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
-    m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
-  const d = det(A);
-  if (Math.abs(d) < 1e-8) return null;
-  const col = (m, c, col_) => m.map((row, i) => row.map((v, j) => (j === c ? col_[i] : v)));
-  return [det(col(A, 0, b)) / d, det(col(A, 1, b)) / d, det(col(A, 2, b)) / d];
-}
-
 export default function AerobicEfficiency() {
   const data = useData();
   const runs = useFilteredRuns();
@@ -138,48 +127,23 @@ export default function AerobicEfficiency() {
     });
   }, [inView, dateRange]);
 
+  // Chart's horizontal trend lines come from the SAME computation as the
+  // readout cards below — the actual averaged HR in the first-40% vs last-40%
+  // of the window, within the type's median ±0.35 min/km pace band. This
+  // guarantees the numbers on the chart always match the numbers in the card
+  // for the selected type.
   const trend = useMemo(() => {
-    const sel = inView.filter((r) => r.type === trendType);
-    if (sel.length < 4) return null;
-    const paces = sel.map((r) => r.pace);
-    const medianPace = paces.slice().sort((a, b) => a - b)[Math.floor(paces.length / 2)];
-
-    const ts = sel.map((r) => new Date(r.date).getTime());
-    const tMin = Math.min(...ts);
-    const tNorm = ts.map((t) => (t - tMin) / 86400000);
-    const n = sel.length;
-
-    const sumT = tNorm.reduce((a, v) => a + v, 0);
-    const sumP = sel.reduce((a, r) => a + r.pace, 0);
-    const sumHr = sel.reduce((a, r) => a + r.hr, 0);
-    const sumTT = tNorm.reduce((a, v) => a + v * v, 0);
-    const sumPP = sel.reduce((a, r) => a + r.pace * r.pace, 0);
-    const sumTP = sel.reduce((a, r, i) => a + tNorm[i] * r.pace, 0);
-    const sumTHr = sel.reduce((a, r, i) => a + tNorm[i] * r.hr, 0);
-    const sumPHr = sel.reduce((a, r) => a + r.pace * r.hr, 0);
-
-    const A = [
-      [n, sumT, sumP],
-      [sumT, sumTT, sumTP],
-      [sumP, sumTP, sumPP],
-    ];
-    const Y = [sumHr, sumTHr, sumPHr];
-    const sol = solve3(A, Y);
-    if (!sol) return null;
-    const [c, a, b] = sol;
-
-    const tMaxNorm = Math.max(...tNorm);
-    const startHr = a * 0 + b * medianPace + c;
-    const endHr = a * tMaxNorm + b * medianPace + c;
-
+    const band = bandReadouts.find((b) => b.type === trendType);
+    if (!band || !band.enough) return null;
     return {
-      startHr, endHr, medianPace,
-      startY: yFor(startHr),
-      endY: yFor(endHr),
-      delta: endHr - startHr,
-      days: tMaxNorm, n,
+      startHr: band.earlyHr,
+      endHr: band.lateHr,
+      medianPace: band.median,
+      startY: yFor(band.earlyHr),
+      endY: yFor(band.lateHr),
+      delta: band.delta,
     };
-  }, [inView, trendType, bounds]);
+  }, [bandReadouts, trendType, bounds]);
 
   const showMetric = (r) => {
     const hour = Math.floor(r.duration / 60);
