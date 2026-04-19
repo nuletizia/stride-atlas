@@ -1,0 +1,22 @@
+{
+  "name": "stride-atlas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "ingest": "node scripts/ingest.mjs"
+  },
+  "dependencies": {
+    "@garmin/fitsdk": "^21.171.0",
+    "fast-xml-parser": "^5.7.1",
+    "iron-session": "^8.0.4",
+    "next": "^16.2.4",
+    "papaparse": "^5.5.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

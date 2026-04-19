@@ -1,0 +1,172 @@
+'use client';
+
+import {
+  useState, useEffect, useMemo, useCallback,
+  createContext, useContext,
+} from 'react';
+import { applyTheme } from './theme';
+
+// ---------- formatters ----------
+export function pad(n) { return String(n).padStart(2, '0'); }
+
+export function fmtPace(p) {
+  if (!p || !isFinite(p)) return '—';
+  const mins = Math.floor(p);
+  const secs = Math.round((p - mins) * 60);
+  return `${mins}:${pad(secs)}`;
+}
+export function fmtDuration(min) {
+  if (!min) return '—';
+  const h = Math.floor(min / 60);
+  const m = Math.floor(min % 60);
+  const s = Math.round((min - Math.floor(min)) * 60);
+  if (h) return `${h}h ${pad(m)}m`;
+  return `${m}:${pad(s)}`;
+}
+export function fmtDate(iso, opts = {}) {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: opts.year ? 'numeric' : undefined,
+  });
+}
+export function hasValidHr(r) {
+  return r && r.hr != null && r.hr >= 60 && r.hr <= 230;
+}
+export function fmtHr(r) {
+  return hasValidHr(r) ? `${r.hr} bpm` : '—';
+}
+export function fmtElev(r) {
+  return r && r.elev != null ? `${r.elev}` : '—';
+}
+
+export function fmtDelta(delta, unit = '', inverse = false) {
+  if (!isFinite(delta) || Math.abs(delta) < 0.005) return { text: '±0', cls: '' };
+  const sign = delta > 0 ? '+' : '−';
+  const mag = Math.abs(delta);
+  const isUp = delta > 0;
+  const good = inverse ? !isUp : isUp;
+  return {
+    text: `${sign}${mag.toFixed(mag < 1 ? 2 : 1)}${unit}`,
+    cls: good ? 'up' : 'down',
+  };
+}
+
+// ---------- Data context: provides STRIDE_DATA to tree ----------
+const DataContext = createContext(null);
+
+export function DataProvider({ data, children }) {
+  return <DataContext.Provider value={data}>{children}</DataContext.Provider>;
+}
+export function useData() { return useContext(DataContext); }
+
+// ---------- Tooltip ----------
+const TooltipContext = createContext(null);
+
+export function TooltipProvider({ children }) {
+  const [t, setT] = useState(null);
+  const show = useCallback((content, x, y) => setT({ content, x, y }), []);
+  const hide = useCallback(() => setT(null), []);
+  return (
+    <TooltipContext.Provider value={{ show, hide }}>
+      {children}
+      {t && (
+        <div
+          className="tooltip"
+          style={{
+            left: Math.min(t.x + 14, (typeof window !== 'undefined' ? window.innerWidth : 9999) - 280),
+            top: Math.min(t.y + 14, (typeof window !== 'undefined' ? window.innerHeight : 9999) - 160),
+          }}
+        >
+          {t.content}
+        </div>
+      )}
+    </TooltipContext.Provider>
+  );
+}
+export function useTooltip() { return useContext(TooltipContext); }
+
+// ---------- Cross-panel hover linking ----------
+const LinkContext = createContext(null);
+export function LinkProvider({ children }) {
+  const [hovered, setHovered] = useState(null);
+  return (
+    <LinkContext.Provider value={{ hovered, setHovered }}>
+      {children}
+    </LinkContext.Provider>
+  );
+}
+export function useLink() { return useContext(LinkContext); }
+
+// ---------- Tweaks (style / timeRange / metric) ----------
+const TweakContext = createContext(null);
+
+const STORAGE_KEY = 'stride-atlas-tweaks-v1';
+
+function readStored() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+function writeStored(v) {
+  if (typeof window === 'undefined') return;
+  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(v)); } catch {}
+}
+
+export function TweakProvider({ children }) {
+  const [style, setStyle] = useState('editorial');
+  const [timeRange, setTimeRange] = useState('all');
+  const [metric, setMetric] = useState('pace');
+  const [open, setOpen] = useState(false);
+
+  // Load from localStorage after mount to avoid SSR hydration mismatch
+  useEffect(() => {
+    const s = readStored();
+    if (s) {
+      if (s.style) setStyle(s.style);
+      if (s.timeRange) setTimeRange(s.timeRange);
+      if (s.metric) setMetric(s.metric);
+    }
+  }, []);
+
+  useEffect(() => { applyTheme(style); }, [style]);
+
+  const persist = useCallback((edits) => {
+    const cur = readStored() || {};
+    writeStored({ ...cur, ...edits });
+  }, []);
+
+  const setStyleP = (v) => { setStyle(v); persist({ style: v }); };
+  const setRangeP = (v) => { setTimeRange(v); persist({ timeRange: v }); };
+  const setMetricP = (v) => { setMetric(v); persist({ metric: v }); };
+
+  return (
+    <TweakContext.Provider value={{
+      style, theme: style, timeRange, metric,
+      open, setOpen,
+      setStyle: setStyleP, setTheme: setStyleP,
+      setTimeRange: setRangeP, setMetric: setMetricP,
+    }}>
+      {children}
+    </TweakContext.Provider>
+  );
+}
+export function useTweaks() { return useContext(TweakContext); }
+
+// ---------- Filter runs by current time range ----------
+export function useFilteredRuns() {
+  const { timeRange } = useTweaks();
+  const data = useData();
+  const all = data.runs;
+  return useMemo(() => {
+    if (!all.length) return [];
+    // Anchor "now" at the most recent activity date (not wall clock) so
+    // imported data always produces a populated window.
+    const maxIso = all.reduce((a, r) => (r.date > a ? r.date : a), all[0].date);
+    const end = new Date(maxIso + 'T00:00:00');
+    const days = { '1m': 30, '3m': 92, '6m': 183, '1y': 365, 'all': 99999 }[timeRange] || 9999;
+    const start = new Date(end.getTime() - days * 86400000);
+    return all.filter((r) => new Date(r.date + 'T00:00:00') >= start);
+  }, [all, timeRange]);
+}

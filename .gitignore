@@ -1,0 +1,10 @@
+node_modules
+.next
+out
+.env*
+!.env.example
+.DS_Store
+activities/
+data/routes.cache.json
+data/routes.local.json
+_design/
