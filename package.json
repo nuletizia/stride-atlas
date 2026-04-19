@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@garmin/fitsdk": "^21.171.0",
+    "@vercel/analytics": "^2.0.1",
     "fast-xml-parser": "^5.7.1",
     "iron-session": "^8.0.4",
     "next": "^16.2.4",
