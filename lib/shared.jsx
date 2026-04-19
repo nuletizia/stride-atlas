@@ -5,6 +5,7 @@ import {
   createContext, useContext,
 } from 'react';
 import { applyTheme } from './theme';
+import { inferType } from './ingest-runtime';
 
 // ---------- formatters ----------
 export function pad(n) { return String(n).padStart(2, '0'); }
@@ -51,11 +52,79 @@ export function fmtDelta(delta, unit = '', inverse = false) {
   };
 }
 
+// ---------- HRmax context: user can override, everything downstream reacts ----------
+const HrMaxContext = createContext(null);
+const HR_OVERRIDE_KEY = 'stride.hrMaxOverride';
+
+export function HrMaxProvider({ baseHrMax = 190, children }) {
+  const [override, setOverride] = useState(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const raw = window.localStorage.getItem(HR_OVERRIDE_KEY);
+    const n = Number(raw);
+    if (isFinite(n) && n >= 140 && n <= 230) setOverride(n);
+  }, []);
+
+  const persistOverride = useCallback((n) => {
+    if (n == null) {
+      if (typeof window !== 'undefined') window.localStorage.removeItem(HR_OVERRIDE_KEY);
+      setOverride(null);
+    } else if (isFinite(n) && n >= 140 && n <= 230) {
+      if (typeof window !== 'undefined') window.localStorage.setItem(HR_OVERRIDE_KEY, String(n));
+      setOverride(n);
+    }
+  }, []);
+
+  const effective = override ?? baseHrMax;
+
+  return (
+    <HrMaxContext.Provider value={{
+      baseHrMax, override, effective, setOverride: persistOverride,
+    }}>
+      {children}
+    </HrMaxContext.Provider>
+  );
+}
+export function useHrMax() { return useContext(HrMaxContext); }
+
 // ---------- Data context: provides STRIDE_DATA to tree ----------
 const DataContext = createContext(null);
 
+// DataProvider recomputes run.type client-side whenever the effective HRmax
+// changes — so the user moving the "HR max" knob in the header reshuffles
+// Easy / Moderate / Hard labels live, without a re-sync. Inputs for inferType
+// are attached to each run by buildStrideData (maxHr, isRace/Long/Recovery,
+// sufferScore, note). `laps` isn't persisted; offline-mode runs classified
+// via lap analysis get re-routed through the intensity-band layer instead —
+// acceptable since real intervals usually clear that threshold anyway.
 export function DataProvider({ data, children }) {
-  return <DataContext.Provider value={data}>{children}</DataContext.Provider>;
+  const hr = useHrMax();
+  const effective = hr?.effective ?? data?.hrMax ?? 190;
+
+  const derived = useMemo(() => {
+    if (!data || !data.runs?.length) return data;
+    const runs = data.runs.map((r) => {
+      const type = inferType({
+        name: r.note || '',
+        description: '',
+        isRace: !!r.isRace,
+        isLong: !!r.isLong,
+        isRecovery: !!r.isRecovery,
+        distKm: r.distance,
+        durMin: r.duration,
+        avgHr: r.hr,
+        maxHr: r.maxHr,
+        sufferScore: r.sufferScore,
+        laps: null,
+        hrMax: effective,
+      });
+      return type === r.type ? r : { ...r, type };
+    });
+    return { ...data, runs, hrMax: effective };
+  }, [data, effective]);
+
+  return <DataContext.Provider value={derived}>{children}</DataContext.Provider>;
 }
 export function useData() { return useContext(DataContext); }
 

@@ -380,11 +380,17 @@ function ingestStrava() {
       pace: +pace.toFixed(2),
       duration: +durMin.toFixed(1),
       hr: avgHr,
+      maxHr,
       elev,
       zones,
       bestSplits,
       startLat, startLng,
       note: r['Activity Name'] || '',
+      // Preserve classification inputs for client-side re-run on HRmax override.
+      isRace: !!r.Competition,
+      isLong: !!r['Long Run'],
+      isRecovery: !!r.Recovery,
+      sufferScore,
     });
   }
 
@@ -465,12 +471,16 @@ function ingestLooseFits() {
       pace: +pace.toFixed(2),
       duration: +durMin.toFixed(1),
       hr: isFinite(hrRaw) && hrRaw >= 40 ? Math.round(hrRaw) : null,
+      maxHr: isFinite(maxHrRaw) && maxHrRaw >= 40 ? Math.round(maxHrRaw) : null,
       elev: isFinite(elevRaw) ? Math.round(elevRaw) : null,
       zones: zonesFromStream(stream.samples, HR_MAX),
       bestSplits: bestSplitsFromStream(stream.samples, SPLIT_TARGETS_KM),
       startLat: stream.startLat,
       startLng: stream.startLng,
       note: '',
+      // FIT files don't carry Strava's workout_type flags.
+      isRace: false, isLong: false, isRecovery: false,
+      sufferScore: null,
     });
   }
   return activities;

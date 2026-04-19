@@ -336,7 +336,7 @@ export default function AerobicEfficiency() {
             fontSize: 11, color: 'var(--inkMuted)', marginBottom: 10,
             fontStyle: 'italic', fontFamily: 'var(--serif)',
           }}>
-            Splits the visible window in half and compares average HR per workout type, early vs recent (≥3 runs per half). Median pace is shown alongside — if pace drifted noticeably between halves, the HR delta is likely pace-driven and gets flagged.
+            The visible date range is split in half at its midpoint — runs before go into <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>early</b>, runs after into <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>recent</b>. Within each workout type we compare the average HR of the two halves (≥3 runs per half) and also show the median pace of each half — if pace drifted noticeably between the two, the HR delta is likely pace-driven and gets flagged.
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>

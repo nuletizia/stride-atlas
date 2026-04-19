@@ -262,6 +262,27 @@ export default function DistancePaceCurve() {
           style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkSoft)', letterSpacing: '.1em', textTransform: 'uppercase' }}
         >Distance (km)</text>
 
+        {/* Improvement arrow — faster = up (pace axis inverts), longer = right. */}
+        <g opacity="0.5">
+          <defs>
+            <marker id="dp-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--inkSoft)" />
+            </marker>
+          </defs>
+          <line
+            x1={M.l + 32} y1={H - M.b - 14}
+            x2={W - M.r - 16} y2={M.t + 18}
+            stroke="var(--inkSoft)" strokeWidth={1}
+            strokeDasharray="3 3"
+            markerEnd="url(#dp-arrow)"
+          />
+          <text
+            x={W - M.r - 30} y={M.t + 32}
+            textAnchor="end"
+            style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 13, fill: 'var(--inkSoft)' }}
+          >improving</text>
+        </g>
+
         {/* Trend lines: early (muted) + recent (strong) */}
         {trends?.early && (
           <path d={trendPath(trends.early)} fill="none" stroke="var(--inkSoft)" strokeWidth={1.2} strokeDasharray="4 3" opacity={0.55} />
@@ -334,6 +355,19 @@ export default function DistancePaceCurve() {
               · {fmtRange(trends.late.from, trends.late.to)} · {trends.late.n} runs
             </span>
           )}
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          older
+          <svg width={120} height={10} style={{ display: 'block' }}>
+            <defs>
+              <linearGradient id="dpcrecgrad" x1="0" x2="1">
+                <stop offset="0" stopColor="var(--type-tempo)" stopOpacity={0.25} />
+                <stop offset="1" stopColor="var(--type-tempo)" stopOpacity={0.9} />
+              </linearGradient>
+            </defs>
+            <rect width={120} height={10} fill="url(#dpcrecgrad)" rx={5} />
+          </svg>
+          newer
         </span>
         {trends?.reason && (
           <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--accent)', fontStyle: 'italic', fontFamily: 'var(--serif)' }}>

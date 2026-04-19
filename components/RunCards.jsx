@@ -19,13 +19,29 @@ export default function RunCards() {
   const [density, setDensity] = useState('compact');
   const [expandedId, setExpandedId] = useState(null);
   const [pinnedId, setPinnedId] = useState(null);
-  const [collapsed, setCollapsed] = useState(true);
   const [capped, setCapped] = useState(true);
   const CAP = 24;
-  const PREVIEW_COUNT = 20;
+
+  // Type-wide rank — same denominator for every card of the same type, so
+  // "3/47" on card A and "14/47" on card B are directly comparable. Peer rank
+  // (below) has a card-specific denominator driven by the ±distTol filter.
+  const typeRankMap = useMemo(() => {
+    const byType = new Map();
+    runs.forEach((r) => {
+      if (!byType.has(r.type)) byType.set(r.type, []);
+      byType.get(r.type).push(r);
+    });
+    const out = new Map();
+    for (const [, arr] of byType) {
+      const sorted = [...arr].sort((a, b) => a.pace - b.pace);
+      sorted.forEach((r, i) => out.set(r.id, { rank: i + 1, total: arr.length }));
+    }
+    return out;
+  }, [runs]);
 
   const withPeers = useMemo(() => {
     return runs.map((r) => {
+      const typeRank = typeRankMap.get(r.id) || null;
       const peers = runs.filter((other) => {
         if (other.id === r.id) return false;
         if (similarityMode === 'route') return other.routeId === r.routeId;
@@ -34,7 +50,10 @@ export default function RunCards() {
         return Math.abs(other.distance - r.distance) / r.distance <= distTol / 100;
       });
       const n = peers.length;
-      if (n === 0) return { ...r, peers: [], peerCount: 0, peerIds: new Set() };
+      if (n === 0) return {
+        ...r, peers: [], peerCount: 0, peerIds: new Set(),
+        typeRank: typeRank?.rank ?? null, typeRankTotal: typeRank?.total ?? null,
+      };
       const avgPace = peers.reduce((a, p) => a + p.pace, 0) / n;
       const bestPace = Math.min(...peers.map((p) => p.pace));
       const peersWithHr = peers.filter(hasValidHr);
@@ -49,9 +68,10 @@ export default function RunCards() {
         avgPace, bestPace, avgHR, avgDist,
         paceDelta: r.pace - avgPace,
         rank, rankTotal: peers.length + 1,
+        typeRank: typeRank?.rank ?? null, typeRankTotal: typeRank?.total ?? null,
       };
     });
-  }, [runs, similarityMode, distTol]);
+  }, [runs, similarityMode, distTol, typeRankMap]);
 
   const filtered = useMemo(() => {
     let arr = withPeers;
@@ -77,96 +97,49 @@ export default function RunCards() {
           <div className="stat-label" style={{ marginBottom: 4 }}>
             Run Cards
             <span className="num muted" style={{ marginLeft: 8, fontSize: 10, letterSpacing: 0, textTransform: 'none' }}>
-              {collapsed
-                ? `${Math.min(PREVIEW_COUNT, filtered.length)}/${filtered.length} runs`
-                : capped
-                  ? `${Math.min(CAP, filtered.length)}/${filtered.length} runs`
-                  : `${filtered.length}/${filtered.length} runs`}
+              {capped
+                ? `${Math.min(CAP, filtered.length)}/${filtered.length} runs`
+                : `${filtered.length}/${filtered.length} runs`}
             </span>
           </div>
-          <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 560 }}>
-            {collapsed
-              ? <>Most recent runs with peer comparison. Rank is computed by <b>pace</b> among this run and its similar runs.</>
-              : <>Click a card to expand full stats and compare against its <b>similar runs</b> — {similarityMode === 'route' ? 'same route' : distTol === 0 ? 'same type, exact distance' : distTol >= 100 ? 'same type, any distance' : `same type within ±${distTol}% distance`}. Rank is by <b>pace</b>.</>}
+          <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 620 }}>
+            Click a card to expand full stats. Peer rank uses <b>{similarityMode === 'route' ? 'same route' : distTol === 0 ? 'same type, exact distance' : distTol >= 100 ? 'same type, any distance' : `same type within ±${distTol}% distance`}</b> (denominator varies per card). The <b>type-wide rank</b> alongside it uses every run of the same type (common denominator).
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          {!collapsed && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 260 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>
-                  Similar · {similarityMode === 'route' ? 'same route' : 'same type'}
-                </span>
-                {similarityMode !== 'route' && (
-                  <span className="mono" style={{ fontSize: 10.5, color: 'var(--ink)', fontWeight: 500 }}>
-                    {distTol === 0 ? 'exact dist.' : distTol >= 100 ? 'any dist.' : `±${distTol}% dist.`}
-                  </span>
-                )}
-              </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 260 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+              <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>
+                Similar · {similarityMode === 'route' ? 'same route' : 'same type'}
+              </span>
               {similarityMode !== 'route' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={5}
-                    value={distTol}
-                    onChange={(e) => setDistTol(+e.target.value)}
-                    style={{ flex: 1, accentColor: 'var(--ink)' }}
-                  />
-                </div>
+                <span className="mono" style={{ fontSize: 10.5, color: 'var(--ink)', fontWeight: 500 }}>
+                  {distTol === 0 ? 'exact dist.' : distTol >= 100 ? 'any dist.' : `±${distTol}% dist.`}
+                </span>
               )}
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button className={`chip ${similarityMode === 'type_distance' ? 'active' : ''}`} onClick={() => setSimilarityMode('type_distance')}>Type</button>
-                <button className={`chip ${similarityMode === 'route' ? 'active' : ''}`} onClick={() => setSimilarityMode('route')}>Same route</button>
-              </div>
             </div>
-          )}
-          <button
-            className="chip"
-            onClick={() => setCollapsed(!collapsed)}
-            style={{
-              background: !collapsed ? 'var(--ink)' : 'var(--bgRaised)',
-              color: !collapsed ? 'var(--bg)' : 'var(--inkSoft)',
-              borderColor: !collapsed ? 'var(--ink)' : 'var(--rule)',
-              marginLeft: !collapsed ? 8 : 0,
-            }}
-          >
-            {collapsed ? 'Expand ↗' : 'Collapse ↙'}
-          </button>
+            {similarityMode !== 'route' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={distTol}
+                  onChange={(e) => setDistTol(+e.target.value)}
+                  style={{ flex: 1, accentColor: 'var(--ink)' }}
+                />
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button className={`chip ${similarityMode === 'type_distance' ? 'active' : ''}`} onClick={() => setSimilarityMode('type_distance')}>Type</button>
+              <button className={`chip ${similarityMode === 'route' ? 'active' : ''}`} onClick={() => setSimilarityMode('route')}>Same route</button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {collapsed && (
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${minCol}px, 1fr))`, gap: 8 }}>
-          {filtered.slice(0, PREVIEW_COUNT).map((r) => {
-            const isFocus = focusId === r.id;
-            const isPeer = focusPeerIds && focusPeerIds.has(r.id);
-            const dim = focusId && !isFocus && !isPeer;
-            return (
-              <RunCard
-                key={r.id}
-                run={r}
-                density="compact"
-                isFocus={isFocus}
-                isPeer={isPeer}
-                dim={dim}
-                expanded={false}
-                pinned={pinnedId === r.id}
-                meta={meta}
-                onHoverIn={() => setHovered({ runId: r.id, routeId: r.routeId, type: r.type, date: r.date })}
-                onHoverOut={() => setHovered(null)}
-                onClick={() => setCollapsed(false)}
-                onPin={() => {}}
-              />
-            );
-          })}
-        </div>
-      )}
-
-      {!collapsed && (
-        <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid var(--ruleSoft)', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid var(--ruleSoft)', flexWrap: 'wrap' }}>
             <div className="chip-row">
               {types.map((t) => (
                 <button
@@ -266,8 +239,6 @@ export default function RunCards() {
               No runs match these filters.
             </div>
           )}
-        </>
-      )}
     </div>
   );
 }
@@ -278,7 +249,10 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, o
   const paceDelta = run.paceDelta ?? 0;
   const faster = paceDelta < 0;
   const deltaSec = Math.abs(paceDelta * 60);
-  const rankText = hasPeers ? `${ordinal(run.rank)}/${run.rankTotal}` : '—';
+  // Type-wide rank shares a denominator across every card of the same type.
+  const typeRankText = run.typeRankTotal
+    ? `${ordinal(run.typeRank)}/${run.typeRankTotal} ${meta[run.type].label.toLowerCase()}`
+    : null;
   const compact = density === 'compact' && !expanded;
 
   const cardStyle = {
@@ -318,8 +292,8 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, o
           </span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
-          <span className="mono" style={{ fontSize: 9, color: 'var(--inkMuted)', letterSpacing: '.06em' }}>
-            {hasPeers ? rankText : '—'}
+          <span className="mono" style={{ fontSize: 9, color: 'var(--inkMuted)', letterSpacing: '.06em' }} title="Rank across all runs of this type">
+            {typeRankText || '—'}
           </span>
           {hasPeers ? <MiniPeerBar run={run} color={color} /> : <span className="mono muted" style={{ fontSize: 9, fontStyle: 'italic' }}>no peers</span>}
           <span className={`stat-delta num ${faster ? 'up' : 'down'}`} style={{ fontSize: 10, fontWeight: 500, whiteSpace: 'nowrap' }}>
@@ -363,6 +337,9 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, o
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
             <span className="mono" style={{ fontSize: 10, color: 'var(--inkMuted)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
               vs {run.peerCount} similar · {ordinal(run.rank)} of {run.rankTotal}
+              {typeRankText && (
+                <span style={{ marginLeft: 8, opacity: 0.75 }}>· {typeRankText}</span>
+              )}
             </span>
             <span className={`stat-delta num ${faster ? 'up' : 'down'}`} style={{ fontSize: 12, fontWeight: 500 }}>
               {faster ? '−' : '+'}{deltaSec.toFixed(0)}s/km vs avg

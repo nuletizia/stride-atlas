@@ -121,7 +121,7 @@ export default function RunAtlas() {
             Hover a run to light up its twins.
           </div>
         </div>
-        <Legend typeMeta={typeMeta} />
+        <Legend typeMeta={typeMeta} show={show} hide={hide} />
       </div>
 
       <div style={{ overflowX: 'auto', paddingBottom: 6 }}>
@@ -241,10 +241,45 @@ function AtlasStat({ label, value, unit }) {
   );
 }
 
-function Legend({ typeMeta }) {
+function Legend({ typeMeta, show, hide }) {
   const types = ['easy', 'tempo', 'long', 'intervals', 'race', 'recovery'];
+
+  const explainer = (
+    <>
+      <span className="t-title">How workout types are assigned</span>
+      <div style={{ fontSize: 11.5, color: 'var(--inkSoft)', lineHeight: 1.55, marginTop: 6, maxWidth: 340 }}>
+        A run is classified by the first rule that matches, in this order:
+        <ol style={{ margin: '6px 0 0 16px', padding: 0 }}>
+          <li style={{ marginBottom: 4 }}>
+            <b>Explicit flags &amp; keywords.</b> Strava&rsquo;s <i>race</i> / <i>long run</i> / <i>recovery</i> tags and title keywords (<span className="mono">tempo</span>, <span className="mono">intervals</span>, <span className="mono">repeats</span>, <span className="mono">5k</span>, …) win immediately.
+          </li>
+          <li style={{ marginBottom: 4 }}>
+            <b>Structural rules.</b> Distance &gt; 15 km or duration &gt; 90 min → <i>Long</i>. Short run at low HR → <i>Recovery</i>.
+          </li>
+          <li style={{ marginBottom: 4 }}>
+            <b>Intensity bands.</b> Combines avg &amp; max HR as % of your HR<sub>max</sub>:<br/>
+            {'>'} 91% → <i>Hard</i> · {'>'} 80% → <i>Moderate</i> · otherwise <i>Easy</i>.
+          </li>
+        </ol>
+        <div style={{ marginTop: 8, fontStyle: 'italic', color: 'var(--inkMuted)' }}>
+          Summary-mode data can&rsquo;t distinguish structured intervals from a sustained tempo effort, so labels describe <b>intensity</b> rather than structure.
+        </div>
+      </div>
+    </>
+  );
+
+  const onEnter = (e) => show(explainer, e.clientX, e.clientY);
+  const onMove  = (e) => show(explainer, e.clientX, e.clientY);
+  const onLeave = () => hide();
+
   return (
-    <div className="legend">
+    <div
+      className="legend"
+      onMouseEnter={onEnter}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+      style={{ cursor: 'help' }}
+    >
       {types.map((t) => (
         <div className="legend-item" key={t}>
           <span className="legend-dot" style={{ background: `var(--type-${t})` }} />
