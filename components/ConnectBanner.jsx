@@ -1,10 +1,35 @@
 'use client';
 
-// Horizontal banner sitting above the header. Two states:
-//   demo — "you're viewing Alex's data, connect your own Strava"
+// Horizontal banner sitting above the header. Three states:
+//   demo — "you're viewing a sample dataset, connect your own Strava"
 //   user — "signed in as <name>, disconnect"
+//   thin — "you have N runs, the dashboard works best with ~20+"
 
-export default function ConnectBanner({ mode, athleteName }) {
+export default function ConnectBanner({ mode, athleteName, runCount }) {
+  if (mode === 'thin') {
+    return (
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '10px 14px', marginBottom: 18, gap: 12, flexWrap: 'wrap',
+        background: 'var(--bgSunken)', border: '1px solid var(--ruleSoft)', borderRadius: 4,
+        fontSize: 12.5,
+      }}>
+        <span>
+          <span className="mono muted" style={{ fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', marginRight: 8 }}>
+            Thin history
+          </span>
+          <span style={{ color: 'var(--inkSoft)' }}>
+            <b>{runCount}</b> run{runCount === 1 ? '' : 's'} in your window. The dashboard reads best with <b>~20 runs or more</b>; some panels will look sparse until you log a few more.
+          </span>
+        </span>
+        <form action="/api/auth/logout" method="POST">
+          <button type="submit" className="chip" style={{ cursor: 'pointer' }}>
+            Disconnect
+          </button>
+        </form>
+      </div>
+    );
+  }
   if (mode === 'user') {
     return (
       <div style={{

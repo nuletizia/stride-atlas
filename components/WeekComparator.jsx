@@ -43,6 +43,19 @@ export default function WeekComparator() {
 
   if (!thisWeek) return null;
 
+  // Only one week of runs so far: "this week" == "best week" and every
+  // comparison reads as 100%. Show a thin-data message instead.
+  if (!bestWeek || thisWeek.key === bestWeek.key) {
+    return (
+      <div className="panel" style={{ padding: '20px 22px' }}>
+        <div className="stat-label" style={{ marginBottom: 4 }}>This Week vs. Best Week</div>
+        <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 520 }}>
+          Only one week of runs logged so far. Come back next week for a proper comparison.
+        </div>
+      </div>
+    );
+  }
+
   const metrics = [
     { key: 'distance', label: 'Distance', unit: distUnit(units), fmt: (v) => kmToDisplay(v, units).toFixed(1) },
     { key: 'runs', label: 'Runs', unit: '', fmt: (v) => v },

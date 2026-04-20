@@ -20,6 +20,7 @@ import SeasonArc from './SeasonArc';
 import TweakPanel from './TweakPanel';
 import ConnectBanner from './ConnectBanner';
 import TouchDismissHandler from './TouchDismissHandler';
+import PanelErrorBoundary from './PanelErrorBoundary';
 
 function Header() {
   const data = useData();
@@ -166,6 +167,12 @@ function HrMaxCard() {
 }
 
 export default function Dashboard({ data, mode = 'demo', athleteName = null }) {
+  // In user mode, if they have <THIN_THRESHOLD runs, swap the "signed in"
+  // banner for an honest "your history is thin" message. Demo mode stays
+  // as-is because the bundled dataset is curated to be rich.
+  const THIN_THRESHOLD = 10;
+  const runCount = data?.runs?.length ?? 0;
+  const effectiveMode = mode === 'user' && runCount < THIN_THRESHOLD ? 'thin' : mode;
   return (
     <HrMaxProvider baseHrMax={data?.hrMax ?? 190}>
     <DataProvider data={data}>
@@ -174,7 +181,7 @@ export default function Dashboard({ data, mode = 'demo', athleteName = null }) {
           <LinkProvider>
             <TouchDismissHandler />
             <div className="app">
-              <ConnectBanner mode={mode} athleteName={athleteName} />
+              <ConnectBanner mode={effectiveMode} athleteName={athleteName} runCount={runCount} />
               <Header />
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, gap: 24, flexWrap: 'wrap' }}>
                 <div>
@@ -191,15 +198,15 @@ export default function Dashboard({ data, mode = 'demo', athleteName = null }) {
                 <TimeRangeControl />
               </div>
 
-              <div className="section"><RunAtlas /></div>
-              <div className="section"><PersonalRecords /></div>
-              <div className="section"><PaceRibbon /></div>
-              <div className="section"><AerobicEfficiency /></div>
-              <div className="section"><DistancePaceCurve /></div>
-              <div className="section"><RunCards /></div>
-              <div className="section"><SameRouteDuel /></div>
-              <div className="section"><WeekComparator /></div>
-              <div className="section"><SeasonArc /></div>
+              <div className="section"><PanelErrorBoundary name="Run Atlas"><RunAtlas /></PanelErrorBoundary></div>
+              <div className="section"><PanelErrorBoundary name="Personal Records"><PersonalRecords /></PanelErrorBoundary></div>
+              <div className="section"><PanelErrorBoundary name="Trend Ribbons"><PaceRibbon /></PanelErrorBoundary></div>
+              <div className="section"><PanelErrorBoundary name="Aerobic Efficiency"><AerobicEfficiency /></PanelErrorBoundary></div>
+              <div className="section"><PanelErrorBoundary name="Aerobic Endurance"><DistancePaceCurve /></PanelErrorBoundary></div>
+              <div className="section"><PanelErrorBoundary name="Run Cards"><RunCards /></PanelErrorBoundary></div>
+              <div className="section"><PanelErrorBoundary name="Same-Route Duel"><SameRouteDuel /></PanelErrorBoundary></div>
+              <div className="section"><PanelErrorBoundary name="Week Comparator"><WeekComparator /></PanelErrorBoundary></div>
+              <div className="section"><PanelErrorBoundary name="Season Arc"><SeasonArc /></PanelErrorBoundary></div>
 
               <div style={{
                 marginTop: 48, paddingTop: 20, borderTop: '1px solid var(--rule)',

@@ -52,16 +52,24 @@ export default async function AppPage() {
   // agreed-upon routing: / is always landing, /app is always dashboard.
   if (!isLoggedIn(session)) redirect('/');
 
+  let fetchError = null;
+  let data = null;
   try {
-    const data = await loadUserData(session);
-    if (data && data.runs?.length) {
-      return <Dashboard data={data} mode="user" athleteName={session.athleteName} />;
-    }
+    data = await loadUserData(session);
   } catch (e) {
     console.error('Failed to load user data:', e);
+    fetchError = e;
   }
 
-  // Authed, but Strava returned no runs (brand-new user, or fetch failed).
+  if (data && data.runs?.length) {
+    return <Dashboard data={data} mode="user" athleteName={session.athleteName} />;
+  }
+
+  // Authed, but something went wrong or the user has zero runs.
+  // Two outcomes share one screen — the message adapts to the cause.
+  const isRateLimited = fetchError && /429|rate/i.test(String(fetchError?.message || ''));
+  const hadAuthError = fetchError && /401|403|unauthor/i.test(String(fetchError?.message || ''));
+
   return (
     <div className="app">
       <div className="header">
@@ -72,14 +80,32 @@ export default async function AppPage() {
       </div>
       <div className="panel" style={{ padding: '40px 32px', textAlign: 'center' }}>
         <div style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 22, marginBottom: 12 }}>
-          No runs yet on your Strava account.
+          {isRateLimited
+            ? 'Strava is busy right now.'
+            : hadAuthError
+              ? 'Your Strava connection expired.'
+              : fetchError
+                ? 'Couldn\u2019t load your runs from Strava.'
+                : 'No runs yet on your Strava account.'}
         </div>
         <div style={{ color: 'var(--inkSoft)', maxWidth: 520, margin: '0 auto' }}>
-          Log a few runs on Strava, then refresh this page. Or explore the demo dashboard to see how it looks.
+          {isRateLimited
+            ? 'We\u2019re being rate-limited by the Strava API. Wait a minute and refresh; the rest should come back normally.'
+            : hadAuthError
+              ? 'Disconnect and connect again to refresh your tokens.'
+              : fetchError
+                ? 'Something went wrong between here and Strava. Try reloading; if it keeps failing, disconnect and connect again.'
+                : 'Log a few runs on Strava, then refresh this page. Or explore the demo dashboard to see how it looks.'}
         </div>
         <div style={{ marginTop: 20, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <a href="/demo" className="chip active" style={{ textDecoration: 'none' }}>See the demo →</a>
-          <a href="/api/auth/logout" className="chip" style={{ textDecoration: 'none' }}>Disconnect</a>
+          {!fetchError && (
+            <a href="/demo" className="chip active" style={{ textDecoration: 'none' }}>See the demo →</a>
+          )}
+          <form action="/api/auth/logout" method="POST" style={{ display: 'inline' }}>
+            <button type="submit" className="chip" style={{ cursor: 'pointer' }}>
+              Disconnect
+            </button>
+          </form>
         </div>
       </div>
     </div>

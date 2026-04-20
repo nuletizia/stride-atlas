@@ -2,8 +2,22 @@ import './globals.css';
 import { Analytics } from '@vercel/analytics/next';
 
 export const metadata = {
-  title: 'Stride Atlas — Compact Progress for Runners',
-  description: 'A running journal: every run on one page, compared to your past self.',
+  title: {
+    default: 'Stride Atlas · See your running progress',
+    template: '%s · Stride Atlas',
+  },
+  description: 'A compact progress view of your Strava runs. Aerobic base, tempo pace, long runs, PRs, all on one page. Built for runners training toward a goal.',
+  openGraph: {
+    title: 'Stride Atlas · See your running progress',
+    description: 'A compact progress view of your Strava runs. Aerobic base, tempo pace, long runs, PRs, all on one page.',
+    type: 'website',
+    siteName: 'Stride Atlas',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Stride Atlas · See your running progress',
+    description: 'A compact progress view of your Strava runs. Aerobic base, tempo pace, long runs, PRs, all on one page.',
+  },
 };
 
 export default function RootLayout({ children }) {
