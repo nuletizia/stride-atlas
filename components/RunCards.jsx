@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   useData, useLink, useTweaks, useFilteredRuns,
   fmtDate, fmtPace, fmtDuration, fmtHr, hasValidHr,
@@ -12,7 +12,7 @@ import {
 export default function RunCards() {
   const data = useData();
   const runs = useFilteredRuns();
-  const { hovered, setHovered } = useLink();
+  const { hovered, setHovered, focusRequest, setFocusRequest } = useLink();
   const { units } = useTweaks();
   const meta = data.typeMeta;
 
@@ -25,7 +25,8 @@ export default function RunCards() {
   const [pinnedId, setPinnedId] = useState(null);
   const [capped, setCapped] = useState(true);
   const [rankBy, setRankBy] = useState('pace'); // 'pace' | 'hr'
-  const CAP = 24;
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const CAP = 18;
 
   // How many runs in the current filter have valid HR. If fewer than 3, HR
   // ranking is too noisy to be useful, so we lock the toggle to pace.
@@ -135,15 +136,16 @@ export default function RunCards() {
   const focusRun = withPeers.find((r) => r.id === focusId);
   const focusPeerIds = focusRun?.peerIds;
 
-  // Click a peer tile inside the "Recent similar runs" grid → expand that
-  // peer's own card and scroll to it. If it's currently behind "Show more",
-  // uncap first so the DOM node exists before we try to scroll.
+  // Click a peer tile inside "Recent similar runs" → expand that peer's card
+  // and scroll to it. Also used by cross-panel jumps (AE/DPC dot click).
+  // If the target is hidden by the type filter, widen to 'all' first so the
+  // card exists in the DOM. Always uncap so the node is rendered.
   const jumpToRun = (runId) => {
-    const idx = filtered.findIndex((r) => r.id === runId);
-    if (idx === -1) return; // peer isn't in the current filter view
-    if (capped && idx >= CAP) setCapped(false);
+    const target = withPeers.find((r) => r.id === runId);
+    if (!target) return;
+    if (typeFilter !== 'all' && target.type !== typeFilter) setTypeFilter('all');
+    if (capped) setCapped(false);
     setExpandedId(runId);
-    // Let React commit the uncap + expand before scrolling.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const el = document.getElementById(`run-card-${runId}`);
@@ -151,6 +153,15 @@ export default function RunCards() {
       });
     });
   };
+
+  // Cross-panel jump: another panel (e.g. AE / DPC scatter) writes a runId
+  // into LinkContext.focusRequest; we trigger jumpToRun and clear it.
+  useEffect(() => {
+    if (!focusRequest) return;
+    jumpToRun(focusRequest);
+    setFocusRequest(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest]);
 
   const types = ['all', 'easy', 'tempo', 'intervals', 'recovery', 'long', 'race'];
   const minCol = density === 'compact' ? 150 : 220;
@@ -168,11 +179,84 @@ export default function RunCards() {
             </span>
           </div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 620 }}>
-            Click a card to expand full stats. Peer rank uses <b>{similarityMode === 'route' ? 'same route' : distTol === 0 ? 'same type, exact distance' : distTol >= 100 ? 'same type, any distance' : `same type within ±${distTol}% distance`}</b> (denominator varies per card). The <b>type-wide rank</b> alongside it uses every run of the same type (common denominator). Toggle <b>Rank by</b> to switch between <b>pace</b> (fastest first) and <b>HR</b> (lowest avg HR first — useful when you&rsquo;re building aerobic base).
+            Click a card to expand full stats. Open <b>⚙</b> to tune sort, ranking, density, and similarity.
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 260 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>Show</span>
+          <div className="chip-row">
+            {types.map((t) => (
+              <button
+                key={t}
+                className={`chip ${typeFilter === t ? 'active' : ''}`}
+                onClick={() => setTypeFilter(t)}
+                style={t !== 'all' && typeFilter !== t ? { borderLeft: `3px solid var(--type-${t})` } : {}}
+              >
+                {t === 'all' ? 'All' : meta[t].label}
+                <span className="num muted" style={{ marginLeft: 6, opacity: 0.7 }}>
+                  {t === 'all' ? withPeers.length : withPeers.filter((r) => r.type === t).length}
+                </span>
+              </button>
+            ))}
+          </div>
+          <button
+            className={`chip ${settingsOpen ? 'active' : ''}`}
+            onClick={() => setSettingsOpen(!settingsOpen)}
+            title="Sort, ranking, density, similarity"
+            aria-label="Toggle settings"
+            style={{ padding: '5px 9px', fontSize: 12 }}
+          >⚙</button>
+        </div>
+      </div>
+
+      {settingsOpen && (
+        <div style={{
+          marginBottom: 16, padding: '12px 14px', borderRadius: 4,
+          background: 'var(--bgSunken)', border: '1px solid var(--ruleSoft)',
+          display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start',
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>Sort</span>
+            <div className="chip-row">
+              {[
+                { id: 'newest', label: 'Newest' },
+                { id: 'fastest', label: 'Fastest' },
+                { id: 'longest', label: 'Longest' },
+                { id: 'prs', label: 'PRs' },
+              ].map((s) => (
+                <button key={s.id} className={`chip ${sortBy === s.id ? 'active' : ''}`} onClick={() => setSortBy(s.id)}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>Rank by</span>
+            <div className="chip-row">
+              <button
+                className={`chip ${effectiveRankBy === 'pace' ? 'active' : ''}`}
+                onClick={() => setRankBy('pace')}
+              >Pace</button>
+              <button
+                className={`chip ${effectiveRankBy === 'hr' ? 'active' : ''}`}
+                onClick={() => hrAvailable && setRankBy('hr')}
+                disabled={!hrAvailable}
+                title={hrAvailable ? 'Rank by average heart rate' : 'Too few runs with HR data'}
+                style={!hrAvailable ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
+              >HR</button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>Density</span>
+            <div className="seg" style={{ height: 26 }}>
+              <button className={density === 'compact' ? 'on' : ''} onClick={() => setDensity('compact')} style={{ padding: '4px 8px' }}>Dense</button>
+              <button className={density === 'roomy' ? 'on' : ''} onClick={() => setDensity('roomy')} style={{ padding: '4px 8px' }}>Roomy</button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
               <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>
                 Similar · {similarityMode === 'route' ? 'same route' : 'same type'}
@@ -184,17 +268,15 @@ export default function RunCards() {
               )}
             </div>
             {similarityMode !== 'route' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={5}
-                  value={distTol}
-                  onChange={(e) => setDistTol(+e.target.value)}
-                  style={{ flex: 1, accentColor: 'var(--ink)' }}
-                />
-              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={distTol}
+                onChange={(e) => setDistTol(+e.target.value)}
+                style={{ flex: 1, accentColor: 'var(--ink)' }}
+              />
             )}
             <div style={{ display: 'flex', gap: 6 }}>
               <button className={`chip ${similarityMode === 'type_distance' ? 'active' : ''}`} onClick={() => setSimilarityMode('type_distance')}>Type</button>
@@ -202,62 +284,7 @@ export default function RunCards() {
             </div>
           </div>
         </div>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid var(--ruleSoft)', flexWrap: 'wrap' }}>
-            <div className="chip-row">
-              {types.map((t) => (
-                <button
-                  key={t}
-                  className={`chip ${typeFilter === t ? 'active' : ''}`}
-                  onClick={() => setTypeFilter(t)}
-                  style={t !== 'all' && typeFilter !== t ? { borderLeft: `3px solid var(--type-${t})` } : {}}
-                >
-                  {t === 'all' ? 'All' : meta[t].label}
-                  <span className="num muted" style={{ marginLeft: 6, opacity: 0.7 }}>
-                    {t === 'all' ? withPeers.length : withPeers.filter((r) => r.type === t).length}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>Sort</span>
-                <div className="chip-row">
-                  {[
-                    { id: 'newest', label: 'Newest' },
-                    { id: 'fastest', label: 'Fastest' },
-                    { id: 'longest', label: 'Longest' },
-                    { id: 'prs', label: 'PRs' },
-                  ].map((s) => (
-                    <button key={s.id} className={`chip ${sortBy === s.id ? 'active' : ''}`} onClick={() => setSortBy(s.id)}>
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>Rank by</span>
-                <div className="chip-row">
-                  <button
-                    className={`chip ${effectiveRankBy === 'pace' ? 'active' : ''}`}
-                    onClick={() => setRankBy('pace')}
-                  >Pace</button>
-                  <button
-                    className={`chip ${effectiveRankBy === 'hr' ? 'active' : ''}`}
-                    onClick={() => hrAvailable && setRankBy('hr')}
-                    disabled={!hrAvailable}
-                    title={hrAvailable ? 'Rank by average heart rate' : 'Too few runs with HR data'}
-                    style={!hrAvailable ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
-                  >HR</button>
-                </div>
-              </div>
-              <div className="seg" style={{ height: 26 }}>
-                <button className={density === 'compact' ? 'on' : ''} onClick={() => setDensity('compact')} style={{ padding: '4px 8px' }}>Dense</button>
-                <button className={density === 'roomy' ? 'on' : ''} onClick={() => setDensity('roomy')} style={{ padding: '4px 8px' }}>Roomy</button>
-              </div>
-            </div>
-          </div>
+      )}
 
           {pinnedId && focusRun && (
             <div style={{

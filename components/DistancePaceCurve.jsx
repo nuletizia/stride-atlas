@@ -17,7 +17,7 @@ import {
 export default function DistancePaceCurve() {
   const data = useData();
   const runs = useFilteredRuns();
-  const { hovered, setHovered } = useLink();
+  const { hovered, setHovered, setFocusRequest } = useLink();
   const { show, hide } = useTooltip();
   const { units } = useTweaks();
   const typeMeta = data.typeMeta;
@@ -349,6 +349,7 @@ export default function DistancePaceCurve() {
                 }}
                 onMouseMove={(e) => show(showMetric(r), e.clientX, e.clientY)}
                 onMouseLeave={() => { setHovered(null); hide(); }}
+                onClick={() => { hide(); setFocusRequest(r.id); }}
               >
                 <circle
                   cx={cx} cy={cy} r={size}

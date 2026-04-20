@@ -215,11 +215,15 @@ export function TooltipProvider({ children }) {
 export function useTooltip() { return useContext(TooltipContext); }
 
 // ---------- Cross-panel hover linking ----------
+// `focusRequest` is a transient signal: a panel writes a runId here to ask
+// RunCards to scroll to + expand that card, then RunCards clears it back to
+// null. Use it for "click a dot in AE/DPC → jump to run card" flows.
 const LinkContext = createContext(null);
 export function LinkProvider({ children }) {
   const [hovered, setHovered] = useState(null);
+  const [focusRequest, setFocusRequest] = useState(null);
   return (
-    <LinkContext.Provider value={{ hovered, setHovered }}>
+    <LinkContext.Provider value={{ hovered, setHovered, focusRequest, setFocusRequest }}>
       {children}
     </LinkContext.Provider>
   );
