@@ -48,10 +48,16 @@ export default function ConnectBanner({ mode, athleteName }) {
       </span>
       <a
         href="/api/auth/strava"
-        className="chip active"
-        style={{ textDecoration: 'none', cursor: 'pointer' }}
+        className="connect-strava-btn"
+        aria-label="Connect with Strava"
+        style={{ flexShrink: 0 }}
       >
-        Connect with Strava ↗
+        <img
+          src="/strava-logos/connect-with-strava-orange.svg"
+          srcSet="/strava-logos/connect-with-strava-orange.svg 1x, /strava-logos/connect-with-strava-orange-x2.svg 2x"
+          alt="Connect with Strava"
+          style={{ height: 30, width: 'auto', display: 'block' }}
+        />
       </a>
     </div>
   );

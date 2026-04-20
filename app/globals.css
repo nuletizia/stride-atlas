@@ -473,6 +473,141 @@ body { min-height: 100vh; }
   box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset;
 }
 
+/* ==========================================================
+   Landing page (/)
+   ========================================================== */
+.landing {
+  max-width: 1080px;
+}
+.landing-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 32px;
+}
+.landing-nav-links {
+  display: flex;
+  gap: 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.landing-nav-links a {
+  color: var(--inkSoft);
+  text-decoration: none;
+}
+.landing-nav-links a:hover { color: var(--ink); }
+
+.landing-hero {
+  padding: 48px 0 40px;
+  max-width: 720px;
+}
+.landing-headline {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(38px, 7vw, 64px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 0 0 22px 0;
+  font-weight: 400;
+}
+.landing-subhead {
+  font-size: 17px;
+  color: var(--inkSoft);
+  max-width: 580px;
+  line-height: 1.5;
+  margin: 0 0 32px 0;
+}
+.landing-cta-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.connect-strava-btn {
+  display: inline-block;
+  line-height: 0;
+  transition: filter 120ms;
+}
+.connect-strava-btn:hover { filter: brightness(1.06); }
+.landing-secondary-cta {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--inkSoft);
+  text-decoration: none;
+  padding: 14px 8px;
+}
+.landing-secondary-cta:hover { color: var(--ink); }
+
+.landing-preview {
+  margin: 40px 0;
+}
+.landing-preview-caption {
+  margin-bottom: 14px;
+}
+.landing-preview-frame {
+  padding: 80px 32px;
+  background: var(--bgSunken);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.landing-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-bottom: 60px;
+}
+.landing-feature {
+  padding: 20px 22px;
+}
+
+.landing-footer {
+  border-top: 1px solid var(--rule);
+  padding: 20px 0 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.landing-powered {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--inkMuted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.landing-footer-links {
+  display: flex;
+  gap: 20px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.landing-footer-links a {
+  color: var(--inkMuted);
+  text-decoration: none;
+}
+.landing-footer-links a:hover { color: var(--ink); }
+
+@media (max-width: 640px) {
+  .landing-hero { padding: 24px 0 28px; }
+  .landing-preview-frame { padding: 48px 16px; }
+  .landing-nav { margin-bottom: 16px; }
+}
+
 /* Pulse ring used when a RunCard is the target of a cross-panel jump.
    `outline` is used (not box-shadow) because each card already sets an
    inline box-shadow for focus/peer state, which would override a class

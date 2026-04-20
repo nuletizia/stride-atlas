@@ -200,12 +200,23 @@ export default function Dashboard({ data, mode = 'demo', athleteName = null }) {
 
               <div style={{
                 marginTop: 48, paddingTop: 20, borderTop: '1px solid var(--rule)',
-                display: 'flex', justifyContent: 'space-between',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--inkMuted)',
                 letterSpacing: '.08em', textTransform: 'uppercase',
+                gap: 16, flexWrap: 'wrap',
               }}>
                 <span>Stride Atlas</span>
-                <span>Your data</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                  <img
+                    src="/strava-logos/powered-by-strava-horiz-orange.svg"
+                    alt="Powered by Strava"
+                    style={{ height: 18, width: 'auto' }}
+                  />
+                  <a
+                    href="/privacy"
+                    style={{ color: 'inherit', textDecoration: 'none' }}
+                  >Privacy</a>
+                </div>
               </div>
             </div>
 
