@@ -26,16 +26,19 @@ export default function DistancePaceCurve() {
   // Pace conversion: min/km → min/display-unit.
   const paceK = units === 'mi' ? 1 / MI_PER_KM : 1;
 
-  const [activeTypes, setActiveTypes] = useState(
-    () => new Set(['easy', 'tempo', 'long', 'intervals', 'race'])
-  );
+  // Empty set = "All" mode: every type visible, dots rendered in a neutral
+  // ink color so the cloud reads as one population. Clicking a type chip
+  // drops into colored-by-type mode.
+  const [activeTypes, setActiveTypes] = useState(() => new Set());
+  const isAllMode = activeTypes.size === 0;
 
   const toggleType = (t) => {
     const next = new Set(activeTypes);
     if (next.has(t)) next.delete(t); else next.add(t);
-    if (next.size === 0) next.add(t);
+    // Empty set is intentional — it means "All" mode.
     setActiveTypes(next);
   };
+  const selectAll = () => setActiveTypes(new Set());
 
   const W = 640;
   const H = 340;
@@ -118,7 +121,7 @@ export default function DistancePaceCurve() {
   const MIN_SPREAD_RATIO = 0.25;
 
   const trends = useMemo(() => {
-    const filtered = inView.filter((r) => activeTypes.has(r.type));
+    const filtered = isAllMode ? inView : inView.filter((r) => activeTypes.has(r.type));
     const globalSpread = bounds.distMax - bounds.distMin;
     if (filtered.length < MIN_N * 2) {
       return { early: null, late: null, reason: 'need at least 8 runs in this filter' };
@@ -158,7 +161,7 @@ export default function DistancePaceCurve() {
     if (!earlyFit || !lateFit) reason = 'need at least 4 runs in each half';
     else if (earlyFit.narrow || lateFit.narrow) reason = 'distance range too narrow to fit a curve';
     return { early: earlyFit, late: lateFit, reason };
-  }, [inView, activeTypes, dateRange, bounds]);
+  }, [inView, activeTypes, isAllMode, dateRange, bounds]);
 
   function fmtRange(from, to) {
     if (!from || !to) return '';
@@ -226,6 +229,13 @@ export default function DistancePaceCurve() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>Show</span>
           <div className="chip-row">
+            <button
+              className={`chip ${isAllMode ? 'active' : ''}`}
+              onClick={selectAll}
+              title="Show every run in a single neutral color"
+            >
+              All
+            </button>
             {TYPES_ALL.map((t) => (
               <button
                 key={t}
@@ -317,7 +327,7 @@ export default function DistancePaceCurve() {
           .slice()
           .sort((a, b) => a.date.localeCompare(b.date))
           .map((r) => {
-            if (!activeTypes.has(r.type)) return null;
+            if (!isAllMode && !activeTypes.has(r.type)) return null;
             const cx = xFor(r.distance);
             const cy = yFor(r.pace);
             const rec = recencyOf(r.date);
@@ -326,6 +336,7 @@ export default function DistancePaceCurve() {
             const dim = hovered && !isHover && !isMatch;
             const size = 3.2 + Math.sqrt(r.distance) * 0.55;
             const fillOp = dim ? 0.1 : (0.25 + rec * 0.65);
+            const fill = isAllMode ? 'var(--ink)' : `var(--type-${r.type})`;
 
             return (
               <g
@@ -340,14 +351,11 @@ export default function DistancePaceCurve() {
               >
                 <circle
                   cx={cx} cy={cy} r={size}
-                  fill={`var(--type-${r.type})`}
+                  fill={fill}
                   fillOpacity={fillOp}
                   stroke={isHover ? 'var(--ink)' : 'none'}
                   strokeWidth={isHover ? 1.5 : 0}
                 />
-                {r.pr && !dim && (
-                  <circle cx={cx} cy={cy} r={size + 2} fill="none" stroke={`var(--type-${r.type})`} strokeWidth={1} opacity={0.8} />
-                )}
               </g>
             );
           })}

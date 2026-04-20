@@ -19,9 +19,11 @@ export default function AerobicEfficiency() {
   // min/km → min/display-unit (1 for km; 1/MI_PER_KM for miles).
   const paceK = units === 'mi' ? 1 / MI_PER_KM : 1;
 
-  const [activeTypes, setActiveTypes] = useState(
-    () => new Set(['easy', 'tempo', 'long', 'intervals', 'race'])
-  );
+  // Empty set = "All" mode: every type visible, dots rendered in a neutral
+  // ink color so the cloud reads as one population. Clicking a type chip
+  // drops into colored-by-type mode.
+  const [activeTypes, setActiveTypes] = useState(() => new Set());
+  const isAllMode = activeTypes.size === 0;
   const [trendType, setTrendType] = useState('tempo');
 
   // If the median pace slowed between early and late halves by more than
@@ -33,9 +35,10 @@ export default function AerobicEfficiency() {
   const toggleType = (t) => {
     const next = new Set(activeTypes);
     if (next.has(t)) next.delete(t); else next.add(t);
-    if (next.size === 0) next.add(t);
+    // Empty set is intentional — it means "All" mode.
     setActiveTypes(next);
   };
+  const selectAll = () => setActiveTypes(new Set());
 
   const W = 640;
   const H = 360;
@@ -212,6 +215,13 @@ export default function AerobicEfficiency() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>Show</span>
           <div className="chip-row">
+            <button
+              className={`chip ${isAllMode ? 'active' : ''}`}
+              onClick={selectAll}
+              title="Show every run in a single neutral color"
+            >
+              All
+            </button>
             {TYPES_ALL.map((t) => (
               <button
                 key={t}
@@ -283,7 +293,7 @@ export default function AerobicEfficiency() {
               <text x={M.l + 40} y={M.t + 32} style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 13, fill: 'var(--inkSoft)' }}>improving</text>
             </g>
 
-            {trend && activeTypes.has(trendType) && (
+            {trend && (isAllMode || activeTypes.has(trendType)) && (
               <g>
                 {/* Two vertical reference lines at each half's mean HR. Labels
                      stack in the top-right of the plot to avoid colliding
@@ -303,7 +313,7 @@ export default function AerobicEfficiency() {
               .slice()
               .sort((a, b) => a.date.localeCompare(b.date))
               .map((r) => {
-                const active = activeTypes.has(r.type);
+                const active = isAllMode || activeTypes.has(r.type);
                 if (!active) return null;
                 const cx = xFor(r.hr);
                 const cy = yFor(r.pace);
@@ -314,6 +324,7 @@ export default function AerobicEfficiency() {
                 const size = 3.5 + Math.sqrt(r.distance) * 0.7;
                 const fillOp = dim ? 0.1 : (0.25 + rec * 0.65);
                 const stroke = dim ? 'none' : (isHover ? 'var(--ink)' : 'none');
+                const fill = isAllMode ? 'var(--ink)' : `var(--type-${r.type})`;
 
                 return (
                   <g
@@ -326,10 +337,7 @@ export default function AerobicEfficiency() {
                     onMouseMove={(e) => show(showMetric(r), e.clientX, e.clientY)}
                     onMouseLeave={() => { setHovered(null); hide(); }}
                   >
-                    <circle cx={cx} cy={cy} r={size} fill={`var(--type-${r.type})`} fillOpacity={fillOp} stroke={stroke} strokeWidth={isHover ? 1.5 : 0} />
-                    {r.pr && !dim && (
-                      <circle cx={cx} cy={cy} r={size + 2} fill="none" stroke={`var(--type-${r.type})`} strokeWidth={1} opacity={0.8} />
-                    )}
+                    <circle cx={cx} cy={cy} r={size} fill={fill} fillOpacity={fillOp} stroke={stroke} strokeWidth={isHover ? 1.5 : 0} />
                   </g>
                 );
               })}
