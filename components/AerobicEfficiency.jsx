@@ -214,12 +214,6 @@ export default function AerobicEfficiency() {
     };
   }, [inView, activeTypes, isAllMode, bounds]);
 
-  const scopeLabel = isAllMode
-    ? 'All runs'
-    : activeTypes.size === 1
-      ? typeMeta[[...activeTypes][0]].label
-      : `${activeTypes.size} types`;
-
   const showMetric = (r) => {
     const hour = Math.floor(r.duration / 60);
     const min = Math.floor(r.duration % 60);
@@ -336,20 +330,6 @@ export default function AerobicEfficiency() {
               <text x={M.l + 40} y={M.t + 32} style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 13, fill: 'var(--inkSoft)' }}>improving</text>
             </g>
 
-            {trend && (
-              <g>
-                {/* Labels stack in the top-right of the plot so long copy
-                     doesn't crowd the centroids when early and recent land
-                     close to each other. */}
-                <text x={W - M.r - 6} y={M.t + 10} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: 'var(--inkSoft)' }}>
-                  {scopeLabel} · early · {Math.round(trend.startHr)} bpm @ {fmtPace(paceToDisplay(trend.startPace, units))}
-                </text>
-                <text x={W - M.r - 6} y={M.t + 22} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: 'var(--ink)', fontWeight: 600 }}>
-                  recent · {Math.round(trend.endHr)} bpm @ {fmtPace(paceToDisplay(trend.endPace, units))} ({trend.delta >= 0 ? '+' : '−'}{Math.abs(Math.round(trend.delta))} bpm{trend.paceDrifted ? ' · pace shifted' : ''})
-                </text>
-              </g>
-            )}
-
             {inView
               .slice()
               .sort((a, b) => a.date.localeCompare(b.date))
@@ -384,8 +364,8 @@ export default function AerobicEfficiency() {
                   >
                     <circle
                       cx={cx} cy={cy} r={size}
-                      fill={isHollow ? 'none' : fillBase}
-                      fillOpacity={fillOp}
+                      fill={isHollow ? 'var(--bgRaised)' : fillBase}
+                      fillOpacity={isHollow ? 1 : fillOp}
                       stroke={isHollow ? fillBase : (dim ? 'none' : (isHover ? 'var(--ink)' : 'none'))}
                       strokeOpacity={isHollow ? fillOp : 1}
                       strokeWidth={isHollow ? (isHover ? 1.8 : 1.2) : (isHover ? 1.5 : 0)}

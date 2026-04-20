@@ -119,12 +119,6 @@ export default function DistancePaceCurve() {
     };
   }, [inView, activeTypes, isAllMode, bounds]);
 
-  const scopeLabel = isAllMode
-    ? 'All runs'
-    : activeTypes.size === 1
-      ? typeMeta[[...activeTypes][0]].label
-      : `${activeTypes.size} types`;
-
   // Per-type (and "all") early/recent readouts for the endurance cards.
   // Same count-based split + median-of-both methodology as the chart
   // centroids, so the cards and the "+" markers agree exactly.
@@ -358,8 +352,8 @@ export default function DistancePaceCurve() {
               >
                 <circle
                   cx={cx} cy={cy} r={size}
-                  fill={isHollow ? 'none' : fillBase}
-                  fillOpacity={fillOp}
+                  fill={isHollow ? 'var(--bgRaised)' : fillBase}
+                  fillOpacity={isHollow ? 1 : fillOp}
                   stroke={isHollow ? fillBase : (isHover ? 'var(--ink)' : 'none')}
                   strokeOpacity={isHollow ? fillOp : 1}
                   strokeWidth={isHollow ? (isHover ? 1.8 : 1.2) : (isHover ? 1.5 : 0)}
@@ -388,12 +382,6 @@ export default function DistancePaceCurve() {
             <line x1={centroids.startX} y1={centroids.startY - 8} x2={centroids.startX} y2={centroids.startY + 8} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
             <line x1={centroids.endX - 9} y1={centroids.endY} x2={centroids.endX + 9} y2={centroids.endY} stroke="var(--accent)" strokeWidth={3} />
             <line x1={centroids.endX} y1={centroids.endY - 9} x2={centroids.endX} y2={centroids.endY + 9} stroke="var(--accent)" strokeWidth={3} />
-            <text x={W - M.r - 6} y={M.t + 10} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: 'var(--inkSoft)' }}>
-              {scopeLabel} · early · {fmtDistance(centroids.startDist, units, 1)} {distUnit(units)} @ {fmtPace(paceToDisplay(centroids.startPace, units))}
-            </text>
-            <text x={W - M.r - 6} y={M.t + 22} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: 'var(--ink)', fontWeight: 600 }}>
-              recent · {fmtDistance(centroids.endDist, units, 1)} {distUnit(units)} @ {fmtPace(paceToDisplay(centroids.endPace, units))}
-            </text>
           </g>
         )}
 

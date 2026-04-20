@@ -463,6 +463,7 @@ body { min-height: 100vh; }
 }
 [data-style="dataart"] .tooltip {
   background: rgba(14, 14, 20, 0.92);
+  color: var(--ink);
   backdrop-filter: blur(8px);
   border: 1px solid var(--ruleSoft);
   border-radius: 8px;
