@@ -31,7 +31,7 @@ const DISTANCES = [
 export default function PersonalRecords() {
   const data = useData();
   const runs = data.runs; // all-time — PR values never change with the filter
-  const { hovered, setHovered } = useLink();
+  const { hovered, setHovered, setFocusRequest } = useLink();
   const { timeRange } = useTweaks();
 
   // PR splits are computed from per-activity GPS streams. In summary mode
@@ -156,7 +156,7 @@ export default function PersonalRecords() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
         {distancePRs.map((d) => (
-          <DistancePR key={d.key} record={d} onHover={setHovered} hovered={hovered} isAllTime={isAllTime} />
+          <DistancePR key={d.key} record={d} onHover={setHovered} onFocus={setFocusRequest} hovered={hovered} isAllTime={isAllTime} />
         ))}
       </div>
 
@@ -176,7 +176,7 @@ export default function PersonalRecords() {
   );
 }
 
-function DistancePR({ record, onHover, hovered, isAllTime }) {
+function DistancePR({ record, onHover, onFocus, hovered, isAllTime }) {
   const data = useData();
   const { units } = useTweaks();
   const meta = data.typeMeta;
@@ -233,6 +233,7 @@ function DistancePR({ record, onHover, hovered, isAllTime }) {
     <div
       onMouseEnter={() => onHover({ runId: r.id, routeId: r.routeId, type: r.type, date: r.date })}
       onMouseLeave={() => onHover(null)}
+      onClick={() => { onHover(null); onFocus(r.id); }}
       style={{
         position: 'relative',
         padding: '14px 14px 12px',

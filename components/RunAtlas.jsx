@@ -10,7 +10,7 @@ import {
 
 export default function RunAtlas() {
   const data = useData();
-  const { hovered, setHovered } = useLink();
+  const { hovered, setHovered, setFocusRequest } = useLink();
   const { show, hide } = useTooltip();
   const { timeRange, units } = useTweaks();
   const runs = useFilteredRuns();
@@ -176,6 +176,7 @@ export default function RunAtlas() {
                         onMouseEnter={(e) => onEnter(run, e)}
                         onMouseMove={(e) => onEnter(run, e)}
                         onMouseLeave={onLeave}
+                        onClick={() => { onLeave(); setFocusRequest(run.id); }}
                       >
                         <rect
                           x={0} y={y}

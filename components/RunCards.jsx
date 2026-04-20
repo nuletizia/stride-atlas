@@ -6,7 +6,7 @@ import {
   fmtDate, fmtPace, fmtDuration, fmtHr, hasValidHr,
   fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
   elevToDisplay, distUnit, paceUnit, elevUnit,
-  MI_PER_KM,
+  Highlight, HlNum, MI_PER_KM,
 } from '@/lib/shared';
 
 export default function RunCards() {
@@ -26,6 +26,9 @@ export default function RunCards() {
   const [capped, setCapped] = useState(true);
   const [rankBy, setRankBy] = useState('pace'); // 'pace' | 'hr'
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Transient: the run we just jumped to, so we can flash-outline its card
+  // as an orientation cue. Cleared by a timer after the animation ends.
+  const [flashingRunId, setFlashingRunId] = useState(null);
   const CAP = 18;
 
   // How many runs in the current filter have valid HR. If fewer than 3, HR
@@ -155,11 +158,15 @@ export default function RunCards() {
   };
 
   // Cross-panel jump: another panel (e.g. AE / DPC scatter) writes a runId
-  // into LinkContext.focusRequest; we trigger jumpToRun and clear it.
+  // into LinkContext.focusRequest; we trigger jumpToRun, flash the arrival,
+  // and clear the request.
   useEffect(() => {
     if (!focusRequest) return;
     jumpToRun(focusRequest);
+    setFlashingRunId(focusRequest);
     setFocusRequest(null);
+    const t = setTimeout(() => setFlashingRunId(null), 1500);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusRequest]);
 
@@ -179,7 +186,9 @@ export default function RunCards() {
             </span>
           </div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 620 }}>
-            Click a card to expand full stats. Open <b>⚙</b> to tune sort, ranking, density, and similarity.
+            Every run as a card — click one to expand and see it compared against a cohort of <b>similar</b> runs.
+            Click any dot in <i>Aerobic Efficiency</i> or <i>Aerobic Endurance</i> to jump straight to that run here.
+            Open <b>⚙</b> to change what counts as &ldquo;similar&rdquo;, how ranks are computed, and card density.
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -213,9 +222,9 @@ export default function RunCards() {
         <div style={{
           marginBottom: 16, padding: '12px 14px', borderRadius: 4,
           background: 'var(--bgSunken)', border: '1px solid var(--ruleSoft)',
-          display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start',
+          display: 'flex', gap: 22, flexWrap: 'wrap', alignItems: 'flex-start',
         }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 220 }}>
             <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>Sort</span>
             <div className="chip-row">
               {[
@@ -229,9 +238,12 @@ export default function RunCards() {
                 </button>
               ))}
             </div>
+            <span style={{ fontSize: 11, color: 'var(--inkMuted)', lineHeight: 1.4 }}>
+              Order of cards in the grid.
+            </span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 220 }}>
             <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>Rank by</span>
             <div className="chip-row">
               <button
@@ -246,17 +258,23 @@ export default function RunCards() {
                 style={!hrAvailable ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
               >HR</button>
             </div>
+            <span style={{ fontSize: 11, color: 'var(--inkMuted)', lineHeight: 1.4 }}>
+              What each card&rsquo;s rank number means. <b>Pace</b> = fastest first. <b>HR</b> = lowest avg HR first (useful for aerobic base).
+            </span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 180 }}>
             <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>Density</span>
             <div className="seg" style={{ height: 26 }}>
               <button className={density === 'compact' ? 'on' : ''} onClick={() => setDensity('compact')} style={{ padding: '4px 8px' }}>Dense</button>
               <button className={density === 'roomy' ? 'on' : ''} onClick={() => setDensity('roomy')} style={{ padding: '4px 8px' }}>Roomy</button>
             </div>
+            <span style={{ fontSize: 11, color: 'var(--inkMuted)', lineHeight: 1.4 }}>
+              Card size. <b>Dense</b> fits more per row.
+            </span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 240, maxWidth: 300 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
               <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>
                 Similar · {similarityMode === 'route' ? 'same route' : 'same type'}
@@ -282,6 +300,9 @@ export default function RunCards() {
               <button className={`chip ${similarityMode === 'type_distance' ? 'active' : ''}`} onClick={() => setSimilarityMode('type_distance')}>Type</button>
               <button className={`chip ${similarityMode === 'route' ? 'active' : ''}`} onClick={() => setSimilarityMode('route')}>Same route</button>
             </div>
+            <span style={{ fontSize: 11, color: 'var(--inkMuted)', lineHeight: 1.4 }}>
+              Which runs count as peers on each card. <b>Type</b> picks same-workout peers within {distTol === 0 ? 'exactly the same distance' : distTol >= 100 ? 'any distance' : <>±{distTol}% of this run&rsquo;s distance</>} — tighter = more direct comparison, looser = more peers. <b>Same route</b> restricts to identical routes.
+            </span>
           </div>
         </div>
       )}
@@ -309,6 +330,7 @@ export default function RunCards() {
               const isPeer = focusPeerIds && focusPeerIds.has(r.id);
               const dim = focusId && !isFocus && !isPeer;
               const isExpanded = expandedId === r.id;
+              const isFlashing = flashingRunId === r.id;
               return (
                 <RunCard
                   key={r.id}
@@ -319,6 +341,7 @@ export default function RunCards() {
                   dim={dim}
                   expanded={isExpanded}
                   pinned={pinnedId === r.id}
+                  flashing={isFlashing}
                   meta={meta}
                   rankBy={effectiveRankBy}
                   units={units}
@@ -354,7 +377,7 @@ export default function RunCards() {
   );
 }
 
-function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, rankBy, units, onHoverIn, onHoverOut, onClick, onPin, onPeerClick }) {
+function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashing, meta, rankBy, units, onHoverIn, onHoverOut, onClick, onPin, onPeerClick }) {
   const color = `var(--type-${run.type})`;
   const hasPeers = run.peerCount > 0;
   const isHrMode = rankBy === 'hr';
@@ -419,7 +442,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, r
 
   if (compact) {
     return (
-      <div id={`run-card-${run.id}`} onMouseEnter={onHoverIn} onMouseLeave={onHoverOut} onClick={onClick} style={cardStyle}>
+      <div id={`run-card-${run.id}`} className={flashing ? 'run-card-flash' : undefined} onMouseEnter={onHoverIn} onMouseLeave={onHoverOut} onClick={onClick} style={cardStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
           <span className="mono" style={{ fontSize: 9.5, color: 'var(--inkMuted)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
             {new Date(run.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -464,7 +487,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, r
   }
 
   return (
-    <div id={`run-card-${run.id}`} onMouseEnter={onHoverIn} onMouseLeave={onHoverOut} onClick={onClick} style={cardStyle}>
+    <div id={`run-card-${run.id}`} className={flashing ? 'run-card-flash' : undefined} onMouseEnter={onHoverIn} onMouseLeave={onHoverOut} onClick={onClick} style={cardStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
         <div>
           <div className="mono" style={{ fontSize: 10, color: 'var(--inkMuted)', letterSpacing: '.1em', textTransform: 'uppercase' }}>
@@ -483,7 +506,73 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, r
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(64px, 1fr))', gap: 10, marginBottom: 10 }}>
+      {expanded && run.note && (
+        <div style={{ marginBottom: 8, fontSize: 12.5, color: 'var(--inkSoft)', fontStyle: 'italic', fontFamily: 'var(--serif)' }}>
+          &ldquo;{run.note}&rdquo;
+        </div>
+      )}
+
+      {expanded && (() => {
+        const peerCount = isHrMode ? run.hrPeerCount : run.peerCount;
+        const typeLabel = meta[run.type].label.toLowerCase();
+        const metricWord = isHrMode ? 'HR' : 'pace';
+        const deltaStr = hasDelta ? m.fmtDeltaShort(delta) : null;
+        if (!peerCount) {
+          return (
+            <Highlight tone="muted">
+              First of its kind with the current peer criteria — widen <b>Similar</b> in <b>⚙</b> to bring more peers into comparison.
+            </Highlight>
+          );
+        }
+        if (run.pr && !isHrMode) {
+          return (
+            <Highlight>
+              <HlNum>Personal record</HlNum> over <HlNum>{fmtDistance(run.distance, units, 1)} {distUnit(units)}</HlNum>
+              {hasDelta && delta < 0 && <> — <HlNum>{deltaStr}</HlNum> faster than the avg of <HlNum>{peerCount}</HlNum> similar {typeLabel} peers</>}
+              .
+            </Highlight>
+          );
+        }
+        if (run.rank === 1) {
+          return (
+            <Highlight>
+              <HlNum>Best of {peerCount}</HlNum> similar {typeLabel} peers on {metricWord}
+              {hasDelta && delta < 0 && <> — <HlNum>{deltaStr}</HlNum> better than the avg</>}
+              .
+            </Highlight>
+          );
+        }
+        if (run.rank != null && run.rank <= 3 && run.rankTotal >= 5) {
+          return (
+            <Highlight>
+              <HlNum>{ordinal(run.rank)} of {peerCount}</HlNum> similar peers on {metricWord}
+              {hasDelta && delta < 0 && <> — <HlNum>{deltaStr}</HlNum> better than the avg</>}
+              .
+            </Highlight>
+          );
+        }
+        if (hasDelta && delta < 0) {
+          return (
+            <Highlight>
+              <HlNum>{deltaStr}</HlNum> {isHrMode ? 'lower HR' : 'faster'} than the avg of <HlNum>{peerCount}</HlNum> similar {typeLabel} peers — ranked <HlNum>{ordinal(run.rank)}</HlNum> of {run.rankTotal}.
+            </Highlight>
+          );
+        }
+        if (hasDelta && delta > 0) {
+          return (
+            <Highlight tone="muted">
+              Ranked <HlNum>{ordinal(run.rank)}</HlNum> of <HlNum>{run.rankTotal}</HlNum> similar peers — <HlNum>{deltaStr}</HlNum> off the {metricWord} avg.
+            </Highlight>
+          );
+        }
+        return (
+          <Highlight tone="muted">
+            Ranked <HlNum>{ordinal(run.rank)}</HlNum> of <HlNum>{run.rankTotal}</HlNum> similar {typeLabel} peers on {metricWord}.
+          </Highlight>
+        );
+      })()}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(64px, 1fr))', gap: 10, marginBottom: 10, marginTop: expanded ? 12 : 0 }}>
         <CardStat label="Dist" value={fmtDistance(run.distance, units, 2)} unit={distUnit(units)} />
         <CardStat label="Pace" value={fmtPaceUnit(run.pace, units)} unit={paceUnit(units)} />
         <CardStat label="HR" value={hasValidHr(run) ? run.hr : '—'} unit={hasValidHr(run) ? 'bpm' : ''} />
@@ -611,11 +700,6 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, r
               });
             })()}
           </div>
-          )}
-          {run.note && (
-            <div style={{ marginTop: 10, fontSize: 12, color: 'var(--inkSoft)', fontStyle: 'italic', fontFamily: 'var(--serif)' }}>
-              &ldquo;{run.note}&rdquo;
-            </div>
           )}
         </div>
       )}

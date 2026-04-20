@@ -473,6 +473,17 @@ body { min-height: 100vh; }
   box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset;
 }
 
+/* Pulse ring used when a RunCard is the target of a cross-panel jump.
+   `outline` is used (not box-shadow) because each card already sets an
+   inline box-shadow for focus/peer state, which would override a class
+   rule. Outline is drawn outside the border and doesn't affect layout. */
+@keyframes run-card-flash {
+  0%   { outline: 2px solid var(--accent); outline-offset: 0; }
+  35%  { outline: 3px solid var(--accent); outline-offset: 4px; }
+  100% { outline: 0 solid transparent; outline-offset: 12px; }
+}
+.run-card-flash { animation: run-card-flash 1400ms ease-out; }
+
 /* ======================================================
    MOBILE (≤640px) — fluid & non-broken at ≥375px
    ====================================================== */
