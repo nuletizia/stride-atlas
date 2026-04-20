@@ -17,7 +17,7 @@ export default async function LandingPage() {
     <div className="app landing">
       <header className="landing-nav">
         <div>
-          <div className="eyebrow">A Running Journal · v1</div>
+          <div className="eyebrow">Your Running Progress · v1</div>
           <div className="wordmark"><b>Stride</b><i>Atlas</i></div>
         </div>
         <nav className="landing-nav-links">

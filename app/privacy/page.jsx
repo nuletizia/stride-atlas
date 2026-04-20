@@ -15,7 +15,7 @@ export default function PrivacyPage() {
       <header className="landing-nav">
         <Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>
           <div>
-            <div className="eyebrow">A Running Journal · v1</div>
+            <div className="eyebrow">Your Running Progress · v1</div>
             <div className="wordmark"><b>Stride</b><i>Atlas</i></div>
           </div>
         </Link>

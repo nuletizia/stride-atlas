@@ -67,8 +67,14 @@ export default function SameRouteDuel() {
   const first = routeRuns[0];
   const latest = routeRuns[routeRuns.length - 1];
   const bestRun = routeRuns.find((r) => r.duration === best);
-  const improveSec = (first.duration - latest.duration) * 60;
-  const improvePct = ((first.duration - latest.duration) / first.duration) * 100;
+  // Compare against the best attempt rather than the most recent one.
+  // "Most recent" is a single point that can swing on any bad day; the
+  // route PR is the honest measure of how far you've come. Most recent
+  // stays visible as a smaller progress check.
+  const gapSec = (first.duration - bestRun.duration) * 60;
+  const gapPct = ((first.duration - bestRun.duration) / first.duration) * 100;
+  const firstIsBest = bestRun.id === first.id;
+  const recentIsBest = bestRun.id === latest.id;
 
   return (
     <div className="panel" style={{ padding: '20px 22px' }}>
@@ -76,7 +82,7 @@ export default function SameRouteDuel() {
         <div>
           <div className="stat-label" style={{ marginBottom: 4 }}>Same-Route Duel</div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 420 }}>
-            Your personal grudge match. Each bar = one attempt at <b>{route.name}</b>. Taller is faster.
+            Your personal grudge match on <b>{route.name}</b>. Each bar is one attempt; taller is faster. The ringed bar is your PR on this route.
           </div>
         </div>
       </div>
@@ -145,21 +151,55 @@ export default function SameRouteDuel() {
           <div className="stat">
             <div className="stat-label">First attempt</div>
             <div className="stat-value" style={{ fontSize: 20 }}>{fmtDuration(first.duration)}</div>
-            <div className="mono muted" style={{ fontSize: 10.5, marginTop: 2 }}>{fmtDate(first.date, { year: true })} · {fmtPaceUnit(first.pace, units)}{paceUnit(units)}</div>
+            <div className="mono muted" style={{ fontSize: 10.5, marginTop: 2 }}>
+              {fmtDate(first.date, { year: true })} · {fmtPaceUnit(first.pace, units)}{paceUnit(units)}
+            </div>
           </div>
-          <div className="stat">
-            <div className="stat-label">Most recent</div>
-            <div className="stat-value" style={{ fontSize: 20 }}>{fmtDuration(latest.duration)}</div>
-            <div className="mono muted" style={{ fontSize: 10.5, marginTop: 2 }}>{fmtDate(latest.date, { year: true })} · {fmtPaceUnit(latest.pace, units)}{paceUnit(units)}</div>
+          <div
+            className="stat"
+            style={{
+              paddingLeft: 10,
+              borderLeft: '3px solid var(--accent)',
+            }}
+          >
+            <div className="stat-label" style={{ color: 'var(--accent)' }}>
+              Route best {firstIsBest && '(first attempt)'}
+              {recentIsBest && !firstIsBest && '(most recent)'}
+            </div>
+            <div className="stat-value" style={{ fontSize: 22 }}>{fmtDuration(bestRun.duration)}</div>
+            <div className="mono muted" style={{ fontSize: 10.5, marginTop: 2 }}>
+              {fmtDate(bestRun.date, { year: true })} · {fmtPaceUnit(bestRun.pace, units)}{paceUnit(units)}
+            </div>
           </div>
+          {!recentIsBest && (
+            <div className="mono muted" style={{ fontSize: 10.5, lineHeight: 1.5 }}>
+              <span style={{ textTransform: 'uppercase', letterSpacing: '.1em', fontSize: 9.5, color: 'var(--inkMuted)' }}>Most recent</span>
+              <br />
+              {fmtDate(latest.date, { year: true })} · {fmtDuration(latest.duration)} · {fmtPaceUnit(latest.pace, units)}{paceUnit(units)}
+            </div>
+          )}
           <div style={{ borderTop: '1px solid var(--ruleSoft)', paddingTop: 12 }}>
-            <div className="stat-label" style={{ marginBottom: 4 }}>You got faster by</div>
-            <div style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 34, lineHeight: 1, letterSpacing: '-0.02em', color: improveSec >= 0 ? 'var(--positive)' : 'var(--accent)' }}>
-              {improveSec >= 0 ? '−' : '+'}{Math.abs(improveSec).toFixed(0)}s
-            </div>
-            <div className="mono muted" style={{ fontSize: 11, marginTop: 4 }}>
-              {improvePct >= 0 ? '−' : '+'}{Math.abs(improvePct).toFixed(1)}% over {routeRuns.length} attempts
-            </div>
+            {firstIsBest ? (
+              <>
+                <div className="stat-label" style={{ marginBottom: 4 }}>Still your fastest</div>
+                <div style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 20, lineHeight: 1.2, color: 'var(--inkSoft)' }}>
+                  Your first attempt still holds the record on this route.
+                </div>
+                <div className="mono muted" style={{ fontSize: 11, marginTop: 4 }}>
+                  {routeRuns.length} attempts so far
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="stat-label" style={{ marginBottom: 4 }}>PR beats first by</div>
+                <div style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 34, lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--positive)' }}>
+                  −{gapSec.toFixed(0)}s
+                </div>
+                <div className="mono muted" style={{ fontSize: 11, marginTop: 4 }}>
+                  {gapPct.toFixed(1)}% faster · {routeRuns.length} attempts
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
