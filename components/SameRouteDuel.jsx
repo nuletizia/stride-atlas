@@ -2,14 +2,16 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  useData, useLink, useTooltip, useFilteredRuns,
+  useData, useLink, useTooltip, useTweaks, useFilteredRuns,
   fmtDate, fmtPace, fmtDuration,
+  fmtPaceUnit, paceUnit,
 } from '@/lib/shared';
 
 export default function SameRouteDuel() {
   const data = useData();
   const { hovered, setHovered } = useLink();
   const { show, hide } = useTooltip();
+  const { units } = useTweaks();
   const runs = useFilteredRuns();
   const routes = data.routes;
 
@@ -111,7 +113,7 @@ export default function SameRouteDuel() {
                       <>
                         <span className="t-title">{fmtDate(r.date, { year: true })}</span>
                         <div className="t-row"><span>Duration</span><span>{fmtDuration(r.duration)}</span></div>
-                        <div className="t-row"><span>Pace</span><span>{fmtPace(r.pace)}/km</span></div>
+                        <div className="t-row"><span>Pace</span><span>{fmtPaceUnit(r.pace, units)}{paceUnit(units)}</span></div>
                         <div className="t-row"><span>Δ vs best</span><span>+{((r.duration - best) * 60).toFixed(0)}s</span></div>
                         {isBest && <div className="t-pill" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>Route best</div>}
                       </>,
@@ -138,12 +140,12 @@ export default function SameRouteDuel() {
           <div className="stat">
             <div className="stat-label">First attempt</div>
             <div className="stat-value" style={{ fontSize: 20 }}>{fmtDuration(first.duration)}</div>
-            <div className="mono muted" style={{ fontSize: 10.5, marginTop: 2 }}>{fmtDate(first.date, { year: true })} · {fmtPace(first.pace)}/km</div>
+            <div className="mono muted" style={{ fontSize: 10.5, marginTop: 2 }}>{fmtDate(first.date, { year: true })} · {fmtPaceUnit(first.pace, units)}{paceUnit(units)}</div>
           </div>
           <div className="stat">
             <div className="stat-label">Most recent</div>
             <div className="stat-value" style={{ fontSize: 20 }}>{fmtDuration(latest.duration)}</div>
-            <div className="mono muted" style={{ fontSize: 10.5, marginTop: 2 }}>{fmtDate(latest.date, { year: true })} · {fmtPace(latest.pace)}/km</div>
+            <div className="mono muted" style={{ fontSize: 10.5, marginTop: 2 }}>{fmtDate(latest.date, { year: true })} · {fmtPaceUnit(latest.pace, units)}{paceUnit(units)}</div>
           </div>
           <div style={{ borderTop: '1px solid var(--ruleSoft)', paddingTop: 12 }}>
             <div className="stat-label" style={{ marginBottom: 4 }}>You got faster by</div>

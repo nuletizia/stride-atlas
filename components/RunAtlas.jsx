@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import {
   useData, useLink, useTooltip, useTweaks, useFilteredRuns,
   fmtDate, fmtPace, fmtDuration, fmtHr,
+  fmtDistance, fmtPaceUnit, distUnit, paceUnit,
   Highlight, HlNum,
 } from '@/lib/shared';
 
@@ -11,7 +12,7 @@ export default function RunAtlas() {
   const data = useData();
   const { hovered, setHovered } = useLink();
   const { show, hide } = useTooltip();
-  const { timeRange } = useTweaks();
+  const { timeRange, units } = useTweaks();
   const runs = useFilteredRuns();
 
   const { weeks } = useMemo(() => {
@@ -96,8 +97,8 @@ export default function RunAtlas() {
         <div style={{ opacity: .7, fontSize: 10.5, fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 6 }}>
           {meta.label} · {r.routeName}
         </div>
-        <div className="t-row"><span>Distance</span><span>{r.distance.toFixed(2)} km</span></div>
-        <div className="t-row"><span>Pace</span><span>{fmtPace(r.pace)} /km</span></div>
+        <div className="t-row"><span>Distance</span><span>{fmtDistance(r.distance, units, 2)} {distUnit(units)}</span></div>
+        <div className="t-row"><span>Pace</span><span>{fmtPaceUnit(r.pace, units)} {paceUnit(units)}</span></div>
         <div className="t-row"><span>Duration</span><span>{fmtDuration(r.duration)}</span></div>
         <div className="t-row"><span>Avg HR</span><span>{fmtHr(r)}</span></div>
         {r.pr && <div className="t-pill" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>Personal Record</div>}
@@ -222,10 +223,10 @@ export default function RunAtlas() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--ruleSoft)', paddingTop: 12, marginTop: 8, gap: 12, flexWrap: 'wrap' }}>
         <AtlasStat label="Runs in view" value={runs.length} />
-        <AtlasStat label="Total distance" value={runs.reduce((a, r) => a + r.distance, 0).toFixed(0)} unit="km" />
+        <AtlasStat label="Total distance" value={fmtDistance(runs.reduce((a, r) => a + r.distance, 0), units, 0)} unit={distUnit(units)} />
         <AtlasStat label="Total time" value={fmtDuration(runs.reduce((a, r) => a + r.duration, 0))} />
         <AtlasStat label="PRs" value={runs.filter((r) => r.pr).length} />
-        <AtlasStat label="Longest run" value={Math.max(...runs.map((r) => r.distance)).toFixed(1)} unit="km" />
+        <AtlasStat label="Longest run" value={fmtDistance(Math.max(...runs.map((r) => r.distance)), units, 1)} unit={distUnit(units)} />
       </div>
 
       {(() => {

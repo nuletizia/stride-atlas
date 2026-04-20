@@ -1,10 +1,15 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useData, Highlight, HlNum } from '@/lib/shared';
+import {
+  useData, useTweaks,
+  fmtDistance, kmToDisplay, distUnit,
+  Highlight, HlNum,
+} from '@/lib/shared';
 
 export default function SeasonArc() {
   const data = useData();
+  const { units } = useTweaks();
   const all = data.runs;
 
   const years = useMemo(() => {
@@ -76,7 +81,7 @@ export default function SeasonArc() {
           {totals.map((t) => (
             <div key={t.year} className="stat" style={{ alignItems: 'flex-start' }}>
               <div className="stat-label" style={{ color: colors[t.year] }}>{t.year}</div>
-              <div className="stat-value" style={{ fontSize: 18 }}>{t.distance.toFixed(0)}<span className="unit">km</span></div>
+              <div className="stat-value" style={{ fontSize: 18 }}>{fmtDistance(t.distance, units, 0)}<span className="unit">{distUnit(units)}</span></div>
               <div className="mono muted" style={{ fontSize: 10.5 }}>{t.runs} runs</div>
             </div>
           ))}
@@ -139,8 +144,9 @@ export default function SeasonArc() {
         }
         const deltaPct = ((projected - prev.distance) / prev.distance) * 100;
         const verb = inProgress ? 'is on pace for' : 'totalled';
-        const projLabel = `${Math.round(projected).toLocaleString()} km`;
-        const prevLabel = `${Math.round(prev.distance).toLocaleString()} km`;
+        const u = distUnit(units);
+        const projLabel = `${Math.round(kmToDisplay(projected, units)).toLocaleString()} ${u}`;
+        const prevLabel = `${Math.round(kmToDisplay(prev.distance, units)).toLocaleString()} ${u}`;
 
         if (deltaPct > 3) {
           return (

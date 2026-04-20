@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useTweaks } from '@/lib/shared';
 
 export default function TweakPanel() {
-  const { style, setStyle, timeRange, setTimeRange, metric, setMetric } = useTweaks();
+  const { style, setStyle, timeRange, setTimeRange, metric, setMetric, units, setUnits } = useTweaks();
   const [open, setOpen] = useState(false);
 
   const styles = [
@@ -88,6 +88,14 @@ export default function TweakPanel() {
               <button className={metric === 'pace' ? 'on' : ''} onClick={() => setMetric('pace')}>Pace</button>
               <button className={metric === 'distance' ? 'on' : ''} onClick={() => setMetric('distance')}>Dist</button>
               <button className={metric === 'hr' ? 'on' : ''} onClick={() => setMetric('hr')}>HR</button>
+            </div>
+          </div>
+
+          <div className="tweaks-row">
+            <label>Units</label>
+            <div className="seg">
+              <button className={units === 'km' ? 'on' : ''} onClick={() => setUnits('km')}>KM</button>
+              <button className={units === 'mi' ? 'on' : ''} onClick={() => setUnits('mi')}>MI</button>
             </div>
           </div>
 

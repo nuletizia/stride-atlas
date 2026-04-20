@@ -2,14 +2,18 @@
 
 import { useMemo, useState } from 'react';
 import {
-  useData, useLink, useFilteredRuns,
+  useData, useLink, useTweaks, useFilteredRuns,
   fmtDate, fmtPace, fmtDuration, fmtHr, hasValidHr,
+  fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
+  elevToDisplay, distUnit, paceUnit, elevUnit,
+  MI_PER_KM,
 } from '@/lib/shared';
 
 export default function RunCards() {
   const data = useData();
   const runs = useFilteredRuns();
   const { hovered, setHovered } = useLink();
+  const { units } = useTweaks();
   const meta = data.typeMeta;
 
   const [typeFilter, setTypeFilter] = useState('all');
@@ -264,7 +268,7 @@ export default function RunCards() {
               <div style={{ fontSize: 12.5 }}>
                 <span className="mono muted" style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase' }}>Pinned · </span>
                 <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 15 }}>
-                  {fmtDate(focusRun.date, { year: true })} · {meta[focusRun.type].label} · {focusRun.distance.toFixed(1)} km
+                  {fmtDate(focusRun.date, { year: true })} · {meta[focusRun.type].label} · {fmtDistance(focusRun.distance, units, 1)} {distUnit(units)}
                 </span>
                 <span className="muted"> — lighting up {focusRun.peerCount} similar run{focusRun.peerCount === 1 ? '' : 's'}</span>
               </div>
@@ -290,6 +294,7 @@ export default function RunCards() {
                   pinned={pinnedId === r.id}
                   meta={meta}
                   rankBy={effectiveRankBy}
+                  units={units}
                   onHoverIn={() => setHovered({ runId: r.id, routeId: r.routeId, type: r.type, date: r.date })}
                   onHoverOut={() => setHovered(null)}
                   onClick={() => setExpandedId(isExpanded ? null : r.id)}
@@ -322,10 +327,12 @@ export default function RunCards() {
   );
 }
 
-function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, rankBy, onHoverIn, onHoverOut, onClick, onPin, onPeerClick }) {
+function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, rankBy, units, onHoverIn, onHoverOut, onClick, onPin, onPeerClick }) {
   const color = `var(--type-${run.type})`;
   const hasPeers = run.peerCount > 0;
   const isHrMode = rankBy === 'hr';
+  // min/km → min/display-unit; used to format per-unit pace deltas.
+  const paceK = units === 'mi' ? 1 / MI_PER_KM : 1;
   // Local to the expanded card: grid view (numeric tiles) vs scatter
   // (mini pace × HR plot of the peer cohort + current run).
   const [peerView, setPeerView] = useState('grid');
@@ -349,10 +356,10 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, r
         avg: run.avgPace,
         best: run.bestPace,
         self: run.pace,
-        fmt: fmtPace,
-        unit: '/km',
-        fmtDeltaShort: (d) => `${Math.abs(d * 60).toFixed(0)}s`,
-        fmtDeltaLong: (d) => `${Math.abs(d * 60).toFixed(0)}s/km vs avg`,
+        fmt: (v) => fmtPace(paceToDisplay(v, units)),
+        unit: paceUnit(units),
+        fmtDeltaShort: (d) => `${Math.abs(d * 60 * paceK).toFixed(0)}s`,
+        fmtDeltaLong: (d) => `${Math.abs(d * 60 * paceK).toFixed(0)}s${paceUnit(units)} vs avg`,
       };
   const delta = m.delta ?? 0;
   const hasDelta = m.delta != null;
@@ -397,11 +404,11 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, r
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 8 }}>
           <span className="num" style={{ fontSize: 17, fontWeight: 500, letterSpacing: '-0.01em' }}>
-            {run.distance.toFixed(1)}<span className="mono muted" style={{ fontSize: 9.5, marginLeft: 1, fontWeight: 400 }}>km</span>
+            {fmtDistance(run.distance, units, 1)}<span className="mono muted" style={{ fontSize: 9.5, marginLeft: 1, fontWeight: 400 }}>{distUnit(units)}</span>
           </span>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1, lineHeight: 1.1 }}>
             <span className="num" style={{ fontSize: 13, color: 'var(--inkSoft)', fontWeight: 500 }}>
-              {fmtPace(run.pace)}<span className="mono muted" style={{ fontSize: 9, marginLeft: 1, fontWeight: 400 }}>/km</span>
+              {fmtPaceUnit(run.pace, units)}<span className="mono muted" style={{ fontSize: 9, marginLeft: 1, fontWeight: 400 }}>{paceUnit(units)}</span>
             </span>
             <span
               className="num"
@@ -450,11 +457,11 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, r
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: expanded ? 'repeat(5, 1fr)' : 'repeat(3, 1fr)', gap: 10, marginBottom: 10 }}>
-        <CardStat label="Dist" value={run.distance.toFixed(2)} unit="km" />
-        <CardStat label="Pace" value={fmtPace(run.pace)} unit="/km" />
+        <CardStat label="Dist" value={fmtDistance(run.distance, units, 2)} unit={distUnit(units)} />
+        <CardStat label="Pace" value={fmtPaceUnit(run.pace, units)} unit={paceUnit(units)} />
         <CardStat label="HR" value={hasValidHr(run) ? run.hr : '—'} unit={hasValidHr(run) ? 'bpm' : ''} />
         {expanded && <CardStat label="Time" value={fmtDuration(run.duration)} />}
-        {expanded && <CardStat label="Elev" value={`${run.elev}`} unit="m" />}
+        {expanded && <CardStat label="Elev" value={run.elev != null ? `${Math.round(elevToDisplay(run.elev, units))}` : '—'} unit={run.elev != null ? elevUnit(units) : ''} />}
       </div>
 
       {hasPeers && run.rank != null ? (
@@ -472,7 +479,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, r
               </span>
             )}
           </div>
-          <PeerDistribution run={run} color={color} showAxis={expanded} rankBy={rankBy} />
+          <PeerDistribution run={run} color={color} showAxis={expanded} rankBy={rankBy} units={units} />
           {expanded && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--inkSoft)' }}>
               <span>Peer best: <b style={{ color: 'var(--ink)' }}>{m.fmt(m.best)}{isHrMode ? ' bpm' : ''}</b></span>
@@ -517,6 +524,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, r
               run={run}
               color={color}
               onPeerClick={onPeerClick}
+              units={units}
             />
           ) : (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6 }}>
@@ -563,8 +571,8 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, r
                       )}
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 2 }}>
-                      <span className="num" style={{ fontSize: 11.5, fontWeight: 500 }}>{p.distance.toFixed(1)}km</span>
-                      <span className="num" style={{ fontSize: 11.5, color: pFaster ? 'var(--positive)' : 'var(--accent)' }}>{fmtPace(p.pace)}</span>
+                      <span className="num" style={{ fontSize: 11.5, fontWeight: 500 }}>{fmtDistance(p.distance, units, 1)}{distUnit(units)}</span>
+                      <span className="num" style={{ fontSize: 11.5, color: pFaster ? 'var(--positive)' : 'var(--accent)' }}>{fmtPaceUnit(p.pace, units)}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
                       <span className="mono" style={{ fontSize: 10, color: hasValidHr(p) ? (pLowerHr ? 'var(--positive)' : 'var(--inkSoft)') : 'var(--inkMuted)', fontStyle: hasValidHr(p) ? 'normal' : 'italic' }}>
@@ -624,7 +632,7 @@ function MiniPeerBar({ run, color, rankBy }) {
   );
 }
 
-function PeerDistribution({ run, color, showAxis, rankBy }) {
+function PeerDistribution({ run, color, showAxis, rankBy, units = 'km' }) {
   const { isHr, peers, self, avg, values } = axisFor(run, rankBy);
   if (!peers.length || self == null || avg == null) return null;
   const all = [...values, self];
@@ -647,8 +655,8 @@ function PeerDistribution({ run, color, showAxis, rankBy }) {
       </div>
       {showAxis && (
         <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--inkMuted)', marginTop: 2 }}>
-          <span>{isHr ? `lower HR ${Math.round(lo)}` : `faster ${fmtPace(lo)}`}</span>
-          <span>{isHr ? `higher HR ${Math.round(hi)}` : `slower ${fmtPace(hi)}`}</span>
+          <span>{isHr ? `lower HR ${Math.round(lo)}` : `faster ${fmtPace(paceToDisplay(lo, units))}`}</span>
+          <span>{isHr ? `higher HR ${Math.round(hi)}` : `slower ${fmtPace(paceToDisplay(hi, units))}`}</span>
         </div>
       )}
     </div>
@@ -688,7 +696,7 @@ function ScatterDot({ cx, cy, r, fill, fillOpacity, stroke, strokeWidth, title, 
 // spatially among its peers. Same axis convention as the Aerobic Efficiency
 // panel (faster pace = left, lower HR = bottom → "improving" corner is
 // down-left). Dots are clickable — clicking a peer jumps to that run.
-function PeerScatter({ run, color, onPeerClick }) {
+function PeerScatter({ run, color, onPeerClick, units = 'km' }) {
   const selfHasHr = hasValidHr(run);
   const hrPeers = run.peers.filter(hasValidHr);
   const hiddenCount = run.peers.length - hrPeers.length;
@@ -752,7 +760,7 @@ function PeerScatter({ run, color, onPeerClick }) {
         {paceTicks.map((p) => (
           <g key={`p-${p}`}>
             <line x1={xFor(p)} x2={xFor(p)} y1={M.t} y2={H - M.b} stroke="var(--ruleSoft)" strokeWidth={1} strokeDasharray="2 3" />
-            <text x={xFor(p)} y={H - M.b + 13} textAnchor="middle" style={{ fontFamily: 'var(--mono)', fontSize: 9, fill: 'var(--inkMuted)' }}>{fmtPace(p)}</text>
+            <text x={xFor(p)} y={H - M.b + 13} textAnchor="middle" style={{ fontFamily: 'var(--mono)', fontSize: 9, fill: 'var(--inkMuted)' }}>{fmtPace(paceToDisplay(p, units))}</text>
           </g>
         ))}
 
@@ -797,7 +805,7 @@ function PeerScatter({ run, color, onPeerClick }) {
             fillOpacity={0.55}
             stroke="var(--bg)"
             strokeWidth={1}
-            title={`${fmtDate(p.date, { year: true })} · ${p.distance.toFixed(1)}km · ${fmtPace(p.pace)}/km · ${p.hr} bpm · click to open`}
+            title={`${fmtDate(p.date, { year: true })} · ${fmtDistance(p.distance, units, 1)}${distUnit(units)} · ${fmtPaceUnit(p.pace, units)}${paceUnit(units)} · ${p.hr} bpm · click to open`}
             onClick={onPeerClick ? () => onPeerClick(p.id) : undefined}
           />
         ))}
@@ -811,7 +819,7 @@ function PeerScatter({ run, color, onPeerClick }) {
           fillOpacity={0.9}
           stroke="var(--ink)"
           strokeWidth={1.5}
-          title={`This run · ${fmtDate(run.date, { year: true })} · ${run.distance.toFixed(1)}km · ${fmtPace(run.pace)}/km · ${run.hr} bpm`}
+          title={`This run · ${fmtDate(run.date, { year: true })} · ${fmtDistance(run.distance, units, 1)}${distUnit(units)} · ${fmtPaceUnit(run.pace, units)}${paceUnit(units)} · ${run.hr} bpm`}
           isSelf
         />
 

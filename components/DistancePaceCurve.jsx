@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import {
-  useData, useLink, useTooltip, useFilteredRuns,
+  useData, useLink, useTooltip, useTweaks, useFilteredRuns,
   fmtDate, fmtPace, fmtHr, pad,
+  fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
+  MI_PER_KM, distUnit, paceUnit, paceUnitLong,
   Highlight, HlNum,
 } from '@/lib/shared';
 
@@ -17,7 +19,12 @@ export default function DistancePaceCurve() {
   const runs = useFilteredRuns();
   const { hovered, setHovered } = useLink();
   const { show, hide } = useTooltip();
+  const { units } = useTweaks();
   const typeMeta = data.typeMeta;
+  // Distance conversion factor in display units per km.
+  const distK = units === 'mi' ? MI_PER_KM : 1;
+  // Pace conversion: min/km → min/display-unit.
+  const paceK = units === 'mi' ? 1 / MI_PER_KM : 1;
 
   const [activeTypes, setActiveTypes] = useState(
     () => new Set(['easy', 'tempo', 'long', 'intervals', 'race'])
@@ -73,20 +80,31 @@ export default function DistancePaceCurve() {
     return (t - dateRange.start) / (dateRange.end - dateRange.start);
   };
 
+  // Distance ticks live at clean *display* values (2/5/10 km or 1/2/5 mi)
+  // and carry the km position used by xFor.
   const distTicks = useMemo(() => {
-    const step = bounds.distMax > 30 ? 10 : bounds.distMax > 15 ? 5 : 2;
+    const dispMin = bounds.distMin * distK;
+    const dispMax = bounds.distMax * distK;
+    const step = dispMax > 30 ? 10 : dispMax > 15 ? 5 : dispMax > 8 ? 2 : 1;
     const ticks = [];
-    const first = Math.ceil(bounds.distMin / step) * step;
-    for (let d = first; d <= bounds.distMax; d += step) ticks.push(d);
+    const first = Math.ceil(dispMin / step) * step;
+    for (let d = first; d <= dispMax; d += step) {
+      ticks.push({ disp: d, km: d / distK });
+    }
     return ticks;
-  }, [bounds]);
+  }, [bounds, distK]);
 
   const paceTicks = useMemo(() => {
+    const dispMin = bounds.paceMin * paceK;
+    const dispMax = bounds.paceMax * paceK;
+    const step = units === 'mi' ? 1 : 0.5;
     const ticks = [];
-    const first = Math.ceil(bounds.paceMin * 2) / 2;
-    for (let p = first; p <= bounds.paceMax; p += 0.5) ticks.push(p);
+    const first = Math.ceil(dispMin / step) * step;
+    for (let p = first; p <= dispMax; p += step) {
+      ticks.push({ disp: p, km: p / paceK });
+    }
     return ticks;
-  }, [bounds]);
+  }, [bounds, paceK, units]);
 
   // Split the window in half by date; fit a log-linear line through each
   // half: pace = a + b * log(distance). Each fit only applies *inside* the
@@ -175,8 +193,8 @@ export default function DistancePaceCurve() {
         <div style={{ opacity: .7, fontSize: 10.5, fontFamily: 'var(--mono)', textTransform: 'uppercase', marginBottom: 6 }}>
           {typeMeta[r.type].label} · {r.routeName}
         </div>
-        <div className="t-row"><span>Distance</span><span>{r.distance.toFixed(2)} km</span></div>
-        <div className="t-row"><span>Pace</span><span>{fmtPace(r.pace)}/km</span></div>
+        <div className="t-row"><span>Distance</span><span>{fmtDistance(r.distance, units, 2)} {distUnit(units)}</span></div>
+        <div className="t-row"><span>Pace</span><span>{fmtPaceUnit(r.pace, units)}{paceUnit(units)}</span></div>
         <div className="t-row"><span>Duration</span><span>{hour ? `${hour}h ${pad(min)}m` : `${min}m`}</span></div>
         <div className="t-row"><span>Avg HR</span><span>{fmtHr(r)}</span></div>
         {r.pr && <div className="t-pill" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>PR</div>}
@@ -228,25 +246,25 @@ export default function DistancePaceCurve() {
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
         {/* Grid — horizontal pace lines */}
         {paceTicks.map((p) => (
-          <g key={`p-${p}`}>
-            <line x1={M.l} x2={W - M.r} y1={yFor(p)} y2={yFor(p)} stroke="var(--ruleSoft)" strokeWidth={1} />
-            <text x={M.l - 8} y={yFor(p) + 3} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkMuted)' }}>
-              {fmtPace(p)}
+          <g key={`p-${p.disp}`}>
+            <line x1={M.l} x2={W - M.r} y1={yFor(p.km)} y2={yFor(p.km)} stroke="var(--ruleSoft)" strokeWidth={1} />
+            <text x={M.l - 8} y={yFor(p.km) + 3} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkMuted)' }}>
+              {fmtPace(p.disp)}
             </text>
           </g>
         ))}
 
         {/* Grid — vertical distance lines */}
         {distTicks.map((d, i) => (
-          <g key={`d-${d}`}>
+          <g key={`d-${d.disp}`}>
             <line
-              x1={xFor(d)} x2={xFor(d)}
+              x1={xFor(d.km)} x2={xFor(d.km)}
               y1={M.t} y2={H - M.b}
               stroke="var(--ruleSoft)" strokeWidth={1}
               strokeDasharray={i === 0 || i === distTicks.length - 1 ? '0' : '2 3'}
             />
-            <text x={xFor(d)} y={H - M.b + 16} textAnchor="middle" style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkMuted)' }}>
-              {d}km
+            <text x={xFor(d.km)} y={H - M.b + 16} textAnchor="middle" style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkMuted)' }}>
+              {d.disp}{distUnit(units)}
             </text>
           </g>
         ))}
@@ -256,12 +274,12 @@ export default function DistancePaceCurve() {
           textAnchor="middle"
           transform={`rotate(-90 ${M.l - 36} ${M.t + plotH / 2})`}
           style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkSoft)', letterSpacing: '.1em', textTransform: 'uppercase' }}
-        >Pace (min/km)</text>
+        >Pace ({paceUnitLong(units)})</text>
         <text
           x={M.l + plotW / 2} y={H - 6}
           textAnchor="middle"
           style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkSoft)', letterSpacing: '.1em', textTransform: 'uppercase' }}
-        >Distance (km)</text>
+        >Distance ({distUnit(units)})</text>
 
         {/* Improvement arrow — faster = up (pace axis inverts), longer = right. */}
         <g opacity="0.5">
@@ -391,19 +409,23 @@ export default function DistancePaceCurve() {
         const earlyPace = e.a + e.b * Math.log(dRef);
         const latePace = l.a + l.b * Math.log(dRef);
         const deltaSec = (earlyPace - latePace) * 60;
+        const dRefDisp = kmToDisplay(dRef, units);
+        const dRefDispLabel = dRefDisp < 10 ? dRefDisp.toFixed(1) : Math.round(dRefDisp);
+        // Convert the per-km seconds delta into the displayed pace unit.
+        const deltaSecDisp = deltaSec * paceK;
         if (deltaSec > 3) {
           return (
             <Highlight>
-              You&rsquo;re running faster: at <HlNum>{dRef} km</HlNum>, recent pace is{' '}
-              <HlNum>{deltaSec.toFixed(0)} s/km</HlNum> quicker than early pace{' '}
-              (<HlNum>{fmtPace(earlyPace)} → {fmtPace(latePace)}</HlNum>). The cloud is drifting up.
+              You&rsquo;re running faster: at <HlNum>{dRefDispLabel} {distUnit(units)}</HlNum>, recent pace is{' '}
+              <HlNum>{deltaSecDisp.toFixed(0)} s{paceUnit(units)}</HlNum> quicker than early pace{' '}
+              (<HlNum>{fmtPace(paceToDisplay(earlyPace, units))} → {fmtPace(paceToDisplay(latePace, units))}</HlNum>). The cloud is drifting up.
             </Highlight>
           );
         }
         if (deltaSec < -3) {
           return (
             <Highlight tone="muted">
-              At <HlNum>{dRef} km</HlNum>, recent pace is <HlNum>{Math.abs(deltaSec).toFixed(0)} s/km</HlNum> slower than early pace — a heavier stretch, or a shift in run mix.
+              At <HlNum>{dRefDispLabel} {distUnit(units)}</HlNum>, recent pace is <HlNum>{Math.abs(deltaSecDisp).toFixed(0)} s{paceUnit(units)}</HlNum> slower than early pace — a heavier stretch, or a shift in run mix.
             </Highlight>
           );
         }

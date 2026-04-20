@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import {
-  useData, useLink, useTooltip, useFilteredRuns,
+  useData, useLink, useTooltip, useTweaks, useFilteredRuns,
   fmtDate, fmtPace, fmtHr, hasValidHr, pad,
+  fmtDistance, fmtPaceUnit, paceToDisplay,
+  MI_PER_KM, distUnit, paceUnit, paceUnitLong,
   Highlight, HlNum,
 } from '@/lib/shared';
 
@@ -12,7 +14,10 @@ export default function AerobicEfficiency() {
   const runs = useFilteredRuns();
   const { hovered, setHovered } = useLink();
   const { show, hide } = useTooltip();
+  const { units } = useTweaks();
   const typeMeta = data.typeMeta;
+  // min/km → min/display-unit (1 for km; 1/MI_PER_KM for miles).
+  const paceK = units === 'mi' ? 1 / MI_PER_KM : 1;
 
   const [activeTypes, setActiveTypes] = useState(
     () => new Set(['easy', 'tempo', 'long', 'intervals', 'race'])
@@ -79,12 +84,19 @@ export default function AerobicEfficiency() {
     return (t - dateRange.start) / (dateRange.end - dateRange.start);
   };
 
+  // Pace ticks live at clean *display* values (e.g. 5:00, 5:30 min/km or
+  // 8:00, 9:00 min/mi); each carries the km-denominated pace used by xFor.
   const paceTicks = useMemo(() => {
+    const dispMin = bounds.paceMin * paceK;
+    const dispMax = bounds.paceMax * paceK;
+    const step = units === 'mi' ? 1 : 0.5;
     const ticks = [];
-    const first = Math.ceil(bounds.paceMin * 2) / 2;
-    for (let p = first; p <= bounds.paceMax; p += 0.5) ticks.push(p);
+    const first = Math.ceil(dispMin / step) * step;
+    for (let p = first; p <= dispMax; p += step) {
+      ticks.push({ disp: p, km: p / paceK });
+    }
     return ticks;
-  }, [bounds]);
+  }, [bounds, paceK, units]);
 
   const hrTicks = useMemo(() => {
     const ticks = [];
@@ -168,9 +180,9 @@ export default function AerobicEfficiency() {
         <div style={{ opacity: .7, fontSize: 10.5, fontFamily: 'var(--mono)', textTransform: 'uppercase', marginBottom: 6 }}>
           {typeMeta[r.type].label} · {r.routeName}
         </div>
-        <div className="t-row"><span>Pace</span><span>{fmtPace(r.pace)}/km</span></div>
+        <div className="t-row"><span>Pace</span><span>{fmtPaceUnit(r.pace, units)}{paceUnit(units)}</span></div>
         <div className="t-row"><span>Avg HR</span><span>{fmtHr(r)}</span></div>
-        <div className="t-row"><span>Distance</span><span>{r.distance.toFixed(2)} km</span></div>
+        <div className="t-row"><span>Distance</span><span>{fmtDistance(r.distance, units, 2)} {distUnit(units)}</span></div>
         <div className="t-row"><span>Duration</span><span>{hour ? `${hour}h ${pad(min)}m` : `${min}m`}</span></div>
         {r.pr && <div className="t-row" style={{ marginTop: 4 }}><span style={{ color: 'var(--positive)' }}>● PR</span><span /></div>}
       </>
@@ -223,14 +235,14 @@ export default function AerobicEfficiency() {
             ))}
 
             {paceTicks.map((p, i) => (
-              <g key={`p-${p}`}>
+              <g key={`p-${p.disp}`}>
                 <line
-                  x1={xFor(p)} x2={xFor(p)}
+                  x1={xFor(p.km)} x2={xFor(p.km)}
                   y1={M.t} y2={H - M.b}
                   stroke="var(--ruleSoft)" strokeWidth={1}
                   strokeDasharray={i === 0 || i === paceTicks.length - 1 ? '0' : '2 3'}
                 />
-                <text x={xFor(p)} y={H - M.b + 16} textAnchor="middle" style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkMuted)' }}>{fmtPace(p)}</text>
+                <text x={xFor(p.km)} y={H - M.b + 16} textAnchor="middle" style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkMuted)' }}>{fmtPace(p.disp)}</text>
               </g>
             ))}
 
@@ -244,7 +256,7 @@ export default function AerobicEfficiency() {
               x={M.l + plotW / 2} y={H - 6}
               textAnchor="middle"
               style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkSoft)', letterSpacing: '.1em', textTransform: 'uppercase' }}
-            >Pace (min / km) · faster ←</text>
+            >Pace ({paceUnitLong(units)}) · faster ←</text>
 
             <g opacity="0.5">
               <defs>
@@ -267,10 +279,10 @@ export default function AerobicEfficiency() {
                 <line x1={M.l} x2={W - M.r} y1={trend.startY} y2={trend.startY} stroke={`var(--type-${trendType})`} strokeWidth={1} strokeDasharray="4 4" opacity={0.35} />
                 <line x1={M.l} x2={W - M.r} y1={trend.endY} y2={trend.endY} stroke={`var(--type-${trendType})`} strokeWidth={1.5} opacity={0.7} />
                 <text x={W - M.r - 6} y={trend.startY - 4} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: `var(--type-${trendType})`, opacity: 0.7 }}>
-                  {typeMeta[trendType].label} · early · {Math.round(trend.startHr)} bpm @ {fmtPace(trend.startPace)}
+                  {typeMeta[trendType].label} · early · {Math.round(trend.startHr)} bpm @ {fmtPace(paceToDisplay(trend.startPace, units))}
                 </text>
                 <text x={W - M.r - 6} y={trend.endY - 4} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: `var(--type-${trendType})`, fontWeight: 600 }}>
-                  recent · {Math.round(trend.endHr)} bpm @ {fmtPace(trend.endPace)} ({trend.delta >= 0 ? '+' : '−'}{Math.abs(Math.round(trend.delta))} bpm{trend.paceDrifted ? ' · pace shifted' : ''})
+                  recent · {Math.round(trend.endHr)} bpm @ {fmtPace(paceToDisplay(trend.endPace, units))} ({trend.delta >= 0 ? '+' : '−'}{Math.abs(Math.round(trend.delta))} bpm{trend.paceDrifted ? ' · pace shifted' : ''})
                 </text>
               </g>
             )}
@@ -375,7 +387,7 @@ export default function AerobicEfficiency() {
                     <span style={{ fontSize: 13, fontWeight: 500 }}>{typeMeta[b.type].label}</span>
                     {b.enough ? (
                       <span className="mono" style={{ fontSize: 10, color: 'var(--inkMuted)' }}>
-                        {fmtPace(b.earlyPace)} → {fmtPace(b.latePace)}
+                        {fmtPace(paceToDisplay(b.earlyPace, units))} → {fmtPace(paceToDisplay(b.latePace, units))}
                       </span>
                     ) : (
                       <span className="mono" style={{ fontSize: 10, color: 'var(--inkMuted)' }}>n/a</span>
@@ -425,7 +437,7 @@ export default function AerobicEfficiency() {
                           marginTop: 6, fontSize: 10, fontFamily: 'var(--mono)',
                           color: 'var(--type-tempo)', fontStyle: 'italic',
                         }}>
-                          ⚠ pace shifted {b.paceDelta > 0 ? '+' : '−'}{Math.abs(b.paceDelta * 60).toFixed(0)}s/km — delta may be pace-driven
+                          ⚠ pace shifted {b.paceDelta > 0 ? '+' : '−'}{Math.abs(b.paceDelta * 60 * paceK).toFixed(0)}s{paceUnit(units)} — delta may be pace-driven
                         </div>
                       )}
                     </>
@@ -454,7 +466,7 @@ export default function AerobicEfficiency() {
           <Highlight>
             Biggest fitness gain: <HlNum>{typeMeta[best.type].label}</HlNum> — average HR dropped{' '}
             <HlNum>{Math.abs(best.delta).toFixed(1)} bpm</HlNum>{' '}
-            at similar pace (<HlNum>{fmtPace(best.earlyPace)} → {fmtPace(best.latePace)}</HlNum>). You&rsquo;re doing the same work with less effort.
+            at similar pace (<HlNum>{fmtPace(paceToDisplay(best.earlyPace, units))} → {fmtPace(paceToDisplay(best.latePace, units))}</HlNum>). You&rsquo;re doing the same work with less effort.
           </Highlight>
         );
       })()}

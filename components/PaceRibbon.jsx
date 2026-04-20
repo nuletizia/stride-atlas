@@ -4,6 +4,8 @@ import { useMemo } from 'react';
 import {
   useData, useLink, useTooltip, useTweaks, useFilteredRuns,
   fmtDate, fmtPace, fmtHr, hasValidHr,
+  fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
+  distUnit, paceUnit, paceUnitLong,
   Highlight, HlNum,
 } from '@/lib/shared';
 
@@ -12,7 +14,7 @@ export default function PaceRibbon() {
   const runs = useFilteredRuns();
   const { hovered, setHovered } = useLink();
   const { show, hide } = useTooltip();
-  const { metric } = useTweaks();
+  const { metric, units } = useTweaks();
 
   const types = ['intervals', 'tempo', 'race', 'long', 'easy', 'recovery'];
   const meta = data.typeMeta;
@@ -86,18 +88,23 @@ export default function PaceRibbon() {
   }
 
   const fmtMetric = (v) =>
-    metric === 'pace' ? fmtPace(v) :
-    metric === 'distance' ? v.toFixed(1) :
+    metric === 'pace' ? fmtPace(paceToDisplay(v, units)) :
+    metric === 'distance' ? kmToDisplay(v, units).toFixed(1) :
     metric === 'hr' ? `${Math.round(v)}` :
     v.toFixed(2); // efficiency
 
   const metricLabel = { pace: 'Pace', distance: 'Distance', hr: 'Avg HR', efficiency: 'Efficiency' }[metric];
-  const metricUnit = { pace: 'min/km', distance: 'km', hr: 'bpm', efficiency: '' }[metric];
+  const metricUnit = {
+    pace: paceUnitLong(units),
+    distance: distUnit(units),
+    hr: 'bpm',
+    efficiency: '',
+  }[metric];
   // Descriptive unit shown once in the panel subtitle, so each row's value
   // labels stay clean (no repeated "/km" × 6 rows).
   const metricUnitLabel = {
-    pace: 'min/km',
-    distance: 'km',
+    pace: paceUnitLong(units),
+    distance: distUnit(units),
     hr: 'bpm',
     efficiency: 'speed ÷ HR',
   }[metric];
@@ -223,12 +230,12 @@ export default function PaceRibbon() {
                                 {meta[r.type].label} · {r.routeName}
                               </div>
                               <div className="t-row"><span>{metricLabel}</span><span>{
-                                metric === 'pace' ? `${fmtPace(r.pace)} ${metricUnit}` :
-                                metric === 'distance' ? `${r.distance.toFixed(2)} ${metricUnit}` :
+                                metric === 'pace' ? `${fmtPaceUnit(r.pace, units)} ${metricUnit}` :
+                                metric === 'distance' ? `${fmtDistance(r.distance, units, 2)} ${metricUnit}` :
                                 metric === 'hr' ? fmtHr(r) :
                                 (efOf(r) != null ? efOf(r).toFixed(2) : '—')
                               }</span></div>
-                              <div className="t-row"><span>Distance</span><span>{r.distance.toFixed(2)} km</span></div>
+                              <div className="t-row"><span>Distance</span><span>{fmtDistance(r.distance, units, 2)} {distUnit(units)}</span></div>
                               {r.pr && <div className="t-pill" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>PR</div>}
                             </>,
                             e.clientX, e.clientY
@@ -274,7 +281,7 @@ export default function PaceRibbon() {
           return (
             <Highlight>
               <HlNum>{label}</HlNum> pace has drifted faster: rolling avg{' '}
-              <HlNum>{fmtPace(best.firstMean)} → {fmtPace(best.lastMean)}</HlNum> across this window.
+              <HlNum>{fmtPace(paceToDisplay(best.firstMean, units))} → {fmtPace(paceToDisplay(best.lastMean, units))} {paceUnit(units)}</HlNum> across this window.
             </Highlight>
           );
         }
@@ -297,7 +304,7 @@ export default function PaceRibbon() {
         return (
           <Highlight>
             Your <HlNum>{label}</HlNum> runs are getting longer: rolling avg{' '}
-            <HlNum>{best.firstMean.toFixed(1)} → {best.lastMean.toFixed(1)} km</HlNum> across this window.
+            <HlNum>{kmToDisplay(best.firstMean, units).toFixed(1)} → {kmToDisplay(best.lastMean, units).toFixed(1)} {distUnit(units)}</HlNum> across this window.
           </Highlight>
         );
       })()}

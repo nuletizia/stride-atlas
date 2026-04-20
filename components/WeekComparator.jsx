@@ -1,10 +1,14 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useFilteredRuns, fmtDuration } from '@/lib/shared';
+import {
+  useFilteredRuns, useTweaks, fmtDuration,
+  kmToDisplay, elevToDisplay, distUnit, elevUnit,
+} from '@/lib/shared';
 
 export default function WeekComparator() {
   const runs = useFilteredRuns();
+  const { units } = useTweaks();
 
   const { thisWeek, bestWeek, thisLabel, bestLabel } = useMemo(() => {
     function isoWeekKey(d) {
@@ -40,10 +44,10 @@ export default function WeekComparator() {
   if (!thisWeek) return null;
 
   const metrics = [
-    { key: 'distance', label: 'Distance', unit: 'km', fmt: (v) => v.toFixed(1) },
+    { key: 'distance', label: 'Distance', unit: distUnit(units), fmt: (v) => kmToDisplay(v, units).toFixed(1) },
     { key: 'runs', label: 'Runs', unit: '', fmt: (v) => v },
     { key: 'duration', label: 'Time', unit: '', fmt: (v) => fmtDuration(v) },
-    { key: 'elev', label: 'Elev', unit: 'm', fmt: (v) => v },
+    { key: 'elev', label: 'Elev', unit: elevUnit(units), fmt: (v) => Math.round(elevToDisplay(v, units)) },
   ];
 
   return (

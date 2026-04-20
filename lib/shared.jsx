@@ -40,6 +40,36 @@ export function fmtElev(r) {
   return r && r.elev != null ? `${r.elev}` : '—';
 }
 
+// ---------- unit conversion ----------
+// Data layer stays in km, min/km, and meters. All conversion happens at
+// display time. Pace math: 1 mi takes 1/MI_PER_KM as many minutes as 1 km.
+export const MI_PER_KM = 0.621371;
+export const FT_PER_M = 3.28084;
+
+export function kmToDisplay(km, units) {
+  if (km == null) return null;
+  return units === 'mi' ? km * MI_PER_KM : km;
+}
+export function paceToDisplay(pacePerKm, units) {
+  if (pacePerKm == null) return null;
+  return units === 'mi' ? pacePerKm / MI_PER_KM : pacePerKm;
+}
+export function elevToDisplay(m, units) {
+  if (m == null) return null;
+  return units === 'mi' ? m * FT_PER_M : m;
+}
+export function distUnit(units) { return units === 'mi' ? 'mi' : 'km'; }
+export function paceUnit(units) { return units === 'mi' ? '/mi' : '/km'; }
+export function paceUnitLong(units) { return units === 'mi' ? 'min/mi' : 'min/km'; }
+export function elevUnit(units) { return units === 'mi' ? 'ft' : 'm'; }
+export function fmtDistance(km, units, decimals = 1) {
+  if (km == null || !isFinite(km)) return '—';
+  return kmToDisplay(km, units).toFixed(decimals);
+}
+export function fmtPaceUnit(pacePerKm, units) {
+  return fmtPace(paceToDisplay(pacePerKm, units));
+}
+
 // ---------- "Biggest improvement" callout primitives ----------
 // Single-sentence takeaway block rendered at the bottom of progress panels.
 // Accent left border makes it easy to spot; muted tone is used for
@@ -200,6 +230,7 @@ export function useLink() { return useContext(LinkContext); }
 const TweakContext = createContext(null);
 
 const STORAGE_KEY = 'stride-atlas-tweaks-v1';
+const UNITS_KEY = 'stride.units';
 
 function readStored() {
   if (typeof window === 'undefined') return null;
@@ -217,6 +248,7 @@ export function TweakProvider({ children }) {
   const [style, setStyle] = useState('editorial');
   const [timeRange, setTimeRange] = useState('all');
   const [metric, setMetric] = useState('pace');
+  const [units, setUnits] = useState('km');
   const [open, setOpen] = useState(false);
 
   // Load from localStorage after mount to avoid SSR hydration mismatch
@@ -226,6 +258,7 @@ export function TweakProvider({ children }) {
       if (s.style) setStyle(s.style);
       if (s.timeRange) setTimeRange(s.timeRange);
       if (s.metric) setMetric(s.metric);
+      if (s.units === 'mi' || s.units === 'km') setUnits(s.units);
     }
   }, []);
 
@@ -239,13 +272,17 @@ export function TweakProvider({ children }) {
   const setStyleP = (v) => { setStyle(v); persist({ style: v }); };
   const setRangeP = (v) => { setTimeRange(v); persist({ timeRange: v }); };
   const setMetricP = (v) => { setMetric(v); persist({ metric: v }); };
+  const setUnitsP = (v) => {
+    const u = v === 'mi' ? 'mi' : 'km';
+    setUnits(u); persist({ units: u });
+  };
 
   return (
     <TweakContext.Provider value={{
-      style, theme: style, timeRange, metric,
+      style, theme: style, timeRange, metric, units,
       open, setOpen,
       setStyle: setStyleP, setTheme: setStyleP,
-      setTimeRange: setRangeP, setMetric: setMetricP,
+      setTimeRange: setRangeP, setMetric: setMetricP, setUnits: setUnitsP,
     }}>
       {children}
     </TweakContext.Provider>

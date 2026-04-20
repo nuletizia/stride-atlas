@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import {
   useLink, useData, useTweaks,
   fmtDate, fmtPace, fmtDuration,
+  fmtPaceUnit, paceUnit,
   Highlight, HlNum,
 } from '@/lib/shared';
 
@@ -177,6 +178,7 @@ export default function PersonalRecords() {
 
 function DistancePR({ record, onHover, hovered, isAllTime }) {
   const data = useData();
+  const { units } = useTweaks();
   const meta = data.typeMeta;
   if (!record.run) {
     return (
@@ -250,7 +252,7 @@ function DistancePR({ record, onHover, hovered, isAllTime }) {
         {fmtDuration(record.bestMin)}
       </div>
       <div className="mono muted" style={{ fontSize: 10.5, marginTop: 4 }}>
-        {fmtPace(prPace)}/km
+        {fmtPaceUnit(prPace, units)}{paceUnit(units)}
       </div>
       <div style={{ borderTop: '1px dashed var(--ruleSoft)', marginTop: 8, paddingTop: 6 }}>
         <div className="mono" style={{ fontSize: 9.5, color: 'var(--inkMuted)', letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 2 }}>Set on</div>
