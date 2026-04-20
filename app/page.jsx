@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSession, isLoggedIn } from '@/lib/session';
+import HeroRibbonPreview from '@/components/HeroRibbonPreview';
 
 export const metadata = {
-  title: 'Stride Atlas — A running journal',
-  description: 'Connect your Strava and see your training as something you can read, not just scroll.',
+  title: 'Stride Atlas — See your running progress',
+  description: 'A compact progress view of your Strava runs. Aerobic base, tempo pace, long runs, PRs — all on one page. Built for runners training toward a goal.',
 };
 
 export default async function LandingPage() {
@@ -27,11 +28,13 @@ export default async function LandingPage() {
 
       <section className="landing-hero">
         <h1 className="landing-headline">
-          A running journal —<br />every run on one page.
+          See your progress.<br />Not just your last run.
         </h1>
         <p className="landing-subhead">
-          Connect your Strava and see your training as something you can read, not just
-          scroll. Hover any run, and its twins light up across every chart. Click to drill in.
+          Training for a half marathon, chasing a 5K PR, or just curious whether you&rsquo;re
+          actually getting fitter? Most apps show you what you did yesterday. Stride Atlas
+          shows you the <i>arc</i> of your training — every run, every PR, every trend —
+          on one compact page you can take in at a glance.
         </p>
         <div className="landing-cta-row">
           <a href="/api/auth/strava" className="connect-strava-btn" aria-label="Connect with Strava">
@@ -48,32 +51,21 @@ export default async function LandingPage() {
       </section>
 
       <section className="landing-preview">
-        <div className="landing-preview-caption">
-          <div className="stat-label">Dashboard preview</div>
-          <div style={{ fontSize: 13, color: 'var(--inkSoft)', marginTop: 4 }}>
-            Nine panels — from a season arc down to individual run cards.
-            Every one talks to every other.
-          </div>
-        </div>
-        <div className="landing-preview-frame">
-          <div style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--inkMuted)', fontSize: 15 }}>
-            [Screenshot placeholder — drop a PNG of the dashboard at /public/preview.png]
-          </div>
-        </div>
+        <HeroRibbonPreview />
       </section>
 
       <section className="landing-features">
         <FeatureCard
-          title="Cross-panel linking"
-          body="Hover any run — its twins light up on every chart. Click to jump straight to its card and its peers. The whole page talks to itself."
+          title="Progress at every scale"
+          body="From season arcs down to individual runs. See whether your aerobic base is growing, your tempo pace is inching down, or your long runs are holding shape — all on one page."
         />
         <FeatureCard
-          title="Peer-relative context"
-          body="Every card compares itself to a cohort of similar runs. Not your pace in isolation — your pace vs. what you've run before on similar days."
+          title="Goal-aware comparisons"
+          body="Every run is placed against its peers — same workout type, similar distance, same effort band. No vague vibes: you know instantly whether today was a PR, a regression, or just another Tuesday."
         />
         <FeatureCard
-          title="Built for readers"
-          body="Each panel ends in a plain-English takeaway. Chart trends condensed to a sentence you can read at a glance."
+          title="Dense, not noisy"
+          body="Nine panels tuned to what runners actually track: pace bands, aerobic efficiency, PR distances, season totals. No feed, no kudos, no timeline — just the signal."
         />
       </section>
 

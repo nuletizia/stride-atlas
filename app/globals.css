@@ -548,16 +548,6 @@ body { min-height: 100vh; }
 .landing-preview {
   margin: 40px 0;
 }
-.landing-preview-caption {
-  margin-bottom: 14px;
-}
-.landing-preview-frame {
-  padding: 80px 32px;
-  background: var(--bgSunken);
-  border: 1px solid var(--rule);
-  border-radius: 6px;
-  text-align: center;
-}
 
 .landing-features {
   display: grid;
@@ -606,6 +596,71 @@ body { min-height: 100vh; }
   .landing-hero { padding: 24px 0 28px; }
   .landing-preview-frame { padding: 48px 16px; }
   .landing-nav { margin-bottom: 16px; }
+}
+
+/* Privacy / policy pages — readable long-form article.               */
+.privacy {
+  max-width: 680px;
+  padding: 24px 0 60px;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.65;
+}
+.privacy h1 {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(36px, 5vw, 48px);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin: 24px 0 8px 0;
+}
+.privacy h2 {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  margin: 36px 0 10px 0;
+  color: var(--ink);
+}
+.privacy p { margin: 0 0 16px 0; color: var(--inkSoft); }
+.privacy ul {
+  margin: 0 0 16px 0;
+  padding-left: 20px;
+  color: var(--inkSoft);
+}
+.privacy li { margin-bottom: 8px; }
+.privacy li b, .privacy p b { color: var(--ink); font-weight: 500; }
+.privacy a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 2px;
+}
+.privacy a:hover { text-decoration-color: var(--ink); }
+.privacy code {
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--bgSunken);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--ink);
+}
+.privacy-lede {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-style: italic;
+  color: var(--inkSoft) !important;
+  line-height: 1.55;
+}
+.privacy-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--inkMuted);
+  margin: 8px 0 32px 0;
 }
 
 /* Pulse ring used when a RunCard is the target of a cross-panel jump.
