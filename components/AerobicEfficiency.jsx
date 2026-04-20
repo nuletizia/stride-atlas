@@ -69,8 +69,11 @@ export default function AerobicEfficiency() {
     };
   }, [inView]);
 
-  const xFor = (pace) => M.l + ((pace - bounds.paceMin) / (bounds.paceMax - bounds.paceMin)) * plotW;
-  const yFor = (hr) => M.t + (1 - (hr - bounds.hrMin) / (bounds.hrMax - bounds.hrMin)) * plotH;
+  // X: HR (low → high, left-to-right natural).
+  // Y: Pace, inverted so fastest pace (smallest min/km value) sits at the top
+  // — improvement reads as "up-left": faster pace at lower HR.
+  const xFor = (hr) => M.l + ((hr - bounds.hrMin) / (bounds.hrMax - bounds.hrMin)) * plotW;
+  const yFor = (pace) => M.t + ((pace - bounds.paceMin) / (bounds.paceMax - bounds.paceMin)) * plotH;
 
   const dateRange = useMemo(() => {
     if (!inView.length) return { start: 0, end: 1 };
@@ -164,8 +167,9 @@ export default function AerobicEfficiency() {
       endHr: band.lateHr,
       startPace: band.earlyPace,
       endPace: band.latePace,
-      startY: yFor(band.earlyHr),
-      endY: yFor(band.lateHr),
+      // HR now lives on the X axis, so the reference lines are vertical.
+      startX: xFor(band.earlyHr),
+      endX: xFor(band.lateHr),
       delta: band.delta,
       paceDrifted: band.paceDrifted,
     };
@@ -199,7 +203,7 @@ export default function AerobicEfficiency() {
         <div style={{ maxWidth: 560 }}>
           <div className="stat-label" style={{ marginBottom: 4 }}>Aerobic Efficiency</div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', lineHeight: 1.5 }}>
-            Every run plotted by <b>pace × heart rate</b>. As you get fitter, dots drift <b>down-left</b> — faster <i>and</i> lower HR.
+            Every run plotted by <b>heart rate × pace</b>. As you get fitter, dots drift <b>up-left</b> — faster pace at a <i>lower</i> HR.
             Color shows workout type; darker dots are more recent.
           </div>
         </div>
@@ -227,22 +231,22 @@ export default function AerobicEfficiency() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
         <div>
           <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-            {hrTicks.map((hr) => (
+            {hrTicks.map((hr, i) => (
               <g key={`hr-${hr}`}>
-                <line x1={M.l} x2={W - M.r} y1={yFor(hr)} y2={yFor(hr)} stroke="var(--ruleSoft)" strokeWidth={1} />
-                <text x={M.l - 8} y={yFor(hr) + 3} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkMuted)' }}>{hr}</text>
+                <line
+                  x1={xFor(hr)} x2={xFor(hr)}
+                  y1={M.t} y2={H - M.b}
+                  stroke="var(--ruleSoft)" strokeWidth={1}
+                  strokeDasharray={i === 0 || i === hrTicks.length - 1 ? '0' : '2 3'}
+                />
+                <text x={xFor(hr)} y={H - M.b + 16} textAnchor="middle" style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkMuted)' }}>{hr}</text>
               </g>
             ))}
 
-            {paceTicks.map((p, i) => (
+            {paceTicks.map((p) => (
               <g key={`p-${p.disp}`}>
-                <line
-                  x1={xFor(p.km)} x2={xFor(p.km)}
-                  y1={M.t} y2={H - M.b}
-                  stroke="var(--ruleSoft)" strokeWidth={1}
-                  strokeDasharray={i === 0 || i === paceTicks.length - 1 ? '0' : '2 3'}
-                />
-                <text x={xFor(p.km)} y={H - M.b + 16} textAnchor="middle" style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkMuted)' }}>{fmtPace(p.disp)}</text>
+                <line x1={M.l} x2={W - M.r} y1={yFor(p.km)} y2={yFor(p.km)} stroke="var(--ruleSoft)" strokeWidth={1} />
+                <text x={M.l - 8} y={yFor(p.km) + 3} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkMuted)' }}>{fmtPace(p.disp)}</text>
               </g>
             ))}
 
@@ -251,12 +255,12 @@ export default function AerobicEfficiency() {
               textAnchor="middle"
               transform={`rotate(-90 ${M.l - 36} ${M.t + plotH / 2})`}
               style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkSoft)', letterSpacing: '.1em', textTransform: 'uppercase' }}
-            >Avg HR (bpm)</text>
+            >Pace ({paceUnitLong(units)}) · faster ↑</text>
             <text
               x={M.l + plotW / 2} y={H - 6}
               textAnchor="middle"
               style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkSoft)', letterSpacing: '.1em', textTransform: 'uppercase' }}
-            >Pace ({paceUnitLong(units)}) · faster ←</text>
+            >Avg HR (bpm)</text>
 
             <g opacity="0.5">
               <defs>
@@ -264,24 +268,29 @@ export default function AerobicEfficiency() {
                   <path d="M0,0 L10,5 L0,10 z" fill="var(--inkSoft)" />
                 </marker>
               </defs>
+              {/* Improvement points up-left: faster pace (higher Y position) at
+                   lower HR (lower X position). */}
               <line
-                x1={W - M.r - 16} y1={M.t + 18}
-                x2={M.l + 32} y2={H - M.b - 14}
+                x1={W - M.r - 16} y1={H - M.b - 14}
+                x2={M.l + 32} y2={M.t + 18}
                 stroke="var(--inkSoft)" strokeWidth={1}
                 strokeDasharray="3 3"
                 markerEnd="url(#ae-arrow)"
               />
-              <text x={M.l + 40} y={H - M.b - 20} style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 13, fill: 'var(--inkSoft)' }}>improving</text>
+              <text x={M.l + 40} y={M.t + 32} style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 13, fill: 'var(--inkSoft)' }}>improving</text>
             </g>
 
             {trend && activeTypes.has(trendType) && (
               <g>
-                <line x1={M.l} x2={W - M.r} y1={trend.startY} y2={trend.startY} stroke={`var(--type-${trendType})`} strokeWidth={1} strokeDasharray="4 4" opacity={0.35} />
-                <line x1={M.l} x2={W - M.r} y1={trend.endY} y2={trend.endY} stroke={`var(--type-${trendType})`} strokeWidth={1.5} opacity={0.7} />
-                <text x={W - M.r - 6} y={trend.startY - 4} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: `var(--type-${trendType})`, opacity: 0.7 }}>
+                {/* Two vertical reference lines at each half's mean HR. Labels
+                     stack in the top-right of the plot to avoid colliding
+                     with each other when the two HRs are close. */}
+                <line x1={trend.startX} x2={trend.startX} y1={M.t} y2={H - M.b} stroke={`var(--type-${trendType})`} strokeWidth={1} strokeDasharray="4 4" opacity={0.35} />
+                <line x1={trend.endX} x2={trend.endX} y1={M.t} y2={H - M.b} stroke={`var(--type-${trendType})`} strokeWidth={1.5} opacity={0.7} />
+                <text x={W - M.r - 6} y={M.t + 10} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: `var(--type-${trendType})`, opacity: 0.7 }}>
                   {typeMeta[trendType].label} · early · {Math.round(trend.startHr)} bpm @ {fmtPace(paceToDisplay(trend.startPace, units))}
                 </text>
-                <text x={W - M.r - 6} y={trend.endY - 4} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: `var(--type-${trendType})`, fontWeight: 600 }}>
+                <text x={W - M.r - 6} y={M.t + 22} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: `var(--type-${trendType})`, fontWeight: 600 }}>
                   recent · {Math.round(trend.endHr)} bpm @ {fmtPace(paceToDisplay(trend.endPace, units))} ({trend.delta >= 0 ? '+' : '−'}{Math.abs(Math.round(trend.delta))} bpm{trend.paceDrifted ? ' · pace shifted' : ''})
                 </text>
               </g>
@@ -293,8 +302,8 @@ export default function AerobicEfficiency() {
               .map((r) => {
                 const active = activeTypes.has(r.type);
                 if (!active) return null;
-                const cx = xFor(r.pace);
-                const cy = yFor(r.hr);
+                const cx = xFor(r.hr);
+                const cy = yFor(r.pace);
                 const rec = recencyOf(r.date);
                 const isHover = hovered?.runId === r.id;
                 const isMatch = hovered && !isHover && (hovered.type === r.type || hovered.routeId === r.routeId);
