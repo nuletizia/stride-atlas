@@ -395,13 +395,26 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, r
             {run.pr && <span style={{ marginLeft: 4, fontFamily: 'var(--mono)', fontSize: 8.5, background: 'var(--ink)', color: 'var(--bg)', padding: '1px 4px', borderRadius: 2 }}>PR</span>}
           </span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 8 }}>
           <span className="num" style={{ fontSize: 17, fontWeight: 500, letterSpacing: '-0.01em' }}>
             {run.distance.toFixed(1)}<span className="mono muted" style={{ fontSize: 9.5, marginLeft: 1, fontWeight: 400 }}>km</span>
           </span>
-          <span className="num" style={{ fontSize: 13, color: 'var(--inkSoft)', fontWeight: 500 }}>
-            {fmtPace(run.pace)}<span className="mono muted" style={{ fontSize: 9, marginLeft: 1, fontWeight: 400 }}>/km</span>
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1, lineHeight: 1.1 }}>
+            <span className="num" style={{ fontSize: 13, color: 'var(--inkSoft)', fontWeight: 500 }}>
+              {fmtPace(run.pace)}<span className="mono muted" style={{ fontSize: 9, marginLeft: 1, fontWeight: 400 }}>/km</span>
+            </span>
+            <span
+              className="num"
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: hasValidHr(run) ? 'var(--inkSoft)' : 'var(--inkMuted)',
+                fontStyle: hasValidHr(run) ? 'normal' : 'italic',
+              }}
+            >
+              {hasValidHr(run) ? run.hr : '—'}<span className="mono muted" style={{ fontSize: 9, marginLeft: 1, fontWeight: 400 }}>bpm</span>
+            </span>
+          </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
           <span className="mono" style={{ fontSize: 9, color: 'var(--inkMuted)', letterSpacing: '.06em' }} title={`Rank across all runs of this type · ${isHrMode ? 'HR' : 'pace'}`}>
