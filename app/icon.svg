@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>Stride Atlas</title>
+  <rect width="32" height="32" rx="7" fill="#1A1A17"/>
+  <g fill="#C4502A">
+    <rect x="4" y="21" width="7" height="6" rx="1"/>
+    <rect x="12" y="16" width="7" height="11" rx="1"/>
+    <rect x="20" y="10" width="7" height="17" rx="1"/>
+  </g>
+</svg>
