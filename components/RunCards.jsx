@@ -170,6 +170,22 @@ export default function RunCards() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusRequest]);
 
+  // Click-outside-to-collapse: when a card is expanded, any pointerdown that
+  // isn't inside the currently-expanded card dismisses the expansion. Saves
+  // a long scroll back up to the card on mobile just to close it. Clicking
+  // another card still expands it (the card's own click handler runs after
+  // this listener and wins the final state).
+  useEffect(() => {
+    if (!expandedId) return;
+    const onPointerDown = (e) => {
+      const card = e.target.closest && e.target.closest('[data-run-card-id]');
+      if (card && card.dataset.runCardId === expandedId) return;
+      setExpandedId(null);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [expandedId]);
+
   const types = ['all', 'easy', 'tempo', 'intervals', 'recovery', 'long', 'race'];
   const minCol = density === 'compact' ? 150 : 220;
 
@@ -442,7 +458,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
 
   if (compact) {
     return (
-      <div id={`run-card-${run.id}`} className={flashing ? 'run-card-flash' : undefined} onMouseEnter={onHoverIn} onMouseLeave={onHoverOut} onClick={onClick} style={cardStyle}>
+      <div id={`run-card-${run.id}`} data-run-card-id={run.id} className={flashing ? 'run-card-flash' : undefined} onMouseEnter={onHoverIn} onMouseLeave={onHoverOut} onClick={onClick} style={cardStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
           <span className="mono" style={{ fontSize: 9.5, color: 'var(--inkMuted)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
             {new Date(run.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -487,7 +503,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
   }
 
   return (
-    <div id={`run-card-${run.id}`} className={flashing ? 'run-card-flash' : undefined} onMouseEnter={onHoverIn} onMouseLeave={onHoverOut} onClick={onClick} style={cardStyle}>
+    <div id={`run-card-${run.id}`} data-run-card-id={run.id} className={flashing ? 'run-card-flash' : undefined} onMouseEnter={onHoverIn} onMouseLeave={onHoverOut} onClick={onClick} style={cardStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
         <div>
           <div className="mono" style={{ fontSize: 10, color: 'var(--inkMuted)', letterSpacing: '.1em', textTransform: 'uppercase' }}>
