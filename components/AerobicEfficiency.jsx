@@ -197,6 +197,10 @@ export default function AerobicEfficiency() {
     const earlyPace = medianOf(early.map((r) => r.pace));
     const latePace = medianOf(late.map((r) => r.pace));
     const paceDrifted = (latePace - earlyPace) >= PACE_DRIFT_WARN;
+    const dateFmt = (iso) =>
+      new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    const earlyDates = early.map((r) => r.date).sort();
+    const lateDates = late.map((r) => r.date).sort();
     return {
       startHr: earlyHr, endHr: lateHr,
       startPace: earlyPace, endPace: latePace,
@@ -205,6 +209,8 @@ export default function AerobicEfficiency() {
       delta: lateHr - earlyHr,
       paceDrifted,
       earlyN: early.length, lateN: late.length,
+      earlyLabel: `${dateFmt(earlyDates[0])} → ${dateFmt(earlyDates[earlyDates.length - 1])}`,
+      lateLabel: `${dateFmt(lateDates[0])} → ${dateFmt(lateDates[lateDates.length - 1])}`,
     };
   }, [inView, activeTypes, isAllMode, bounds]);
 
@@ -243,7 +249,9 @@ export default function AerobicEfficiency() {
           <div className="stat-label" style={{ marginBottom: 4 }}>Aerobic Efficiency</div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', lineHeight: 1.5 }}>
             Every run plotted by <b>heart rate × pace</b>. As you get fitter, dots drift <b>up-left</b> — faster pace at a <i>lower</i> HR.
-            Color shows workout type; darker dots are more recent. The bold <b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half — arrow shows the direction of progress.
+            Hollow dots are early runs, filled dots are recent; darker = more recent within each half.
+            The bold <b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half — arrow shows the direction of progress.
+            Cards below break the story down by type — click one to drive the take-away.
           </div>
         </div>
 
@@ -425,7 +433,7 @@ export default function AerobicEfficiency() {
               </svg>
               early {trend && (
                 <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--inkSoft)' }}>
-                  · {scopeLabel} · {Math.round(trend.startHr)} bpm @ {fmtPace(paceToDisplay(trend.startPace, units))}
+                  · {trend.earlyLabel} · {trend.earlyN} runs
                 </span>
               )}
             </span>
@@ -439,7 +447,7 @@ export default function AerobicEfficiency() {
               </svg>
               recent {trend && (
                 <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>
-                  · {Math.round(trend.endHr)} bpm @ {fmtPace(paceToDisplay(trend.endPace, units))}
+                  · {trend.lateLabel} · {trend.lateN} runs
                 </span>
               )}
             </span>
@@ -465,14 +473,14 @@ export default function AerobicEfficiency() {
             fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--inkMuted)',
             textTransform: 'uppercase', letterSpacing: '.12em', marginBottom: 4,
           }}>
-            <span>HR at typical pace · early vs recent</span>
-            <span style={{ fontStyle: 'normal', textTransform: 'none', letterSpacing: 0, fontSize: 10.5, color: 'var(--inkMuted)' }}>Click to plot trend →</span>
+            <span>HR × pace · early vs recent</span>
+            <span style={{ fontStyle: 'normal', textTransform: 'none', letterSpacing: 0, fontSize: 10.5, color: 'var(--inkMuted)' }}>Click to drive the highlight →</span>
           </div>
           <div style={{
             fontSize: 11, color: 'var(--inkMuted)', marginBottom: 10,
             fontStyle: 'italic', fontFamily: 'var(--serif)',
           }}>
-            The visible date range is split in half at its midpoint — runs before go into <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>early</b>, runs after into <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>recent</b>. Within each workout type we compare the average HR of the two halves (≥3 runs per half) and also show the median pace of each half — if pace drifted noticeably between the two, the HR delta is likely pace-driven and gets flagged.
+            Each card splits that type&rsquo;s runs by date — first half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>early</b>, second half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>recent</b> (≥2 per half). We compare the mean HR and show each half&rsquo;s median pace. If pace drifted between halves, the HR delta may be pace-driven (not fitness) and gets flagged.
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>

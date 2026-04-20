@@ -334,7 +334,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, r
   // min/km → min/display-unit; used to format per-unit pace deltas.
   const paceK = units === 'mi' ? 1 / MI_PER_KM : 1;
   // Local to the expanded card: grid view (numeric tiles) vs scatter
-  // (mini pace × HR plot of the peer cohort + current run).
+  // (mini HR × pace plot of the peer cohort + current run).
   const [peerView, setPeerView] = useState('grid');
 
   // Metric accessor — lets the rest of the render read `m.*` without caring
@@ -500,7 +500,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, r
         <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed var(--ruleSoft)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 10, flexWrap: 'wrap' }}>
             <div className="mono" style={{ fontSize: 10, color: 'var(--inkMuted)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
-              Recent similar runs{peerView === 'grid' ? ` · sorted by ${isHrMode ? 'lowest avg HR' : 'fastest pace'}` : ' · pace × HR'}
+              Recent similar runs{peerView === 'grid' ? ` · sorted by ${isHrMode ? 'lowest avg HR' : 'fastest pace'}` : ' · HR × pace'}
             </div>
             <div
               className="seg"

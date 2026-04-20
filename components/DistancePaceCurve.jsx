@@ -87,7 +87,8 @@ export default function DistancePaceCurve() {
   // is count-based (sort by date, take halves) so a filter like "race" with
   // runs clustered near an event still gets a balanced early/recent split
   // instead of producing an empty early half. Both axes use median so
-  // outlier long days don't drag the marker.
+  // outlier long days don't drag the marker. Also carries n + date ranges
+  // for the legend so the chart's early/recent language agrees everywhere.
   const centroids = useMemo(() => {
     const subset = inView.filter((r) => isAllMode || activeTypes.has(r.type));
     if (subset.length < 4) return null;
@@ -104,10 +105,17 @@ export default function DistancePaceCurve() {
     const endDist = medianOf(late.map((r) => r.distance));
     const startPace = medianOf(early.map((r) => r.pace));
     const endPace = medianOf(late.map((r) => r.pace));
+    const dateFmt = (iso) =>
+      new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    const earlyDates = early.map((r) => r.date).sort();
+    const lateDates = late.map((r) => r.date).sort();
     return {
       startX: xFor(startDist), startY: yFor(startPace),
       endX: xFor(endDist), endY: yFor(endPace),
       startDist, endDist, startPace, endPace,
+      earlyN: early.length, lateN: late.length,
+      earlyLabel: `${dateFmt(earlyDates[0])} → ${dateFmt(earlyDates[earlyDates.length - 1])}`,
+      lateLabel: `${dateFmt(lateDates[0])} → ${dateFmt(lateDates[lateDates.length - 1])}`,
     };
   }, [inView, activeTypes, isAllMode, bounds]);
 
@@ -192,84 +200,6 @@ export default function DistancePaceCurve() {
     return ticks;
   }, [bounds, paceK, units]);
 
-  // Split the window in half by date; fit a log-linear line through each
-  // half: pace = a + b * log(distance). Each fit only applies *inside* the
-  // distance range it was built on — we never extrapolate.
-  //
-  // Heuristic: need at least 4 runs per half AND a decent distance spread
-  // (>30% of overall range) to believe the slope. With a tight type filter
-  // (e.g. just "intervals"), distances are near-uniform and the slope is
-  // noise; we skip the fit and say so, rather than drawing a misleading line.
-  const MIN_N = 4;
-  const MIN_SPREAD_RATIO = 0.25;
-
-  const trends = useMemo(() => {
-    const filtered = isAllMode ? inView : inView.filter((r) => activeTypes.has(r.type));
-    const globalSpread = bounds.distMax - bounds.distMin;
-    if (filtered.length < MIN_N * 2) {
-      return { early: null, late: null, reason: 'need at least 8 runs in this filter' };
-    }
-    const midT = dateRange.start + (dateRange.end - dateRange.start) / 2;
-    const early = filtered.filter((r) => new Date(r.date).getTime() < midT);
-    const late = filtered.filter((r) => new Date(r.date).getTime() >= midT);
-
-    function fit(pts) {
-      if (pts.length < MIN_N) return null;
-      const dates = pts.map((r) => r.date).sort();
-      const dists = pts.map((r) => r.distance);
-      const dLo = Math.min(...dists);
-      const dHi = Math.max(...dists);
-      // Narrow distance band → fit slope is unreliable. Better to show nothing.
-      if (globalSpread > 0 && (dHi - dLo) / globalSpread < MIN_SPREAD_RATIO) {
-        return { narrow: true, n: pts.length, from: dates[0], to: dates[dates.length - 1] };
-      }
-      const xs = pts.map((r) => Math.log(Math.max(0.5, r.distance)));
-      const ys = pts.map((r) => r.pace);
-      const n = xs.length;
-      const mx = xs.reduce((a, v) => a + v, 0) / n;
-      const my = ys.reduce((a, v) => a + v, 0) / n;
-      let num = 0, den = 0;
-      for (let i = 0; i < n; i++) {
-        num += (xs[i] - mx) * (ys[i] - my);
-        den += (xs[i] - mx) ** 2;
-      }
-      if (den === 0) return { narrow: true, n: pts.length, from: dates[0], to: dates[dates.length - 1] };
-      const b = num / den;
-      const a = my - b * mx;
-      return { a, b, n, from: dates[0], to: dates[dates.length - 1], dLo, dHi };
-    }
-    const earlyFit = fit(early);
-    const lateFit = fit(late);
-    let reason = null;
-    if (!earlyFit || !lateFit) reason = 'need at least 4 runs in each half';
-    else if (earlyFit.narrow || lateFit.narrow) reason = 'distance range too narrow to fit a curve';
-    return { early: earlyFit, late: lateFit, reason };
-  }, [inView, activeTypes, isAllMode, dateRange, bounds]);
-
-  function fmtRange(from, to) {
-    if (!from || !to) return '';
-    const f = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-    return `${f(from)} → ${f(to)}`;
-  }
-
-  function trendPath(fit) {
-    if (!fit || fit.narrow || fit.a == null) return null;
-    // Clip to each half's own distance range — we never extrapolate the fit
-    // outside the interval of data it was built on.
-    const lo = Math.max(0.5, fit.dLo);
-    const hi = fit.dHi;
-    if (hi <= lo) return null;
-    const segs = [];
-    const steps = 40;
-    for (let i = 0; i <= steps; i++) {
-      const d = lo + (i / steps) * (hi - lo);
-      const p = fit.a + fit.b * Math.log(d);
-      if (p < bounds.paceMin || p > bounds.paceMax) continue;
-      segs.push(`${segs.length === 0 ? 'M' : 'L'} ${xFor(d)} ${yFor(p)}`);
-    }
-    return segs.join(' ');
-  }
-
   const showMetric = (r) => {
     const hour = Math.floor(r.duration / 60);
     const min = Math.floor(r.duration % 60);
@@ -297,10 +227,12 @@ export default function DistancePaceCurve() {
         <div style={{ maxWidth: 560 }}>
           <div className="stat-label" style={{ marginBottom: 4 }}>Aerobic Endurance</div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', lineHeight: 1.5 }}>
-            Every run plotted by <b>distance × pace</b>. Fast pace is at the top of the chart; longer runs
-            sit to the right. The cloud naturally slopes toward the lower-right (longer = slower). The bold
-            {' '}<b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half — arrow
-            shows the direction of progress (up = faster, right = longer).
+            Every run plotted by <b>distance × pace</b>. Fast pace is at the top; longer runs sit to the
+            right, and the cloud naturally slopes toward the lower-right (longer = slower).
+            Hollow dots are early runs, filled dots are recent. The bold
+            {' '}<b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half —
+            arrow shows the direction of progress (up = faster, right = longer).
+            Cards below break the story down by type — click one to drive the take-away.
           </div>
         </div>
 
@@ -482,9 +414,9 @@ export default function DistancePaceCurve() {
             <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
             <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
           </svg>
-          early {trends?.early && !trends.early.narrow && (
+          early {centroids && (
             <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--inkSoft)' }}>
-              · {fmtRange(trends.early.from, trends.early.to)} · {trends.early.n} runs
+              · {centroids.earlyLabel} · {centroids.earlyN} runs
             </span>
           )}
         </span>
@@ -496,9 +428,9 @@ export default function DistancePaceCurve() {
             <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={3} />
             <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={3} />
           </svg>
-          recent {trends?.late && !trends.late.narrow && (
+          recent {centroids && (
             <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>
-              · {fmtRange(trends.late.from, trends.late.to)} · {trends.late.n} runs
+              · {centroids.lateLabel} · {centroids.lateN} runs
             </span>
           )}
         </span>
@@ -530,7 +462,7 @@ export default function DistancePaceCurve() {
           fontSize: 11, color: 'var(--inkMuted)', marginBottom: 10,
           fontStyle: 'italic', fontFamily: 'var(--serif)',
         }}>
-          Each card shows the median run of each half. Watch both axes — distance growth and pace shift can tell different stories.
+          Each card splits that type&rsquo;s runs by date — first half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>early</b>, second half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>recent</b> (≥2 per half). We show both median distance and median pace — distance growth and pace shift can move independently, so both deltas are always shown.
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>

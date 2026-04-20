@@ -128,8 +128,7 @@ export default function PaceRibbon() {
               <span className="mono muted" style={{ fontSize: 11, marginLeft: 6 }}>
                 ({metricUnitLabel})
               </span>
-            )} over time, stacked by workout type. The line is a 5-run rolling average — watch it
-            drift up as fitness climbs.
+            )} over time. Top ribbon is <b>All runs</b>; each row below is a single workout type. The line is a 5-run rolling average — watch it drift up as fitness climbs.
           </div>
         </div>
         <MetricToggle />
