@@ -16,7 +16,7 @@ export default function PaceRibbon() {
   const { show, hide } = useTooltip();
   const { metric, units } = useTweaks();
 
-  const types = ['intervals', 'tempo', 'race', 'long', 'easy', 'recovery'];
+  const types = ['easy', 'tempo', 'intervals', 'recovery', 'long', 'race'];
   // Rendered rows — "all" sits at the top as a combined overview alongside
   // the per-type rows. It's excluded from the per-type highlight candidates
   // below so the one-liner stays about a specific workout type.

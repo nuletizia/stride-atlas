@@ -285,7 +285,7 @@ function AtlasStat({ label, value, unit }) {
 }
 
 function Legend({ typeMeta, show, hide }) {
-  const types = ['easy', 'tempo', 'long', 'intervals', 'race', 'recovery'];
+  const types = ['easy', 'tempo', 'intervals', 'recovery', 'long', 'race'];
 
   const explainer = (
     <>

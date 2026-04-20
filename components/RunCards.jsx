@@ -152,7 +152,7 @@ export default function RunCards() {
     });
   };
 
-  const types = ['all', 'easy', 'tempo', 'long', 'intervals', 'race', 'recovery'];
+  const types = ['all', 'easy', 'tempo', 'intervals', 'recovery', 'long', 'race'];
   const minCol = density === 'compact' ? 150 : 220;
 
   return (

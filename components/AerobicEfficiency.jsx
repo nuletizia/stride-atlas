@@ -120,7 +120,7 @@ export default function AerobicEfficiency() {
     // Count-based (not time-midpoint) so a type whose runs cluster in a
     // narrow window still gets a balanced split instead of falling off the
     // "enough data" cliff.
-    const types = ['all', 'easy', 'tempo', 'long', 'intervals'];
+    const types = ['all', 'easy', 'tempo', 'intervals', 'long'];
 
     const medianOf = (arr) => {
       const sorted = [...arr].sort((a, b) => a - b);
@@ -238,7 +238,7 @@ export default function AerobicEfficiency() {
     );
   };
 
-  const TYPES_ALL = ['easy', 'tempo', 'long', 'intervals', 'race'];
+  const TYPES_ALL = ['easy', 'tempo', 'intervals', 'long', 'race'];
 
   if (!inView.length) return null;
 

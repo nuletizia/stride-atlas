@@ -129,7 +129,7 @@ export default function DistancePaceCurve() {
   // Same count-based split + median-of-both methodology as the chart
   // centroids, so the cards and the "+" markers agree exactly.
   const bandReadouts = useMemo(() => {
-    const types = ['all', 'easy', 'tempo', 'long', 'intervals'];
+    const types = ['all', 'easy', 'tempo', 'intervals', 'long'];
     const medianOf = (arr) => {
       const s = [...arr].sort((a, b) => a - b);
       return s[Math.floor(s.length / 2)];
@@ -218,7 +218,7 @@ export default function DistancePaceCurve() {
     );
   };
 
-  const TYPES_ALL = ['easy', 'tempo', 'long', 'intervals', 'race'];
+  const TYPES_ALL = ['easy', 'tempo', 'intervals', 'long', 'race'];
   if (!inView.length) return null;
 
   return (
