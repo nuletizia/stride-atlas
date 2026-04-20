@@ -33,20 +33,37 @@ export default function PaceRibbon() {
 
   const W = 860;
   const H_ROW = 58;
-  const LEFT = 110;
-  // RIGHT gutter reserves space for the rolling-avg end label. 3-digit HR at
-  // fontSize ~10px needs ~22px; a little padding brings us to 44.
-  const RIGHT = 44;
+  // LEFT gutter fits the type label + the start-of-window value label
+  // (e.g. "5:28 /km") with some breathing room between them.
+  const LEFT = 130;
+  // RIGHT gutter fits the end-of-window value label with its unit — worst
+  // case "5:28 /km" at fontSize 10.5 (~52px) plus offset from plot edge.
+  const RIGHT = 64;
   const PLOT_W = W - LEFT - RIGHT;
 
+  // Efficiency Factor: speed (m/min) / avg HR. A compound "how much speed am
+  // I producing per bpm" metric — higher = more efficient. Needs valid HR.
+  const efOf = (r) => (hasValidHr(r) && r.pace ? (1000 / r.pace) / r.hr : null);
+
+  const valueOf = (r) =>
+    metric === 'pace' ? r.pace :
+    metric === 'distance' ? r.distance :
+    metric === 'hr' ? r.hr :
+    efOf(r); // efficiency
+
+  // Higher-is-better metrics invert the y axis so "drift up = improvement"
+  // holds visually for every metric.
+  const higherIsBetter = metric === 'distance' || metric === 'efficiency';
+
+  // Metrics that require a valid HR reading. In these modes we drop runs
+  // without HR so they don't poison the bounds.
+  const needsHr = metric === 'hr' || metric === 'efficiency';
+
   // Convention: "improvement drifts UP visually" across all metrics.
-  //   pace: lower = better → put LOW at top → clamped = t
-  //   hr:   lower = better → put LOW at top → clamped = t
-  //   distance: higher = better → put HIGH at top → clamped = 1 - t
   function getY(r, bounds) {
-    const v = metric === 'pace' ? r.pace : metric === 'distance' ? r.distance : r.hr;
+    const v = valueOf(r);
     const t = (v - bounds.min) / (bounds.max - bounds.min || 1);
-    const clamped = metric === 'distance' ? 1 - t : t;
+    const clamped = higherIsBetter ? 1 - t : t;
     return 10 + clamped * (H_ROW - 20);
   }
   function xFor(r) {
@@ -60,12 +77,9 @@ export default function PaceRibbon() {
       const from = Math.max(0, i - Math.floor(win / 2));
       const to = Math.min(arr.length, i + Math.ceil(win / 2));
       const slice = arr.slice(from, to);
-      const v = slice.reduce(
-        (a, r) => a + (metric === 'pace' ? r.pace : metric === 'distance' ? r.distance : r.hr),
-        0
-      ) / slice.length;
+      const v = slice.reduce((a, r) => a + valueOf(r), 0) / slice.length;
       const t = (v - bounds.min) / (bounds.max - bounds.min || 1);
-      const clamped = metric === 'distance' ? 1 - t : t;
+      const clamped = higherIsBetter ? 1 - t : t;
       pts.push({ x: xFor(arr[i]), y: 10 + clamped * (H_ROW - 20), value: v });
     }
     return pts;
@@ -74,10 +88,19 @@ export default function PaceRibbon() {
   const fmtMetric = (v) =>
     metric === 'pace' ? fmtPace(v) :
     metric === 'distance' ? v.toFixed(1) :
-    `${Math.round(v)}`;
+    metric === 'hr' ? `${Math.round(v)}` :
+    v.toFixed(2); // efficiency
 
-  const metricLabel = { pace: 'Pace', distance: 'Distance', hr: 'Avg HR' }[metric];
-  const metricUnit = { pace: 'min/km', distance: 'km', hr: 'bpm' }[metric];
+  const metricLabel = { pace: 'Pace', distance: 'Distance', hr: 'Avg HR', efficiency: 'Efficiency' }[metric];
+  const metricUnit = { pace: 'min/km', distance: 'km', hr: 'bpm', efficiency: '' }[metric];
+  // Descriptive unit shown once in the panel subtitle, so each row's value
+  // labels stay clean (no repeated "/km" × 6 rows).
+  const metricUnitLabel = {
+    pace: 'min/km',
+    distance: 'km',
+    hr: 'bpm',
+    efficiency: 'speed ÷ HR',
+  }[metric];
 
   if (!runs.length) return null;
 
@@ -87,7 +110,11 @@ export default function PaceRibbon() {
         <div>
           <div className="stat-label" style={{ marginBottom: 4 }}>Trend Ribbons</div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 520 }}>
-            {metricLabel} over time, stacked by workout type. The line is a 5-run rolling average — watch it
+            {metricLabel}{metricUnitLabel && (
+              <span className="mono muted" style={{ fontSize: 11, marginLeft: 6 }}>
+                ({metricUnitLabel})
+              </span>
+            )} over time, stacked by workout type. The line is a 5-run rolling average — watch it
             drift up as fitness climbs.
           </div>
         </div>
@@ -98,13 +125,12 @@ export default function PaceRibbon() {
         <svg width={W} height={types.length * H_ROW + 20} style={{ display: 'block' }}>
           {types.map((type, ri) => {
             let arr = byType[type];
-            // In HR mode, drop runs without a valid HR — else they poison the
-            // bounds (min=0) and squash all real values into a tiny band.
-            if (metric === 'hr') arr = arr.filter(hasValidHr);
+            // Drop runs without a valid HR in HR/Efficiency modes — else they
+            // poison the bounds (min=0) and squash all real values into a
+            // tiny band.
+            if (needsHr) arr = arr.filter(hasValidHr);
             if (!arr.length) return null;
-            const values = arr.map((r) =>
-              metric === 'pace' ? r.pace : metric === 'distance' ? r.distance : r.hr
-            );
+            const values = arr.map(valueOf);
             const bounds = {
               min: Math.min(...values) * 0.98,
               max: Math.max(...values) * 1.02,
@@ -123,8 +149,9 @@ export default function PaceRibbon() {
             // better pace/HR (or a longer distance in distance mode).
             const firstRoll = rolling[0];
             const lastRoll = rolling[rolling.length - 1];
-            // Did the metric improve? (pace/hr: down is good, distance: up is good)
-            const improved = metric === 'distance'
+            // Did the metric improve? For higher-is-better metrics (distance,
+            // efficiency), improvement means the line went up.
+            const improved = higherIsBetter
               ? lastRoll.value > firstRoll.value
               : lastRoll.value < firstRoll.value;
 
@@ -149,9 +176,10 @@ export default function PaceRibbon() {
                   <path d={pathD} fill="none" stroke={color} strokeWidth={1.4} opacity={0.55} />
 
                   {/* Start value — anchored in the LEFT gutter, vertically
-                       centered on the rolling line's starting y. */}
+                       centered on the rolling line's starting y. Unit lives
+                       in the subtitle, not here, to keep each row clean. */}
                   <text
-                    x={-6}
+                    x={-12}
                     y={firstRoll.y}
                     textAnchor="end"
                     dominantBaseline="middle"
@@ -162,7 +190,7 @@ export default function PaceRibbon() {
                   {/* End value — anchored in the RIGHT gutter at the line's
                        ending y; bold + positive color when improved. */}
                   <text
-                    x={PLOT_W + 6}
+                    x={PLOT_W + 12}
                     y={lastRoll.y}
                     textAnchor="start"
                     dominantBaseline="middle"
@@ -194,7 +222,12 @@ export default function PaceRibbon() {
                               <div style={{ opacity: .7, fontSize: 10.5, fontFamily: 'var(--mono)', textTransform: 'uppercase', marginBottom: 6 }}>
                                 {meta[r.type].label} · {r.routeName}
                               </div>
-                              <div className="t-row"><span>{metricLabel}</span><span>{metric === 'pace' ? `${fmtPace(r.pace)} ${metricUnit}` : metric === 'distance' ? `${r.distance.toFixed(2)} ${metricUnit}` : fmtHr(r)}</span></div>
+                              <div className="t-row"><span>{metricLabel}</span><span>{
+                                metric === 'pace' ? `${fmtPace(r.pace)} ${metricUnit}` :
+                                metric === 'distance' ? `${r.distance.toFixed(2)} ${metricUnit}` :
+                                metric === 'hr' ? fmtHr(r) :
+                                (efOf(r) != null ? efOf(r).toFixed(2) : '—')
+                              }</span></div>
                               <div className="t-row"><span>Distance</span><span>{r.distance.toFixed(2)} km</span></div>
                               {r.pr && <div className="t-pill" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>PR</div>}
                             </>,
@@ -217,17 +250,16 @@ export default function PaceRibbon() {
       </div>
 
       {(() => {
-        const measure = (r) => metric === 'pace' ? r.pace : metric === 'distance' ? r.distance : r.hr;
         const candidates = types
           .map((t) => {
             let arr = byType[t] || [];
-            if (metric === 'hr') arr = arr.filter(hasValidHr);
+            if (needsHr) arr = arr.filter(hasValidHr);
             if (arr.length < 10) return null;
-            const first = arr.slice(0, 5).map(measure);
-            const last = arr.slice(-5).map(measure);
+            const first = arr.slice(0, 5).map(valueOf);
+            const last = arr.slice(-5).map(valueOf);
             const firstMean = first.reduce((a, v) => a + v, 0) / first.length;
             const lastMean = last.reduce((a, v) => a + v, 0) / last.length;
-            const improvement = metric === 'distance' ? lastMean - firstMean : firstMean - lastMean;
+            const improvement = higherIsBetter ? lastMean - firstMean : firstMean - lastMean;
             const rel = firstMean > 0 ? improvement / firstMean : 0;
             return { type: t, firstMean, lastMean, improvement, rel };
           })
@@ -254,6 +286,14 @@ export default function PaceRibbon() {
             </Highlight>
           );
         }
+        if (metric === 'efficiency') {
+          return (
+            <Highlight>
+              <HlNum>{label}</HlNum> efficiency is climbing: rolling avg{' '}
+              <HlNum>{best.firstMean.toFixed(2)} → {best.lastMean.toFixed(2)}</HlNum> (speed / HR) across this window.
+            </Highlight>
+          );
+        }
         return (
           <Highlight>
             Your <HlNum>{label}</HlNum> runs are getting longer: rolling avg{' '}
@@ -271,6 +311,9 @@ function MetricToggle() {
     { id: 'pace', label: 'Pace' },
     { id: 'distance', label: 'Distance' },
     { id: 'hr', label: 'Heart' },
+    // Efficiency is a compound metric (speed ÷ HR) — accent border flags it
+    // as visually distinct from the single-axis metrics above.
+    { id: 'efficiency', label: 'Efficiency', compound: true },
   ];
   return (
     <div className="chip-row">
@@ -279,6 +322,8 @@ function MetricToggle() {
           key={o.id}
           className={`chip ${metric === o.id ? 'active' : ''}`}
           onClick={() => setMetric(o.id)}
+          style={o.compound ? { borderLeft: '3px solid var(--accent)' } : undefined}
+          title={o.compound ? 'Speed (m/min) ÷ avg HR — higher = more efficient' : undefined}
         >
           {o.label}
         </button>
