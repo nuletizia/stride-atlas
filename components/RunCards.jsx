@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   useData, useLink, useTweaks, useFilteredRuns,
   fmtDate, fmtPace, fmtDuration, fmtHr, hasValidHr,
@@ -170,16 +170,17 @@ export default function RunCards() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusRequest]);
 
-  // Click-outside-to-collapse: when a card is expanded, any pointerdown that
-  // isn't inside the currently-expanded card dismisses the expansion. Saves
-  // a long scroll back up to the card on mobile just to close it. Clicking
-  // another card still expands it (the card's own click handler runs after
-  // this listener and wins the final state).
+  // Click-outside-the-panel-to-collapse. Only pointerdowns truly outside the
+  // RunCards panel dismiss the expansion — clicks inside the panel (type
+  // chips, ⚙, settings drawer, another card, peer tiles) keep their own
+  // behaviour. Saves a long scroll back up on mobile to close the card
+  // without breaking desktop navigation of the panel's chrome.
+  const panelRef = useRef(null);
   useEffect(() => {
     if (!expandedId) return;
     const onPointerDown = (e) => {
-      const card = e.target.closest && e.target.closest('[data-run-card-id]');
-      if (card && card.dataset.runCardId === expandedId) return;
+      if (!panelRef.current) return;
+      if (panelRef.current.contains(e.target)) return;
       setExpandedId(null);
     };
     document.addEventListener('pointerdown', onPointerDown);
@@ -190,7 +191,7 @@ export default function RunCards() {
   const minCol = density === 'compact' ? 150 : 220;
 
   return (
-    <div className="panel" style={{ padding: '20px 22px' }}>
+    <div className="panel" ref={panelRef} style={{ padding: '20px 22px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, gap: 24, flexWrap: 'wrap' }}>
         <div>
           <div className="stat-label" style={{ marginBottom: 4 }}>
