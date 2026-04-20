@@ -116,7 +116,7 @@ export default function SeasonArc() {
 
       {(() => {
         if (totals.length < 2) {
-          return <Highlight tone="muted">First season logged — next year we&rsquo;ll start comparing your arc.</Highlight>;
+          return <Highlight tone="muted">First season logged. Next year we&rsquo;ll start comparing your arc.</Highlight>;
         }
         const latest = totals[totals.length - 1];
         const prev = totals[totals.length - 2];
@@ -140,7 +140,7 @@ export default function SeasonArc() {
         }
 
         if (prev.distance <= 0) {
-          return <Highlight tone="muted">No distance logged in {prev.year} — next year we&rsquo;ll have a year-on-year read.</Highlight>;
+          return <Highlight tone="muted">No distance logged in {prev.year}. Next year we&rsquo;ll have a year-on-year read.</Highlight>;
         }
         const deltaPct = ((projected - prev.distance) / prev.distance) * 100;
         const verb = inProgress ? 'is on pace for' : 'totalled';
@@ -151,7 +151,7 @@ export default function SeasonArc() {
         if (deltaPct > 3) {
           return (
             <Highlight>
-              <HlNum>{latest.year}</HlNum> {verb} <HlNum>{projLabel}</HlNum> — that&rsquo;s{' '}
+              <HlNum>{latest.year}</HlNum> {verb} <HlNum>{projLabel}</HlNum>, that&rsquo;s{' '}
               <HlNum>+{deltaPct.toFixed(0)}%</HlNum> vs. {prev.year} (<HlNum>{prevLabel}</HlNum>). Your arc keeps climbing.
             </Highlight>
           );
@@ -159,7 +159,7 @@ export default function SeasonArc() {
         if (deltaPct < -3) {
           return (
             <Highlight tone="muted">
-              <HlNum>{latest.year}</HlNum> is currently tracking <HlNum>−{Math.abs(deltaPct).toFixed(0)}%</HlNum> vs. {prev.year} (<HlNum>{prevLabel}</HlNum>) — a lighter stretch, or room to push.
+              <HlNum>{latest.year}</HlNum> is currently tracking <HlNum>−{Math.abs(deltaPct).toFixed(0)}%</HlNum> vs. {prev.year} (<HlNum>{prevLabel}</HlNum>). A lighter stretch, or room to push.
             </Highlight>
           );
         }

@@ -209,7 +209,7 @@ export default function RunCards() {
             </span>
           </div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 620 }}>
-            Every run as a card — click one to expand and see it compared against a cohort of <b>similar</b> runs.
+            Every run as a card. Click one to expand and see it compared against a cohort of <b>similar</b> runs.
             Click any dot in <i>Aerobic Efficiency</i> or <i>Aerobic Endurance</i> to jump straight to that run here.
             Open <b>⚙</b> to change what counts as &ldquo;similar&rdquo;, how ranks are computed, and card density.
           </div>
@@ -324,7 +324,7 @@ export default function RunCards() {
               <button className={`chip ${similarityMode === 'route' ? 'active' : ''}`} onClick={() => setSimilarityMode('route')}>Same route</button>
             </div>
             <span style={{ fontSize: 11, color: 'var(--inkMuted)', lineHeight: 1.4 }}>
-              Which runs count as peers on each card. <b>Type</b> picks same-workout peers within {distTol === 0 ? 'exactly the same distance' : distTol >= 100 ? 'any distance' : <>±{distTol}% of this run&rsquo;s distance</>} — tighter = more direct comparison, looser = more peers. <b>Same route</b> restricts to identical routes.
+              Which runs count as peers on each card. <b>Type</b> picks same-workout peers within {distTol === 0 ? 'exactly the same distance' : distTol >= 100 ? 'any distance' : <>±{distTol}% of this run&rsquo;s distance</>}; tighter means a more direct comparison, looser means more peers. <b>Same route</b> restricts to identical routes.
             </span>
           </div>
         </div>
@@ -341,7 +341,7 @@ export default function RunCards() {
                 <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 15 }}>
                   {fmtDate(focusRun.date, { year: true })} · {meta[focusRun.type].label} · {fmtDistance(focusRun.distance, units, 1)} {distUnit(units)}
                 </span>
-                <span className="muted"> — lighting up {focusRun.peerCount} similar run{focusRun.peerCount === 1 ? '' : 's'}</span>
+                <span className="muted">, lighting up {focusRun.peerCount} similar run{focusRun.peerCount === 1 ? '' : 's'}</span>
               </div>
               <button className="chip" onClick={() => setPinnedId(null)}>Clear pin</button>
             </div>
@@ -543,7 +543,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
         if (!peerCount) {
           return (
             <Highlight tone="muted">
-              First of its kind with the current peer criteria — widen <b>Similar</b> in <b>⚙</b> to bring more peers into comparison.
+              First of its kind with the current peer criteria. Widen <b>Similar</b> in <b>⚙</b> to bring more peers into comparison.
             </Highlight>
           );
         }
@@ -551,7 +551,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
           return (
             <Highlight>
               <HlNum>Personal record</HlNum> over <HlNum>{fmtDistance(run.distance, units, 1)} {distUnit(units)}</HlNum>
-              {hasDelta && delta < 0 && <> — <HlNum>{deltaStr}</HlNum> faster than the avg of <HlNum>{peerCount}</HlNum> similar {typeLabel} peers</>}
+              {hasDelta && delta < 0 && <>, <HlNum>{deltaStr}</HlNum> faster than the avg of <HlNum>{peerCount}</HlNum> similar {typeLabel} peers</>}
               .
             </Highlight>
           );
@@ -560,7 +560,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
           return (
             <Highlight>
               <HlNum>Best of {peerCount}</HlNum> similar {typeLabel} peers on {metricWord}
-              {hasDelta && delta < 0 && <> — <HlNum>{deltaStr}</HlNum> better than the avg</>}
+              {hasDelta && delta < 0 && <>, <HlNum>{deltaStr}</HlNum> better than the avg</>}
               .
             </Highlight>
           );
@@ -569,7 +569,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
           return (
             <Highlight>
               <HlNum>{ordinal(run.rank)} of {peerCount}</HlNum> similar peers on {metricWord}
-              {hasDelta && delta < 0 && <> — <HlNum>{deltaStr}</HlNum> better than the avg</>}
+              {hasDelta && delta < 0 && <>, <HlNum>{deltaStr}</HlNum> better than the avg</>}
               .
             </Highlight>
           );
@@ -577,14 +577,14 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
         if (hasDelta && delta < 0) {
           return (
             <Highlight>
-              <HlNum>{deltaStr}</HlNum> {isHrMode ? 'lower HR' : 'faster'} than the avg of <HlNum>{peerCount}</HlNum> similar {typeLabel} peers — ranked <HlNum>{ordinal(run.rank)}</HlNum> of {run.rankTotal}.
+              <HlNum>{deltaStr}</HlNum> {isHrMode ? 'lower HR' : 'faster'} than the avg of <HlNum>{peerCount}</HlNum> similar {typeLabel} peers, ranked <HlNum>{ordinal(run.rank)}</HlNum> of {run.rankTotal}.
             </Highlight>
           );
         }
         if (hasDelta && delta > 0) {
           return (
             <Highlight tone="muted">
-              Ranked <HlNum>{ordinal(run.rank)}</HlNum> of <HlNum>{run.rankTotal}</HlNum> similar peers — <HlNum>{deltaStr}</HlNum> off the {metricWord} avg.
+              Ranked <HlNum>{ordinal(run.rank)}</HlNum> of <HlNum>{run.rankTotal}</HlNum> similar peers, <HlNum>{deltaStr}</HlNum> off the {metricWord} avg.
             </Highlight>
           );
         }
@@ -630,8 +630,8 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
       ) : (
         <div className="mono muted" style={{ fontSize: 10.5, fontStyle: 'italic', textAlign: 'center', padding: '6px 0', borderTop: '1px dashed var(--ruleSoft)', marginTop: 4 }}>
           {isHrMode && hasPeers
-            ? 'No HR data for this run — can’t rank by heart rate'
-            : 'First of its kind — no similar runs yet'}
+            ? 'No HR data for this run; can’t rank by heart rate'
+            : 'First of its kind. No similar runs yet'}
         </div>
       )}
 

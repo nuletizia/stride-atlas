@@ -140,7 +140,7 @@ export default function HeroRibbonPreview() {
         <div>
           <div className="stat-label" style={{ marginBottom: 2 }}>Trend Ribbon</div>
           <div style={{ fontSize: 12, color: 'var(--inkSoft)' }}>
-            Six months of running. Each dot a run, higher = faster pace. Watch the cloud drift up as fitness builds.
+            Six months of running. Each dot is a run, higher means faster pace. Watch the cloud drift up as fitness builds.
           </div>
         </div>
         <div style={{ display: 'flex', gap: 12, fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '.08em', color: 'var(--inkMuted)', textTransform: 'uppercase', flexWrap: 'wrap' }}>

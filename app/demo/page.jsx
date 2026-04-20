@@ -21,7 +21,7 @@ export default function DemoPage() {
       <div className="app">
         <div className="header">
           <div>
-            <div className="eyebrow">A Running Journal · v1</div>
+            <div className="eyebrow">Your running progress · v1</div>
             <div className="wordmark"><b>Stride</b><i>Atlas</i></div>
           </div>
         </div>

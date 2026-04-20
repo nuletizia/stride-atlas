@@ -43,7 +43,7 @@ export default function ConnectBanner({ mode, athleteName }) {
           Demo
         </span>
         <span style={{ color: 'var(--inkSoft)' }}>
-          You&rsquo;re viewing a sample dataset — connect your own Strava to see your dashboard.
+          You&rsquo;re viewing a sample dataset. Connect your own Strava to see your dashboard.
         </span>
       </span>
       <a

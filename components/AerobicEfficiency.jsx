@@ -242,10 +242,10 @@ export default function AerobicEfficiency() {
         <div style={{ maxWidth: 560 }}>
           <div className="stat-label" style={{ marginBottom: 4 }}>Aerobic Efficiency</div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', lineHeight: 1.5 }}>
-            Every run plotted by <b>heart rate × pace</b>. As you get fitter, dots drift <b>up-left</b> — faster pace at a <i>lower</i> HR.
+            Every run plotted by <b>heart rate × pace</b>. As you get fitter, dots drift <b>up-left</b>: faster pace at a <i>lower</i> HR.
             Hollow dots are early runs, filled dots are recent; darker = more recent within each half.
-            The bold <b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half — arrow shows the direction of progress.
-            Cards below break the story down by type — click one to drive the take-away.
+            The bold <b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half, and the arrow shows the direction of progress.
+            Cards below break the story down by type; click one to drive the take-away.
           </div>
         </div>
 
@@ -465,7 +465,7 @@ export default function AerobicEfficiency() {
             fontSize: 11, color: 'var(--inkMuted)', marginBottom: 10,
             fontStyle: 'italic', fontFamily: 'var(--serif)',
           }}>
-            Each card splits that type&rsquo;s runs by date — first half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>early</b>, second half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>recent</b> (≥2 per half). We compare the mean HR and show each half&rsquo;s median pace. If pace drifted between halves, the HR delta may be pace-driven (not fitness) and gets flagged.
+            Each card splits that type&rsquo;s runs by date: first half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>early</b>, second half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>recent</b> (≥2 per half). We compare the mean HR and show each half&rsquo;s median pace. If pace drifted between halves, the HR delta may be pace-driven (not fitness) and gets flagged.
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
@@ -549,7 +549,7 @@ export default function AerobicEfficiency() {
                           marginTop: 6, fontSize: 10, fontFamily: 'var(--mono)',
                           color: 'var(--type-tempo)', fontStyle: 'italic',
                         }}>
-                          ⚠ pace shifted {b.paceDelta > 0 ? '+' : '−'}{Math.abs(b.paceDelta * 60 * paceK).toFixed(0)}s{paceUnit(units)} — delta may be pace-driven
+                          ⚠ pace shifted {b.paceDelta > 0 ? '+' : '−'}{Math.abs(b.paceDelta * 60 * paceK).toFixed(0)}s{paceUnit(units)}; delta may be pace-driven
                         </div>
                       )}
                     </>
@@ -570,19 +570,19 @@ export default function AerobicEfficiency() {
         const label = band ? (band.type === 'all' ? 'Overall' : typeMeta[band.type].label) : '';
 
         if (!band || !band.enough) {
-          return <Highlight tone="muted">Not enough separation yet — keep logging runs to build the trend.</Highlight>;
+          return <Highlight tone="muted">Not enough separation yet. Keep logging runs to build the trend.</Highlight>;
         }
         if (band.delta >= 0) {
           return (
             <Highlight tone="muted">
-              <HlNum>{label}</HlNum>: average HR held steady or crept up ({Math.abs(band.delta).toFixed(1)} bpm) between halves — no clear fitness gain in this window.
+              <HlNum>{label}</HlNum>: average HR held steady or crept up ({Math.abs(band.delta).toFixed(1)} bpm) between halves. No clear fitness gain in this window.
             </Highlight>
           );
         }
         if (band.paceDrifted) {
           return (
             <Highlight tone="muted">
-              <HlNum>{label}</HlNum>: HR dropped <HlNum>{Math.abs(band.delta).toFixed(1)} bpm</HlNum>, but pace shifted between halves — the gain may be pace-driven, not fitness.
+              <HlNum>{label}</HlNum>: HR dropped <HlNum>{Math.abs(band.delta).toFixed(1)} bpm</HlNum>, but pace shifted between halves; the gain may be pace-driven, not fitness.
             </Highlight>
           );
         }

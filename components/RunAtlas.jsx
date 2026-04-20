@@ -270,7 +270,7 @@ export default function RunAtlas() {
         }
         return (
           <Highlight tone="muted">
-            <HlNum>{covered} of {total}</HlNum> weeks active in this window — two back-to-back weeks is the easiest way to start a streak.
+            <HlNum>{covered} of {total}</HlNum> weeks active in this window. Two back-to-back weeks is the easiest way to start a streak.
           </Highlight>
         );
       })()}

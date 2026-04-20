@@ -128,7 +128,7 @@ export default function PaceRibbon() {
               <span className="mono muted" style={{ fontSize: 11, marginLeft: 6 }}>
                 ({metricUnitLabel})
               </span>
-            )} over time. Top ribbon is <b>All runs</b>; each row below is a single workout type. The line is a 5-run rolling average — watch it drift up as fitness climbs.
+            )} over time. Top ribbon is <b>All runs</b>; each row below is a single workout type. The line is a 5-run rolling average; watch it drift up as fitness climbs.
           </div>
         </div>
         <MetricToggle />
@@ -291,7 +291,7 @@ export default function PaceRibbon() {
           .filter(Boolean);
         const winners = candidates.filter((c) => c.improvement > 0);
         if (!winners.length) {
-          return <Highlight tone="muted">Not enough runs of a single type yet in this view — 10+ per type makes this line richer.</Highlight>;
+          return <Highlight tone="muted">Not enough runs of a single type yet in this view. 10+ per type makes this line richer.</Highlight>;
         }
         const best = winners.sort((a, b) => b.rel - a.rel)[0];
         const label = meta[best.type].label;
@@ -348,7 +348,7 @@ function MetricToggle() {
           className={`chip ${metric === o.id ? 'active' : ''}`}
           onClick={() => setMetric(o.id)}
           style={o.compound ? { borderLeft: '3px solid var(--accent)' } : undefined}
-          title={o.compound ? 'Speed (m/min) ÷ avg HR — higher = more efficient' : undefined}
+          title={o.compound ? 'Speed (m/min) ÷ avg HR; higher = more efficient' : undefined}
         >
           {o.label}
         </button>

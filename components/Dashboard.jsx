@@ -31,7 +31,7 @@ function Header() {
   return (
     <div className="header">
       <div>
-        <div className="eyebrow">A Running Journal · v1</div>
+        <div className="eyebrow">Your running progress · v1</div>
         <div className="wordmark"><b>Stride</b><i>Atlas</i></div>
       </div>
       <div style={{ display: 'flex', gap: 18, alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -181,8 +181,11 @@ export default function Dashboard({ data, mode = 'demo', athleteName = null }) {
                   <div className="section-title" style={{ fontSize: 22, marginBottom: 2 }}>
                     Progress, <i>in one page.</i>
                   </div>
-                  <div style={{ fontSize: 13, color: 'var(--inkSoft)' }}>
-                    Hover any run — its twins light up across every chart below.
+                  <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 620, lineHeight: 1.5 }}>
+                    Each panel below shows one slice of your training, from a season arc
+                    down to single runs. Scroll through to read the arc, then click any
+                    dot, bar, or calendar cell to open that run&rsquo;s card and see how
+                    it compares against similar runs.
                   </div>
                 </div>
                 <TimeRangeControl />

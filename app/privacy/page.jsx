@@ -29,7 +29,7 @@ export default function PrivacyPage() {
         <h1>Privacy</h1>
         <p className="privacy-lede">
           Stride Atlas is a personal dashboard for your Strava runs. It&rsquo;s built to keep
-          your data close to you — there&rsquo;s no database of activities on our side, no
+          your data close to you. There&rsquo;s no database of activities on our side, no
           email list, no third-party sharing beyond what&rsquo;s strictly required to make
           the app work. This page spells out exactly what that means.
         </p>
@@ -43,8 +43,8 @@ export default function PrivacyPage() {
           When you click <b>Connect with Strava</b>, Strava redirects you back to us with a
           short-lived access token and a long-lived refresh token. We also receive your
           Strava athlete profile (your name, city, and athlete ID) and your run activities
-          (date, distance, pace, duration, heart rate, elevation, route name — the same
-          data Strava shows you on its own dashboard).
+          (date, distance, pace, duration, heart rate, elevation, route name): the same
+          data Strava shows you on its own dashboard.
         </p>
         <p>We do <b>not</b> collect:</p>
         <ul>
@@ -59,19 +59,19 @@ export default function PrivacyPage() {
           Your Strava access and refresh tokens live in an <b>encrypted session cookie</b>{' '}
           (iron-session) that the browser sends back to our server on each request. The
           cookie is HTTP-only, SameSite=Lax, and Secure in production. It expires after
-          30 days of inactivity. We do not have a database of users — if the cookie is
+          30 days of inactivity. We don&rsquo;t have a database of users. If the cookie is
           cleared, there&rsquo;s nothing on our side to reconstruct.
         </p>
         <p>
           Your run activities are fetched from Strava on demand and held in a{' '}
           <b>per-athlete in-memory cache</b> for up to one hour, so the dashboard loads
           quickly without re-hitting Strava&rsquo;s API on every navigation. This cache lives
-          in the server process — when the process restarts (which Vercel does regularly
+          in the server process. When the process restarts (which Vercel does regularly
           on serverless functions), the cache is gone.
         </p>
         <p>
-          Your preferences — theme, km/mi, time range, custom date range, HR max
-          override — live in your browser&rsquo;s <b>localStorage</b>. They never leave your
+          Your preferences (theme, km/mi, time range, custom date range, HR max
+          override) live in your browser&rsquo;s <b>localStorage</b>. They never leave your
           device.
         </p>
 
@@ -121,7 +121,7 @@ export default function PrivacyPage() {
             </a>. Either one clears our ability to reach your data.
           </li>
           <li>
-            <b>Access / export.</b> You already have all of this — it&rsquo;s your data on
+            <b>Access / export.</b> You already have all of this. It&rsquo;s your data on
             Strava. Strava itself provides a bulk export of your activities under{' '}
             <i>Account → Download or Delete Your Account</i>.
           </li>
@@ -137,7 +137,7 @@ export default function PrivacyPage() {
           If this policy changes in a way that affects what we collect or how we use it,
           the <b>Last updated</b> date above will change, and the home page will surface
           a small note for at least a week. If you&rsquo;re disconnected at that point, you
-          won&rsquo;t be affected anyway — there&rsquo;s nothing to change retroactively.
+          won&rsquo;t be affected anyway. There&rsquo;s nothing to change retroactively.
         </p>
 
         <h2>Contact</h2>

@@ -224,9 +224,9 @@ export default function DistancePaceCurve() {
             Every run plotted by <b>distance × pace</b>. Fast pace is at the top; longer runs sit to the
             right, and the cloud naturally slopes toward the lower-right (longer = slower).
             Hollow dots are early runs, filled dots are recent. The bold
-            {' '}<b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half —
+            {' '}<b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half, and the
             arrow shows the direction of progress (up = faster, right = longer).
-            Cards below break the story down by type — click one to drive the take-away.
+            Cards below break the story down by type; click one to drive the take-away.
           </div>
         </div>
 
@@ -455,7 +455,7 @@ export default function DistancePaceCurve() {
           fontSize: 11, color: 'var(--inkMuted)', marginBottom: 10,
           fontStyle: 'italic', fontFamily: 'var(--serif)',
         }}>
-          Each card splits that type&rsquo;s runs by date — first half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>early</b>, second half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>recent</b> (≥2 per half). We show both median distance and median pace — distance growth and pace shift can move independently, so both deltas are always shown.
+          Each card splits that type&rsquo;s runs by date: first half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>early</b>, second half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>recent</b> (≥2 per half). We show both median distance and median pace; distance growth and pace shift can move independently, so both deltas are always shown.
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
@@ -548,7 +548,7 @@ export default function DistancePaceCurve() {
         const band = bandReadouts.find((b) => b.type === activeTrend);
         const label = band ? (band.type === 'all' ? 'Overall' : typeMeta[band.type].label) : '';
         if (!band || !band.enough) {
-          return <Highlight tone="muted">Not enough runs in this type yet — keep logging to unlock the endurance read.</Highlight>;
+          return <Highlight tone="muted">Not enough runs in this type yet. Keep logging to unlock the endurance read.</Highlight>;
         }
         const distDisp = kmToDisplay(band.distDelta, units);
         const paceSec = band.paceDelta * 60 * paceK; // positive = faster
@@ -569,7 +569,7 @@ export default function DistancePaceCurve() {
         if (faster) {
           return (
             <Highlight>
-              <HlNum>{label}</HlNum>: same ground, faster. <HlNum>{paceStr}</HlNum> — that&rsquo;s <HlNum>{paceSec.toFixed(0)} s{paceUnit(units)}</HlNum> quicker at a similar distance.
+              <HlNum>{label}</HlNum>: same ground, faster. <HlNum>{paceStr}</HlNum>, that&rsquo;s <HlNum>{paceSec.toFixed(0)} s{paceUnit(units)}</HlNum> quicker at a similar distance.
             </Highlight>
           );
         }

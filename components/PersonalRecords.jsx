@@ -43,7 +43,7 @@ export default function PersonalRecords() {
           <div className="stat-label" style={{ marginBottom: 4 }}>Personal Records</div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 640 }}>
             Rolling 1 km / 5 km / 10 km / HM / Marathon splits need your per-activity GPS stream
-            (one extra API call per run). We only fetched summaries so far — tap <b>Sync full history</b>
+            (one extra API call per run). We only fetched summaries so far. Tap <b>Sync full history</b>
             to compute these in the background.
           </div>
         </div>
@@ -145,7 +145,7 @@ export default function PersonalRecords() {
       <div style={{ marginBottom: 16 }}>
         <div className="stat-label" style={{ marginBottom: 4 }}>Personal Records</div>
         <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 640 }}>
-          Your fastest rolling split at each classic distance — always <b>all-time</b>, unaffected by
+          Your fastest rolling split at each classic distance, always <b>all-time</b> and unaffected by
           the time-range filter. The comparison line shows your best time{' '}
           {isAllTime
             ? <>in the <b>first half</b> of your history</>
@@ -163,13 +163,13 @@ export default function PersonalRecords() {
       {biggestDrop ? (
         <Highlight>
           Biggest PR drop: <HlNum>{biggestDrop.record.label}</HlNum> down{' '}
-          <HlNum>{biggestDrop.secDropped.toFixed(0)} s</HlNum> —{' '}
+          <HlNum>{biggestDrop.secDropped.toFixed(0)} s</HlNum>:{' '}
           <HlNum>{fmtDuration(biggestDrop.record.prevMin)} → {fmtDuration(biggestDrop.record.bestMin)}</HlNum>
           {' '}on <HlNum>{fmtDate(biggestDrop.record.run.date, { year: true })}</HlNum>. Keep the streak going.
         </Highlight>
       ) : (
         <Highlight tone="muted">
-          PRs locked in across your classic distances — next improvement starts with a harder effort.
+          PRs locked in across your classic distances. Next improvement starts with a harder effort.
         </Highlight>
       )}
     </div>

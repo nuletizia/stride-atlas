@@ -4,8 +4,8 @@ import { getSession, isLoggedIn } from '@/lib/session';
 import HeroRibbonPreview from '@/components/HeroRibbonPreview';
 
 export const metadata = {
-  title: 'Stride Atlas — See your running progress',
-  description: 'A compact progress view of your Strava runs. Aerobic base, tempo pace, long runs, PRs — all on one page. Built for runners training toward a goal.',
+  title: 'Stride Atlas · See your running progress',
+  description: 'A compact progress view of your Strava runs. Aerobic base, tempo pace, long runs, PRs, all on one page. Built for runners training toward a goal.',
 };
 
 export default async function LandingPage() {
@@ -31,10 +31,10 @@ export default async function LandingPage() {
           See your progress.<br />Not just your last run.
         </h1>
         <p className="landing-subhead">
-          Training for a half marathon, chasing a 5K PR, or just curious whether you&rsquo;re
-          actually getting fitter? Most apps show you what you did yesterday. Stride Atlas
-          shows you the <i>arc</i> of your training — every run, every PR, every trend —
-          on one compact page you can take in at a glance.
+          Training for a half marathon, chasing a 5K PR, or just curious whether
+          you&rsquo;re actually getting fitter? Most apps show you what you did yesterday.
+          Stride Atlas shows you the <i>arc</i> of your training: every run, every PR,
+          every trend, on one compact page you can take in at a glance.
         </p>
         <div className="landing-cta-row">
           <a href="/api/auth/strava" className="connect-strava-btn" aria-label="Connect with Strava">
@@ -57,15 +57,15 @@ export default async function LandingPage() {
       <section className="landing-features">
         <FeatureCard
           title="Progress at every scale"
-          body="From season arcs down to individual runs. See whether your aerobic base is growing, your tempo pace is inching down, or your long runs are holding shape — all on one page."
+          body="From season arcs down to individual runs. See whether your aerobic base is growing, your tempo pace is inching down, or your long runs are holding shape. All on one page."
         />
         <FeatureCard
           title="Goal-aware comparisons"
-          body="Every run is placed against its peers — same workout type, similar distance, same effort band. No vague vibes: you know instantly whether today was a PR, a regression, or just another Tuesday."
+          body="Every run is placed against its peers: same workout type, similar distance, same effort band. No vague vibes. You know instantly whether today was a PR, a regression, or just another Tuesday."
         />
         <FeatureCard
           title="Dense, not noisy"
-          body="Nine panels tuned to what runners actually track: pace bands, aerobic efficiency, PR distances, season totals. No feed, no kudos, no timeline — just the signal."
+          body="Nine panels tuned to what runners actually track: pace bands, aerobic efficiency, PR distances, season totals. No feed, no kudos, no timeline. Just the signal."
         />
       </section>
 
