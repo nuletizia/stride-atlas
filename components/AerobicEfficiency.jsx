@@ -297,13 +297,14 @@ export default function AerobicEfficiency() {
               <g>
                 {/* Two vertical reference lines at each half's mean HR. Labels
                      stack in the top-right of the plot to avoid colliding
-                     with each other when the two HRs are close. */}
-                <line x1={trend.startX} x2={trend.startX} y1={M.t} y2={H - M.b} stroke={`var(--type-${trendType})`} strokeWidth={1} strokeDasharray="4 4" opacity={0.35} />
-                <line x1={trend.endX} x2={trend.endX} y1={M.t} y2={H - M.b} stroke={`var(--type-${trendType})`} strokeWidth={1.5} opacity={0.7} />
-                <text x={W - M.r - 6} y={M.t + 10} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: `var(--type-${trendType})`, opacity: 0.7 }}>
+                     with each other when the two HRs are close. Inked in the
+                     same dashed-early / solid-recent language as DPC. */}
+                <line x1={trend.startX} x2={trend.startX} y1={M.t} y2={H - M.b} stroke="var(--inkSoft)" strokeWidth={1.2} strokeDasharray="4 3" opacity={0.55} />
+                <line x1={trend.endX} x2={trend.endX} y1={M.t} y2={H - M.b} stroke="var(--ink)" strokeWidth={1.6} opacity={0.85} />
+                <text x={W - M.r - 6} y={M.t + 10} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: 'var(--inkSoft)' }}>
                   {typeMeta[trendType].label} · early · {Math.round(trend.startHr)} bpm @ {fmtPace(paceToDisplay(trend.startPace, units))}
                 </text>
-                <text x={W - M.r - 6} y={M.t + 22} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: `var(--type-${trendType})`, fontWeight: 600 }}>
+                <text x={W - M.r - 6} y={M.t + 22} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: 'var(--ink)', fontWeight: 600 }}>
                   recent · {Math.round(trend.endHr)} bpm @ {fmtPace(paceToDisplay(trend.endPace, units))} ({trend.delta >= 0 ? '+' : '−'}{Math.abs(Math.round(trend.delta))} bpm{trend.paceDrifted ? ' · pace shifted' : ''})
                 </text>
               </g>
@@ -362,7 +363,7 @@ export default function AerobicEfficiency() {
                 <circle cx={5} cy={5} r={3.2} fill="none" stroke="var(--ink)" strokeWidth={1.2} />
               </svg>
               <svg width={24} height={6}>
-                <line x1={0} x2={24} y1={3} y2={3} stroke={`var(--type-${trendType})`} strokeWidth={1.2} strokeDasharray="4 4" opacity={0.7} />
+                <line x1={0} x2={24} y1={3} y2={3} stroke="var(--inkSoft)" strokeWidth={1.2} strokeDasharray="3 2" opacity={0.6} />
               </svg>
               early {trend && (
                 <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--inkSoft)' }}>
@@ -375,7 +376,7 @@ export default function AerobicEfficiency() {
                 <circle cx={5} cy={5} r={3.2} fill="var(--ink)" />
               </svg>
               <svg width={24} height={6}>
-                <line x1={0} x2={24} y1={3} y2={3} stroke={`var(--type-${trendType})`} strokeWidth={1.6} />
+                <line x1={0} x2={24} y1={3} y2={3} stroke="var(--ink)" strokeWidth={1.6} />
               </svg>
               recent {trend && (
                 <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>
@@ -388,8 +389,8 @@ export default function AerobicEfficiency() {
               <svg width={120} height={10} style={{ display: 'block' }}>
                 <defs>
                   <linearGradient id="recgrad" x1="0" x2="1">
-                    <stop offset="0" stopColor="var(--type-tempo)" stopOpacity={0.25} />
-                    <stop offset="1" stopColor="var(--type-tempo)" stopOpacity={0.9} />
+                    <stop offset="0" stopColor="var(--ink)" stopOpacity={0.15} />
+                    <stop offset="1" stopColor="var(--ink)" stopOpacity={0.9} />
                   </linearGradient>
                 </defs>
                 <rect width={120} height={10} fill="url(#recgrad)" rx={5} />

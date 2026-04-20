@@ -17,12 +17,19 @@ export default function PaceRibbon() {
   const { metric, units } = useTweaks();
 
   const types = ['intervals', 'tempo', 'race', 'long', 'easy', 'recovery'];
+  // Rendered rows — "all" sits at the top as a combined overview alongside
+  // the per-type rows. It's excluded from the per-type highlight candidates
+  // below so the one-liner stays about a specific workout type.
+  const rowTypes = ['all', ...types];
   const meta = data.typeMeta;
+  const labelFor = (t) => (t === 'all' ? 'All runs' : meta[t].label);
+  const colorFor = (t) => (t === 'all' ? 'var(--ink)' : `var(--type-${t})`);
 
   const byType = useMemo(() => {
     const o = {};
     types.forEach((t) => (o[t] = []));
     runs.forEach((r) => o[r.type]?.push(r));
+    o.all = [...runs];
     Object.values(o).forEach((arr) => arr.sort((a, b) => a.date.localeCompare(b.date)));
     return o;
   }, [runs]);
@@ -129,8 +136,8 @@ export default function PaceRibbon() {
       </div>
 
       <div style={{ overflowX: 'auto' }}>
-        <svg width={W} height={types.length * H_ROW + 20} style={{ display: 'block' }}>
-          {types.map((type, ri) => {
+        <svg width={W} height={rowTypes.length * H_ROW + 20} style={{ display: 'block' }}>
+          {rowTypes.map((type, ri) => {
             let arr = byType[type];
             // Drop runs without a valid HR in HR/Efficiency modes — else they
             // poison the bounds (min=0) and squash all real values into a
@@ -146,7 +153,7 @@ export default function PaceRibbon() {
 
             const rolling = rollingAvg(arr, bounds);
             const pathD = rolling.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ');
-            const color = `var(--type-${type})`;
+            const color = colorFor(type);
 
             // Start/end rolling-avg labels — one at each end of the line so
             // the user can read "where I started → where I am now" at a glance.
@@ -168,7 +175,7 @@ export default function PaceRibbon() {
                   x={0} y={H_ROW / 2 + 4}
                   style={{ fontFamily: 'var(--sans)', fontSize: 13, fill: 'var(--ink)', fontWeight: 500 }}
                 >
-                  {meta[type].label}
+                  {labelFor(type)}
                 </text>
                 <text
                   x={0} y={H_ROW / 2 + 19}

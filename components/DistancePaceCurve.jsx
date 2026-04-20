@@ -212,7 +212,7 @@ export default function DistancePaceCurve() {
     <div className="panel" style={{ padding: '22px 24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, marginBottom: 18, flexWrap: 'wrap' }}>
         <div style={{ maxWidth: 560 }}>
-          <div className="stat-label" style={{ marginBottom: 4 }}>Distance × Pace Curve</div>
+          <div className="stat-label" style={{ marginBottom: 4 }}>Aerobic Endurance</div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', lineHeight: 1.5 }}>
             Every run plotted by <b>distance × pace</b>. Fast pace is at the top of the chart; longer runs
             sit to the right. The cloud naturally slopes toward the lower-right (longer = slower). We split
@@ -402,8 +402,8 @@ export default function DistancePaceCurve() {
           <svg width={120} height={10} style={{ display: 'block' }}>
             <defs>
               <linearGradient id="dpcrecgrad" x1="0" x2="1">
-                <stop offset="0" stopColor="var(--type-tempo)" stopOpacity={0.25} />
-                <stop offset="1" stopColor="var(--type-tempo)" stopOpacity={0.9} />
+                <stop offset="0" stopColor="var(--ink)" stopOpacity={0.15} />
+                <stop offset="1" stopColor="var(--ink)" stopOpacity={0.9} />
               </linearGradient>
             </defs>
             <rect width={120} height={10} fill="url(#dpcrecgrad)" rx={5} />
