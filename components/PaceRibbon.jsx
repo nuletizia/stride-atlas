@@ -34,7 +34,9 @@ export default function PaceRibbon() {
   const W = 860;
   const H_ROW = 58;
   const LEFT = 110;
-  const RIGHT = 20;
+  // RIGHT gutter reserves space for the rolling-avg end label. 3-digit HR at
+  // fontSize ~10px needs ~22px; a little padding brings us to 44.
+  const RIGHT = 44;
   const PLOT_W = W - LEFT - RIGHT;
 
   // Convention: "improvement drifts UP visually" across all metrics.
@@ -64,10 +66,15 @@ export default function PaceRibbon() {
       ) / slice.length;
       const t = (v - bounds.min) / (bounds.max - bounds.min || 1);
       const clamped = metric === 'distance' ? 1 - t : t;
-      pts.push({ x: xFor(arr[i]), y: 10 + clamped * (H_ROW - 20) });
+      pts.push({ x: xFor(arr[i]), y: 10 + clamped * (H_ROW - 20), value: v });
     }
     return pts;
   }
+
+  const fmtMetric = (v) =>
+    metric === 'pace' ? fmtPace(v) :
+    metric === 'distance' ? v.toFixed(1) :
+    `${Math.round(v)}`;
 
   const metricLabel = { pace: 'Pace', distance: 'Distance', hr: 'Avg HR' }[metric];
   const metricUnit = { pace: 'min/km', distance: 'km', hr: 'bpm' }[metric];
@@ -78,7 +85,7 @@ export default function PaceRibbon() {
     <div className="panel" style={{ padding: '20px 22px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <div className="stat-label" style={{ marginBottom: 4 }}>Pace Ribbon</div>
+          <div className="stat-label" style={{ marginBottom: 4 }}>Trend Ribbons</div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 520 }}>
             {metricLabel} over time, stacked by workout type. The line is a 5-run rolling average — watch it
             drift up as fitness climbs.
@@ -108,13 +115,18 @@ export default function PaceRibbon() {
             const pathD = rolling.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ');
             const color = `var(--type-${type})`;
 
-            // Best-value label: sits at the "best" end of the row (top for
-            // pace/HR where low is best; bottom for distance where high is best).
-            const bestY = metric === 'distance' ? H_ROW - 10 : 14;
-            const bestVal =
-              metric === 'pace' ? fmtPace(bounds.min) :
-              metric === 'distance' ? bounds.max.toFixed(1) :
-              bounds.min.toFixed(0);
+            // Start/end rolling-avg labels — one at each end of the line so
+            // the user can read "where I started → where I am now" at a glance.
+            // Labels sit in the LEFT and RIGHT gutters (outside the plot) and
+            // are vertically centered on the rolling point's y, so the label's
+            // vertical position reflects its value. A lower label means a
+            // better pace/HR (or a longer distance in distance mode).
+            const firstRoll = rolling[0];
+            const lastRoll = rolling[rolling.length - 1];
+            // Did the metric improve? (pace/hr: down is good, distance: up is good)
+            const improved = metric === 'distance'
+              ? lastRoll.value > firstRoll.value
+              : lastRoll.value < firstRoll.value;
 
             return (
               <g key={type} transform={`translate(0, ${ri * H_ROW})`}>
@@ -133,15 +145,35 @@ export default function PaceRibbon() {
 
                 <g transform={`translate(${LEFT}, 0)`}>
                   <line x1={0} x2={PLOT_W} y1={H_ROW - 6} y2={H_ROW - 6} stroke="var(--ruleSoft)" />
-                  <text
-                    x={PLOT_W + 4}
-                    y={bestY}
-                    style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: 'var(--inkMuted)' }}
-                  >
-                    {bestVal}
-                  </text>
 
                   <path d={pathD} fill="none" stroke={color} strokeWidth={1.4} opacity={0.55} />
+
+                  {/* Start value — anchored in the LEFT gutter, vertically
+                       centered on the rolling line's starting y. */}
+                  <text
+                    x={-6}
+                    y={firstRoll.y}
+                    textAnchor="end"
+                    dominantBaseline="middle"
+                    style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkSoft)', fontWeight: 500 }}
+                  >
+                    {fmtMetric(firstRoll.value)}
+                  </text>
+                  {/* End value — anchored in the RIGHT gutter at the line's
+                       ending y; bold + positive color when improved. */}
+                  <text
+                    x={PLOT_W + 6}
+                    y={lastRoll.y}
+                    textAnchor="start"
+                    dominantBaseline="middle"
+                    style={{
+                      fontFamily: 'var(--mono)', fontSize: 10.5,
+                      fill: improved ? 'var(--positive)' : 'var(--ink)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {fmtMetric(lastRoll.value)}
+                  </text>
 
                   {arr.map((r) => {
                     const cx = xFor(r);

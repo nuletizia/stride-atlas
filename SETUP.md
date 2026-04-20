@@ -66,7 +66,7 @@ After ingest, routes come out as `Route 1`, `Route 2`, … Two ways to make them
 ### Missing data (mixed devices)
 
 If your export mixes Garmin (full data) and Amazfit / older devices (may skip HR):
-- Runs without valid HR are stored as `hr: null` and excluded from Aerobic Efficiency / Pace Ribbon (HR mode) rather than plotted at zero.
+- Runs without valid HR are stored as `hr: null` and excluded from Aerobic Efficiency / Trend Ribbons (HR mode) rather than plotted at zero.
 - Tooltips and cards show `—` in place of `0 bpm`.
 
 ### 3. Run
@@ -157,7 +157,7 @@ Visit `http://localhost:3000`. You'll see the offline demo (if you've ingested d
 
 Fetching **summaries only** from Strava — no per-activity streams — already fills 8 of the 9 panels:
 
-- Run Atlas · Pace Ribbon · Aerobic Efficiency (avg HR) · Distance × Pace · Run Cards · Same-Route Duel · Week Comparator · Season Arc
+- Run Atlas · Trend Ribbons · Aerobic Efficiency (avg HR) · Distance × Pace · Run Cards · Same-Route Duel · Week Comparator · Season Arc
 
 **Personal Records** shows a placeholder until streams are fetched — those require one extra API call per activity to compute rolling 1 km / 5 km / 10 km / HM / Marathon splits. Coming in Phase 2.
 
