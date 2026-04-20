@@ -24,7 +24,10 @@ export default function AerobicEfficiency() {
   // drops into colored-by-type mode.
   const [activeTypes, setActiveTypes] = useState(() => new Set());
   const isAllMode = activeTypes.size === 0;
-  const [trendType, setTrendType] = useState('tempo');
+  // `null` until the user clicks a card. While null, the highlight defaults
+  // to the winner type (biggest clean HR drop), so the initial read shows
+  // the most meaningful story without a click.
+  const [trendType, setTrendType] = useState(null);
 
   // If the median pace slowed between early and late halves by more than
   // this, the HR drop is likely pace-driven (easier effort), not fitness,
@@ -112,9 +115,12 @@ export default function AerobicEfficiency() {
   }, [bounds]);
 
   const bandReadouts = useMemo(() => {
-    const types = ['easy', 'tempo', 'long', 'intervals'];
-    const range = dateRange.end - dateRange.start || 1;
-    const midpoint = dateRange.start + range * 0.5;
+    // "All" leads the row as an aggregate reference across every type.
+    // Split method: sort by date, take first half as early / second as late.
+    // Count-based (not time-midpoint) so a type whose runs cluster in a
+    // narrow window still gets a balanced split instead of falling off the
+    // "enough data" cliff.
+    const types = ['all', 'easy', 'tempo', 'long', 'intervals'];
 
     const medianOf = (arr) => {
       const sorted = [...arr].sort((a, b) => a - b);
@@ -122,11 +128,13 @@ export default function AerobicEfficiency() {
     };
 
     return types.map((t) => {
-      const typeRuns = inView.filter((r) => r.type === t);
+      const typeRuns = t === 'all' ? inView : inView.filter((r) => r.type === t);
       if (typeRuns.length < 4) return { type: t, enough: false };
 
-      const early = typeRuns.filter((r) => new Date(r.date).getTime() <= midpoint);
-      const late = typeRuns.filter((r) => new Date(r.date).getTime() > midpoint);
+      const sorted = [...typeRuns].sort((a, b) => a.date.localeCompare(b.date));
+      const mid = Math.floor(sorted.length / 2);
+      const early = sorted.slice(0, mid);
+      const late = sorted.slice(mid);
 
       // Need ≥2 per half so each side is at least a short average, not a
       // single session. (Relaxed from 3; noisier but reaches more types.)
@@ -158,23 +166,31 @@ export default function AerobicEfficiency() {
         lateLabel: `${dateFmt(lateDates[0])} → ${dateFmt(lateDates[lateDates.length - 1])}`,
       };
     });
-  }, [inView, dateRange]);
+  }, [inView]);
 
-  // Chart centroid follows the currently-visible subset (filter aware):
-  // mean HR + median pace of each half split at the date midpoint. Decoupled
-  // from the band-card trendType so the "+" markers always match the cloud
-  // on screen — whether that's "All runs" or a filtered type.
+  // Biggest clean HR drop across the specific-type bands — used as the
+  // default active card when the user hasn't clicked one yet.
+  const winnerType = useMemo(() => {
+    const wins = bandReadouts.filter((b) => b.type !== 'all' && b.enough && b.delta < 0 && !b.paceDrifted);
+    if (!wins.length) return null;
+    return wins.reduce((a, b) => (a.delta < b.delta ? a : b)).type;
+  }, [bandReadouts]);
+  const activeTrend = trendType ?? winnerType ?? 'tempo';
+
+  // Chart centroid follows the currently-visible subset (filter aware) using
+  // the same count-based split as the band readouts above, so the chart's
+  // "+" markers match the "All" / per-type cards exactly.
   const trend = useMemo(() => {
     const subset = inView.filter((r) => isAllMode || activeTypes.has(r.type));
     if (subset.length < 4) return null;
-    const range = dateRange.end - dateRange.start || 1;
-    const midpoint = dateRange.start + range * 0.5;
-    const early = subset.filter((r) => new Date(r.date).getTime() <= midpoint);
-    const late = subset.filter((r) => new Date(r.date).getTime() > midpoint);
+    const sorted = [...subset].sort((a, b) => a.date.localeCompare(b.date));
+    const mid = Math.floor(sorted.length / 2);
+    const early = sorted.slice(0, mid);
+    const late = sorted.slice(mid);
     if (early.length < 2 || late.length < 2) return null;
     const medianOf = (arr) => {
-      const sorted = [...arr].sort((a, b) => a - b);
-      return sorted[Math.floor(sorted.length / 2)];
+      const s = [...arr].sort((a, b) => a - b);
+      return s[Math.floor(s.length / 2)];
     };
     const earlyHr = early.reduce((a, r) => a + r.hr, 0) / early.length;
     const lateHr = late.reduce((a, r) => a + r.hr, 0) / late.length;
@@ -190,7 +206,7 @@ export default function AerobicEfficiency() {
       paceDrifted,
       earlyN: early.length, lateN: late.length,
     };
-  }, [inView, activeTypes, isAllMode, dateRange, bounds]);
+  }, [inView, activeTypes, isAllMode, bounds]);
 
   const scopeLabel = isAllMode
     ? 'All runs'
@@ -409,7 +425,7 @@ export default function AerobicEfficiency() {
               </svg>
               early {trend && (
                 <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--inkSoft)' }}>
-                  · {typeMeta[trendType].label} · {Math.round(trend.startHr)} bpm @ {fmtPace(paceToDisplay(trend.startPace, units))}
+                  · {scopeLabel} · {Math.round(trend.startHr)} bpm @ {fmtPace(paceToDisplay(trend.startPace, units))}
                 </span>
               )}
             </span>
@@ -459,10 +475,10 @@ export default function AerobicEfficiency() {
             The visible date range is split in half at its midpoint — runs before go into <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>early</b>, runs after into <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>recent</b>. Within each workout type we compare the average HR of the two halves (≥3 runs per half) and also show the median pace of each half — if pace drifted noticeably between the two, the HR delta is likely pace-driven and gets flagged.
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
             {bandReadouts.map((b) => {
-              const isActive = trendType === b.type;
-              const color = `var(--type-${b.type})`;
+              const isActive = activeTrend === b.type;
+              const color = b.type === 'all' ? 'var(--ink)' : `var(--type-${b.type})`;
               return (
                 <button
                   key={b.type}
@@ -487,7 +503,7 @@ export default function AerobicEfficiency() {
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 500 }}>{typeMeta[b.type].label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>{b.type === 'all' ? 'All' : typeMeta[b.type].label}</span>
                     {b.enough ? (
                       <span className="mono" style={{ fontSize: 10, color: 'var(--inkMuted)' }}>
                         {fmtPace(paceToDisplay(b.earlyPace, units))} → {fmtPace(paceToDisplay(b.latePace, units))}
@@ -554,22 +570,34 @@ export default function AerobicEfficiency() {
       </div>
 
       {(() => {
-        // Any HR drop counts (delta < 0). Pace-drift still disqualifies —
-        // otherwise the "gain" could be the runner slowing down, not fitness.
-        const wins = bandReadouts.filter((b) => b.enough && b.delta < 0 && !b.paceDrifted);
-        if (!wins.length) {
-          const drifted = bandReadouts.filter((b) => b.enough && b.delta < 0 && b.paceDrifted);
-          if (drifted.length) {
-            return <Highlight tone="muted">Some HR drops look like fitness, but pace shifted between halves — hold pace steady within a type to get a cleaner read.</Highlight>;
-          }
+        // Highlight reflects the active card (user's click, or the winner
+        // by default). Four branches: no data, HR held/crept up, HR
+        // dropped but pace shifted, and the clean-gain success case.
+        const band = bandReadouts.find((b) => b.type === activeTrend);
+        const label = band ? (band.type === 'all' ? 'Overall' : typeMeta[band.type].label) : '';
+
+        if (!band || !band.enough) {
           return <Highlight tone="muted">Not enough separation yet — keep logging runs to build the trend.</Highlight>;
         }
-        const best = wins.reduce((a, b) => (a.delta < b.delta ? a : b));
+        if (band.delta >= 0) {
+          return (
+            <Highlight tone="muted">
+              <HlNum>{label}</HlNum>: average HR held steady or crept up ({Math.abs(band.delta).toFixed(1)} bpm) between halves — no clear fitness gain in this window.
+            </Highlight>
+          );
+        }
+        if (band.paceDrifted) {
+          return (
+            <Highlight tone="muted">
+              <HlNum>{label}</HlNum>: HR dropped <HlNum>{Math.abs(band.delta).toFixed(1)} bpm</HlNum>, but pace shifted between halves — the gain may be pace-driven, not fitness.
+            </Highlight>
+          );
+        }
         return (
           <Highlight>
-            Biggest fitness gain: <HlNum>{typeMeta[best.type].label}</HlNum> — average HR dropped{' '}
-            <HlNum>{Math.abs(best.delta).toFixed(1)} bpm</HlNum>{' '}
-            at similar pace (<HlNum>{fmtPace(paceToDisplay(best.earlyPace, units))} → {fmtPace(paceToDisplay(best.latePace, units))}</HlNum>). You&rsquo;re doing the same work with less effort.
+            <HlNum>{label}</HlNum>: average HR dropped{' '}
+            <HlNum>{Math.abs(band.delta).toFixed(1)} bpm</HlNum>{' '}
+            at similar pace (<HlNum>{fmtPace(paceToDisplay(band.earlyPace, units))} → {fmtPace(paceToDisplay(band.latePace, units))}</HlNum>). You&rsquo;re doing the same work with less effort.
           </Highlight>
         );
       })()}

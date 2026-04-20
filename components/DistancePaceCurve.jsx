@@ -83,19 +83,22 @@ export default function DistancePaceCurve() {
     return (t - dateRange.start) / (dateRange.end - dateRange.start);
   };
 
-  // (distance × pace) centroid for each half of the visible subset. Uses
-  // median on both axes so outlier distances (races, long days) don't skew
-  // the marker. Arrow from early → recent shows the direction of progress.
+  // (distance × pace) centroid for each half of the visible subset. Split
+  // is count-based (sort by date, take halves) so a filter like "race" with
+  // runs clustered near an event still gets a balanced early/recent split
+  // instead of producing an empty early half. Both axes use median so
+  // outlier long days don't drag the marker.
   const centroids = useMemo(() => {
     const subset = inView.filter((r) => isAllMode || activeTypes.has(r.type));
     if (subset.length < 4) return null;
-    const midT = dateRange.start + (dateRange.end - dateRange.start) / 2;
-    const early = subset.filter((r) => new Date(r.date).getTime() <= midT);
-    const late = subset.filter((r) => new Date(r.date).getTime() > midT);
+    const sorted = [...subset].sort((a, b) => a.date.localeCompare(b.date));
+    const mid = Math.floor(sorted.length / 2);
+    const early = sorted.slice(0, mid);
+    const late = sorted.slice(mid);
     if (early.length < 2 || late.length < 2) return null;
     const medianOf = (arr) => {
-      const sorted = [...arr].sort((a, b) => a - b);
-      return sorted[Math.floor(sorted.length / 2)];
+      const s = [...arr].sort((a, b) => a - b);
+      return s[Math.floor(s.length / 2)];
     };
     const startDist = medianOf(early.map((r) => r.distance));
     const endDist = medianOf(late.map((r) => r.distance));
@@ -106,7 +109,7 @@ export default function DistancePaceCurve() {
       endX: xFor(endDist), endY: yFor(endPace),
       startDist, endDist, startPace, endPace,
     };
-  }, [inView, activeTypes, isAllMode, dateRange, bounds]);
+  }, [inView, activeTypes, isAllMode, bounds]);
 
   const scopeLabel = isAllMode
     ? 'All runs'
