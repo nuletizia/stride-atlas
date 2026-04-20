@@ -218,12 +218,45 @@ export function useTooltip() { return useContext(TooltipContext); }
 // `focusRequest` is a transient signal: a panel writes a runId here to ask
 // RunCards to scroll to + expand that card, then RunCards clears it back to
 // null. Use it for "click a dot in AE/DPC → jump to run card" flows.
+//
+// `requestFocus(id)` wraps setFocusRequest with a two-tap gate on touch
+// devices. First tap on a dot just marks it pending (and returns false) so
+// the tooltip has time to be read; second tap on the same dot commits the
+// jump (returns true). On non-touch (hover-capable) devices it commits
+// immediately. Callers use the return value to decide whether to dismiss
+// the tooltip.
 const LinkContext = createContext(null);
 export function LinkProvider({ children }) {
   const [hovered, setHovered] = useState(null);
   const [focusRequest, setFocusRequest] = useState(null);
+  const [pendingFocusId, setPendingFocusId] = useState(null);
+  const [isTouch, setIsTouch] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    setIsTouch(window.matchMedia('(hover: none)').matches);
+  }, []);
+
+  const requestFocus = useCallback((id) => {
+    if (!isTouch) {
+      setFocusRequest(id);
+      return true;
+    }
+    if (pendingFocusId === id) {
+      setPendingFocusId(null);
+      setFocusRequest(id);
+      return true;
+    }
+    setPendingFocusId(id);
+    return false;
+  }, [isTouch, pendingFocusId]);
+
   return (
-    <LinkContext.Provider value={{ hovered, setHovered, focusRequest, setFocusRequest }}>
+    <LinkContext.Provider value={{
+      hovered, setHovered,
+      focusRequest, setFocusRequest,
+      isTouch, pendingFocusId, requestFocus,
+    }}>
       {children}
     </LinkContext.Provider>
   );

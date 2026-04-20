@@ -9,7 +9,7 @@ import {
 
 export default function SameRouteDuel() {
   const data = useData();
-  const { hovered, setHovered, setFocusRequest } = useLink();
+  const { hovered, setHovered, isTouch, pendingFocusId, requestFocus } = useLink();
   const { show, hide } = useTooltip();
   const { units } = useTweaks();
   const runs = useFilteredRuns();
@@ -120,8 +120,11 @@ export default function SameRouteDuel() {
                       e.clientX, e.clientY
                     );
                   }}
-                  onMouseLeave={() => { setHovered(null); hide(); }}
-                  onClick={() => { setHovered(null); hide(); setFocusRequest(r.id); }}
+                  onMouseLeave={() => {
+                    if (isTouch && pendingFocusId === r.id) return;
+                    setHovered(null); hide();
+                  }}
+                  onClick={() => { if (requestFocus(r.id)) { setHovered(null); hide(); } }}
                 >
                   <rect x={x} y={y} width={BAR_W} height={barH} fill={`var(--type-${r.type})`} opacity={isBest ? 1 : 0.75} />
                   {isBest && <rect x={x - 1.5} y={y - 1.5} width={BAR_W + 3} height={barH + 3} fill="none" stroke="var(--ink)" strokeWidth={1.2} />}

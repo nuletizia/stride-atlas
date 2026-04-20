@@ -615,12 +615,15 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
       {expanded && (
         <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px dashed var(--ruleSoft)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 10, flexWrap: 'wrap' }}>
-            <div className="mono" style={{ fontSize: 10, color: 'var(--inkMuted)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
+            <div className="mono" style={{
+              fontSize: 10, color: 'var(--inkMuted)', letterSpacing: '.08em', textTransform: 'uppercase',
+              flex: '1 1 auto', minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.5,
+            }}>
               Recent similar runs{peerView === 'grid' ? ` · sorted by ${isHrMode ? 'lowest avg HR' : 'fastest pace'}` : ' · HR × pace'}
             </div>
             <div
               className="seg"
-              style={{ height: 24 }}
+              style={{ height: 24, flexShrink: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
               <button

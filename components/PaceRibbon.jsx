@@ -12,7 +12,7 @@ import {
 export default function PaceRibbon() {
   const data = useData();
   const runs = useFilteredRuns();
-  const { hovered, setHovered, setFocusRequest } = useLink();
+  const { hovered, setHovered, isTouch, pendingFocusId, requestFocus } = useLink();
   const { show, hide } = useTooltip();
   const { metric, units } = useTweaks();
 
@@ -252,8 +252,11 @@ export default function PaceRibbon() {
                             e.clientX, e.clientY
                           );
                         }}
-                        onMouseLeave={() => { setHovered(null); hide(); }}
-                        onClick={() => { setHovered(null); hide(); setFocusRequest(r.id); }}
+                        onMouseLeave={() => {
+                          if (isTouch && pendingFocusId === r.id) return;
+                          setHovered(null); hide();
+                        }}
+                        onClick={() => { if (requestFocus(r.id)) { setHovered(null); hide(); } }}
                       >
                         <circle cx={cx} cy={cy} r={r.pr ? 4 : 2.8} fill={color} />
                         {r.pr && <circle cx={cx} cy={cy} r={6} fill="none" stroke="var(--ink)" strokeWidth={1} />}
