@@ -171,6 +171,7 @@ export default function RunAtlas() {
                     />
                     {run && (
                       <g
+                        data-tap-focus="true"
                         style={{ cursor: 'pointer', transition: 'opacity 140ms' }}
                         opacity={dimmed ? 0.15 : 1}
                         onMouseEnter={(e) => onEnter(run, e)}

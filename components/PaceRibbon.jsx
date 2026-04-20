@@ -230,6 +230,7 @@ export default function PaceRibbon() {
                     return (
                       <g
                         key={r.id}
+                        data-tap-focus="true"
                         opacity={dim ? 0.15 : 1}
                         style={{ cursor: 'pointer' }}
                         onMouseEnter={(e) => {

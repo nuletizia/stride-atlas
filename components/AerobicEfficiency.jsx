@@ -354,6 +354,7 @@ export default function AerobicEfficiency() {
                 return (
                   <g
                     key={r.id}
+                    data-tap-focus="true"
                     style={{ cursor: 'pointer' }}
                     onMouseEnter={(e) => {
                       setHovered({ runId: r.id, routeId: r.routeId, type: r.type, date: r.date });

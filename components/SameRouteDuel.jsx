@@ -105,6 +105,7 @@ export default function SameRouteDuel() {
               return (
                 <g
                   key={r.id}
+                  data-tap-focus="true"
                   opacity={dim ? 0.2 : 1}
                   style={{ cursor: 'pointer' }}
                   onMouseEnter={(e) => {

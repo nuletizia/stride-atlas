@@ -255,7 +255,7 @@ export function LinkProvider({ children }) {
     <LinkContext.Provider value={{
       hovered, setHovered,
       focusRequest, setFocusRequest,
-      isTouch, pendingFocusId, requestFocus,
+      isTouch, pendingFocusId, setPendingFocusId, requestFocus,
     }}>
       {children}
     </LinkContext.Provider>
@@ -286,6 +286,10 @@ export function TweakProvider({ children }) {
   const [timeRange, setTimeRange] = useState('all');
   const [metric, setMetric] = useState('pace');
   const [units, setUnits] = useState('km');
+  // customRange: { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' } | null. Only used
+  // when timeRange === 'custom'. Null = consumer falls back to [first, last]
+  // activity dates from the data.
+  const [customRange, setCustomRange] = useState(null);
   const [open, setOpen] = useState(false);
 
   // Load from localStorage after mount to avoid SSR hydration mismatch
@@ -296,6 +300,9 @@ export function TweakProvider({ children }) {
       if (s.timeRange) setTimeRange(s.timeRange);
       if (s.metric) setMetric(s.metric);
       if (s.units === 'mi' || s.units === 'km') setUnits(s.units);
+      if (s.customRange && typeof s.customRange === 'object' && s.customRange.from && s.customRange.to) {
+        setCustomRange({ from: s.customRange.from, to: s.customRange.to });
+      }
     }
   }, []);
 
@@ -313,13 +320,15 @@ export function TweakProvider({ children }) {
     const u = v === 'mi' ? 'mi' : 'km';
     setUnits(u); persist({ units: u });
   };
+  const setCustomRangeP = (v) => { setCustomRange(v); persist({ customRange: v }); };
 
   return (
     <TweakContext.Provider value={{
-      style, theme: style, timeRange, metric, units,
+      style, theme: style, timeRange, metric, units, customRange,
       open, setOpen,
       setStyle: setStyleP, setTheme: setStyleP,
       setTimeRange: setRangeP, setMetric: setMetricP, setUnits: setUnitsP,
+      setCustomRange: setCustomRangeP,
     }}>
       {children}
     </TweakContext.Provider>
@@ -329,11 +338,17 @@ export function useTweaks() { return useContext(TweakContext); }
 
 // ---------- Filter runs by current time range ----------
 export function useFilteredRuns() {
-  const { timeRange } = useTweaks();
+  const { timeRange, customRange } = useTweaks();
   const data = useData();
   const all = data.runs;
   return useMemo(() => {
     if (!all.length) return [];
+    // Custom: caller-specified from/to. If customRange is null (no explicit
+    // bounds yet), fall through to "all" semantics below.
+    if (timeRange === 'custom' && customRange && customRange.from && customRange.to) {
+      const from = customRange.from, to = customRange.to;
+      return all.filter((r) => r.date >= from && r.date <= to);
+    }
     // Anchor "now" at the most recent activity date (not wall clock) so
     // imported data always produces a populated window.
     const maxIso = all.reduce((a, r) => (r.date > a ? r.date : a), all[0].date);
@@ -341,5 +356,5 @@ export function useFilteredRuns() {
     const days = { '1m': 30, '3m': 92, '6m': 183, '1y': 365, 'all': 99999 }[timeRange] || 9999;
     const start = new Date(end.getTime() - days * 86400000);
     return all.filter((r) => new Date(r.date + 'T00:00:00') >= start);
-  }, [all, timeRange]);
+  }, [all, timeRange, customRange]);
 }

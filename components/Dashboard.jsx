@@ -7,6 +7,7 @@ import {
   useTweaks, useFilteredRuns, useData, useTooltip,
   fmtDistance, distUnit,
 } from '@/lib/shared';
+import TimeRangeControl from './TimeRangeControl';
 import RunAtlas from './RunAtlas';
 import PaceRibbon from './PaceRibbon';
 import AerobicEfficiency from './AerobicEfficiency';
@@ -18,6 +19,7 @@ import WeekComparator from './WeekComparator';
 import SeasonArc from './SeasonArc';
 import TweakPanel from './TweakPanel';
 import ConnectBanner from './ConnectBanner';
+import TouchDismissHandler from './TouchDismissHandler';
 
 function Header() {
   const data = useData();
@@ -163,30 +165,6 @@ function HrMaxCard() {
   );
 }
 
-function RangeTabs() {
-  const { timeRange, setTimeRange } = useTweaks();
-  const opts = [
-    { id: '1m', label: '1 Month' },
-    { id: '3m', label: '3 Months' },
-    { id: '6m', label: '6 Months' },
-    { id: '1y', label: '1 Year' },
-    { id: 'all', label: 'All Time' },
-  ];
-  return (
-    <div className="chip-row">
-      {opts.map((o) => (
-        <button
-          key={o.id}
-          className={`chip ${timeRange === o.id ? 'active' : ''}`}
-          onClick={() => setTimeRange(o.id)}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export default function Dashboard({ data, mode = 'demo', athleteName = null }) {
   return (
     <HrMaxProvider baseHrMax={data?.hrMax ?? 190}>
@@ -194,6 +172,7 @@ export default function Dashboard({ data, mode = 'demo', athleteName = null }) {
       <TweakProvider>
         <TooltipProvider>
           <LinkProvider>
+            <TouchDismissHandler />
             <div className="app">
               <ConnectBanner mode={mode} athleteName={athleteName} />
               <Header />
@@ -206,7 +185,7 @@ export default function Dashboard({ data, mode = 'demo', athleteName = null }) {
                     Hover any run — its twins light up across every chart below.
                   </div>
                 </div>
-                <RangeTabs />
+                <TimeRangeControl />
               </div>
 
               <div className="section"><RunAtlas /></div>

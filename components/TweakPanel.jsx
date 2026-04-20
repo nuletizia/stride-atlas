@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useTweaks } from '@/lib/shared';
 import { palettes } from '@/lib/theme';
+import TimeRangeControl from './TimeRangeControl';
 
 const STYLES = [
   { id: 'editorial', label: 'Editorial',      sub: 'Warm paper · serif',      serif: "'Instrument Serif', serif",  hasDark: true },
@@ -15,7 +16,7 @@ const familyOf = (s) => (s === 'editorial_dark' ? 'editorial' : s);
 const isEditorialDark = (s) => s === 'editorial_dark';
 
 export default function TweakPanel() {
-  const { style, setStyle, timeRange, setTimeRange, units, setUnits } = useTweaks();
+  const { style, setStyle, units, setUnits } = useTweaks();
   const [open, setOpen] = useState(false);
 
   const activeFamily = familyOf(style);
@@ -135,13 +136,7 @@ export default function TweakPanel() {
 
           <div className="tweaks-row">
             <label>Time range</label>
-            <div className="seg">
-              {['1m', '3m', '6m', '1y', 'all'].map((r) => (
-                <button key={r} className={timeRange === r ? 'on' : ''} onClick={() => setTimeRange(r)}>
-                  {r.toUpperCase()}
-                </button>
-              ))}
-            </div>
+            <TimeRangeControl />
           </div>
 
           <div className="tweaks-row">
