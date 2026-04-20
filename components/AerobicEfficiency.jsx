@@ -323,8 +323,12 @@ export default function AerobicEfficiency() {
                 const dim = hovered && !isHover && !isMatch;
                 const size = 3.5 + Math.sqrt(r.distance) * 0.7;
                 const fillOp = dim ? 0.1 : (0.25 + rec * 0.65);
-                const stroke = dim ? 'none' : (isHover ? 'var(--ink)' : 'none');
-                const fill = isAllMode ? 'var(--ink)' : `var(--type-${r.type})`;
+                const fillBase = isAllMode ? 'var(--ink)' : `var(--type-${r.type})`;
+                // Shape always splits the cloud at the time-midpoint: early
+                // runs are hollow rings, recent runs are filled discs. Color
+                // is ink in "All" mode, type-colored when a type filter is
+                // active — shape is orthogonal to color.
+                const isHollow = rec < 0.5;
 
                 return (
                   <g
@@ -337,7 +341,14 @@ export default function AerobicEfficiency() {
                     onMouseMove={(e) => show(showMetric(r), e.clientX, e.clientY)}
                     onMouseLeave={() => { setHovered(null); hide(); }}
                   >
-                    <circle cx={cx} cy={cy} r={size} fill={fill} fillOpacity={fillOp} stroke={stroke} strokeWidth={isHover ? 1.5 : 0} />
+                    <circle
+                      cx={cx} cy={cy} r={size}
+                      fill={isHollow ? 'none' : fillBase}
+                      fillOpacity={fillOp}
+                      stroke={isHollow ? fillBase : (dim ? 'none' : (isHover ? 'var(--ink)' : 'none'))}
+                      strokeOpacity={isHollow ? fillOp : 1}
+                      strokeWidth={isHollow ? (isHover ? 1.8 : 1.2) : (isHover ? 1.5 : 0)}
+                    />
                   </g>
                 );
               })}
@@ -347,6 +358,9 @@ export default function AerobicEfficiency() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 8, paddingLeft: M.l, fontSize: 10.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '.08em', flexWrap: 'wrap' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width={10} height={10} style={{ display: 'block' }}>
+                <circle cx={5} cy={5} r={3.2} fill="none" stroke="var(--ink)" strokeWidth={1.2} />
+              </svg>
               <svg width={24} height={6}>
                 <line x1={0} x2={24} y1={3} y2={3} stroke={`var(--type-${trendType})`} strokeWidth={1.2} strokeDasharray="4 4" opacity={0.7} />
               </svg>
@@ -357,6 +371,9 @@ export default function AerobicEfficiency() {
               )}
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width={10} height={10} style={{ display: 'block' }}>
+                <circle cx={5} cy={5} r={3.2} fill="var(--ink)" />
+              </svg>
               <svg width={24} height={6}>
                 <line x1={0} x2={24} y1={3} y2={3} stroke={`var(--type-${trendType})`} strokeWidth={1.6} />
               </svg>
