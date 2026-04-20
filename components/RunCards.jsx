@@ -29,6 +29,12 @@ export default function RunCards() {
   // Transient: the run we just jumped to, so we can flash-outline its card
   // as an orientation cue. Cleared by a timer after the animation ends.
   const [flashingRunId, setFlashingRunId] = useState(null);
+  // Local hover state — scoped to this panel so card-hover highlights peers
+  // within the grid without rippling out to every other chart (cards are a
+  // terminal "detail" view, not an index; the global link was noise here).
+  // The inverse direction (chart dot hover → card focus) still works via the
+  // global `hovered` below.
+  const [hoveredCardId, setHoveredCardId] = useState(null);
   const CAP = 18;
 
   // How many runs in the current filter have valid HR. If fewer than 3, HR
@@ -135,7 +141,7 @@ export default function RunCards() {
     return arr;
   }, [withPeers, typeFilter, sortBy]);
 
-  const focusId = pinnedId ?? expandedId ?? hovered?.runId;
+  const focusId = pinnedId ?? expandedId ?? hoveredCardId ?? hovered?.runId;
   const focusRun = withPeers.find((r) => r.id === focusId);
   const focusPeerIds = focusRun?.peerIds;
 
@@ -362,8 +368,8 @@ export default function RunCards() {
                   meta={meta}
                   rankBy={effectiveRankBy}
                   units={units}
-                  onHoverIn={() => setHovered({ runId: r.id, routeId: r.routeId, type: r.type, date: r.date })}
-                  onHoverOut={() => setHovered(null)}
+                  onHoverIn={() => setHoveredCardId(r.id)}
+                  onHoverOut={() => setHoveredCardId(null)}
                   onClick={() => setExpandedId(isExpanded ? null : r.id)}
                   onPin={(e) => { e.stopPropagation(); setPinnedId(pinnedId === r.id ? null : r.id); }}
                   onPeerClick={jumpToRun}
