@@ -2,18 +2,28 @@
 
 import { useState } from 'react';
 import { useTweaks } from '@/lib/shared';
+import { palettes } from '@/lib/theme';
+
+const STYLES = [
+  { id: 'editorial', label: 'Editorial',      sub: 'Warm paper · serif',      serif: "'Instrument Serif', serif",  hasDark: true },
+  { id: 'telemetry', label: 'Telemetry',      sub: 'Neon cockpit',            serif: "'Space Grotesk', sans-serif", hasDark: false },
+  { id: 'fieldbook', label: 'Field Notebook', sub: 'Cartographic pigment',    serif: "'EB Garamond', serif",       hasDark: false },
+  { id: 'dataart',   label: 'Data-Art',       sub: 'Generative, atmospheric', serif: "'EB Garamond', serif",       hasDark: false },
+];
+
+const familyOf = (s) => (s === 'editorial_dark' ? 'editorial' : s);
+const isEditorialDark = (s) => s === 'editorial_dark';
 
 export default function TweakPanel() {
-  const { style, setStyle, timeRange, setTimeRange, metric, setMetric, units, setUnits } = useTweaks();
+  const { style, setStyle, timeRange, setTimeRange, units, setUnits } = useTweaks();
   const [open, setOpen] = useState(false);
 
-  const styles = [
-    { id: 'editorial', label: 'Editorial', sub: 'Warm paper · serif' },
-    { id: 'editorial_dark', label: 'Editorial Dark', sub: 'Ink on charcoal' },
-    { id: 'telemetry', label: 'Telemetry', sub: 'Neon cockpit' },
-    { id: 'fieldbook', label: 'Field Notebook', sub: 'Cartographic pigment' },
-    { id: 'dataart', label: 'Data-Art', sub: 'Generative, atmospheric' },
-  ];
+  const activeFamily = familyOf(style);
+
+  const selectFamily = (s) => {
+    if (activeFamily === s.id) return;
+    setStyle(s.id);
+  };
 
   return (
     <>
@@ -29,15 +39,15 @@ export default function TweakPanel() {
           cursor: 'pointer',
           boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
         }}
-        aria-label="Open tweaks"
+        aria-label="Open view"
       >
-        {open ? 'Close' : 'Tweaks ⌘·'}
+        {open ? 'Close' : 'View ⌘·'}
       </button>
 
       {open && (
         <div className="tweaks" style={{ bottom: 72 }}>
           <div className="tweaks-head">
-            <span className="tweaks-title">Tweaks</span>
+            <span className="tweaks-title">View</span>
             <button
               onClick={() => setOpen(false)}
               style={{ background: 'transparent', border: 'none', color: 'var(--inkMuted)', cursor: 'pointer', fontSize: 14 }}
@@ -47,28 +57,80 @@ export default function TweakPanel() {
 
           <div className="tweaks-row">
             <label>Visual style</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {styles.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => setStyle(s.id)}
-                  style={{
-                    textAlign: 'left',
-                    background: style === s.id ? 'var(--ink)' : 'transparent',
-                    color: style === s.id ? 'var(--bg)' : 'var(--ink)',
-                    border: '1px solid ' + (style === s.id ? 'var(--ink)' : 'var(--ruleSoft)'),
-                    borderRadius: 3, padding: '7px 10px',
-                    fontFamily: 'inherit', cursor: 'pointer',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10,
-                  }}
-                >
-                  <span style={{ fontSize: 12.5, fontWeight: 500 }}>{s.label}</span>
-                  <span className="mono" style={{ fontSize: 9.5, letterSpacing: '.06em', opacity: style === s.id ? 0.7 : 0.55 }}>
-                    {s.sub}
-                  </span>
-                </button>
-              ))}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {STYLES.map((s) => {
+                const active = activeFamily === s.id;
+                // Editorial tile mirrors the current light/dark mode so the
+                // preview tracks reality; other families have a single palette.
+                const previewId = s.id === 'editorial' && isEditorialDark(style) ? 'editorial_dark' : s.id;
+                const p = palettes[previewId] || palettes.editorial;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => selectFamily(s)}
+                    title={s.sub}
+                    aria-label={`${s.label} — ${s.sub}`}
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                      padding: 0, background: 'transparent', border: 'none',
+                      cursor: 'pointer', width: 54,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 48, height: 48, borderRadius: 5, overflow: 'hidden',
+                        background: p.bg,
+                        outline: active ? '2px solid var(--accent)' : '1px solid var(--rule)',
+                        outlineOffset: active ? 1 : 0,
+                        position: 'relative',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'outline-color 120ms ease',
+                      }}
+                    >
+                      <span style={{
+                        fontFamily: s.serif, color: p.ink, fontSize: 19,
+                        fontStyle: s.id === 'telemetry' ? 'normal' : 'italic',
+                        lineHeight: 1, marginTop: -4,
+                      }}>Aa</span>
+                      <div style={{
+                        position: 'absolute', left: 0, right: 0, bottom: 0,
+                        height: 10, background: p.accent,
+                      }} />
+                    </div>
+                    <span
+                      className="mono"
+                      style={{
+                        fontSize: 9, letterSpacing: '.06em', textTransform: 'uppercase',
+                        color: active ? 'var(--ink)' : 'var(--inkMuted)',
+                        fontWeight: active ? 500 : 400,
+                        lineHeight: 1.2, textAlign: 'center', maxWidth: 60,
+                      }}
+                    >
+                      {s.label}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+
+            {activeFamily === 'editorial' && (
+              <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span className="mono" style={{
+                  fontSize: 9.5, color: 'var(--inkMuted)',
+                  textTransform: 'uppercase', letterSpacing: '.1em',
+                }}>Mode</span>
+                <div className="seg" style={{ flex: 1 }}>
+                  <button
+                    className={!isEditorialDark(style) ? 'on' : ''}
+                    onClick={() => setStyle('editorial')}
+                  >Light</button>
+                  <button
+                    className={isEditorialDark(style) ? 'on' : ''}
+                    onClick={() => setStyle('editorial_dark')}
+                  >Dark</button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="tweaks-row">
@@ -79,15 +141,6 @@ export default function TweakPanel() {
                   {r.toUpperCase()}
                 </button>
               ))}
-            </div>
-          </div>
-
-          <div className="tweaks-row">
-            <label>Primary metric</label>
-            <div className="seg">
-              <button className={metric === 'pace' ? 'on' : ''} onClick={() => setMetric('pace')}>Pace</button>
-              <button className={metric === 'distance' ? 'on' : ''} onClick={() => setMetric('distance')}>Dist</button>
-              <button className={metric === 'hr' ? 'on' : ''} onClick={() => setMetric('hr')}>HR</button>
             </div>
           </div>
 

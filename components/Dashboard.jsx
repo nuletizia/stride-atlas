@@ -38,43 +38,7 @@ function Header() {
           Goal · <b>{p.goalRace}</b><br />
           <span className="num">{fmtDistance(totalKm, units, 0)} {distUnit(units)}</span> logged in view
         </div>
-        <UnitsCard />
         <HrMaxCard />
-      </div>
-    </div>
-  );
-}
-
-function UnitsCard() {
-  const { units, setUnits } = useTweaks();
-  const opt = (id, label) => (
-    <button
-      key={id}
-      onClick={() => setUnits(id)}
-      className={`chip ${units === id ? 'active' : ''}`}
-      style={{ padding: '3px 10px', fontSize: 11 }}
-    >{label}</button>
-  );
-  return (
-    <div
-      style={{
-        fontFamily: 'var(--mono)',
-        fontSize: 11,
-        color: 'var(--inkMuted)',
-        border: '1px solid var(--rule)',
-        borderRadius: 4,
-        padding: '8px 12px',
-        background: 'var(--bg)',
-        lineHeight: 1.5,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-      }}
-    >
-      <span style={{ textTransform: 'uppercase', letterSpacing: '.1em', fontSize: 9.5 }}>Units</span>
-      <div style={{ display: 'flex', gap: 4 }}>
-        {opt('km', 'KM')}
-        {opt('mi', 'MI')}
       </div>
     </div>
   );
