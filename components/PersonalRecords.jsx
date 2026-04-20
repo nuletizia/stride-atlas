@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import {
   useLink, useData, useTweaks,
   fmtDate, fmtPace, fmtDuration,
+  Highlight, HlNum,
 } from '@/lib/shared';
 
 // Window size in days; matches useFilteredRuns's mapping.
@@ -126,6 +127,18 @@ export default function PersonalRecords() {
 
   const rangeLabel = RANGE_LABEL[timeRange] || 'selected window';
 
+  const biggestDrop = useMemo(() => {
+    const drops = distancePRs
+      .filter((d) => d.run && d.prevMin != null && !d.bestBeforeCutoff)
+      .map((d) => ({
+        record: d,
+        secDropped: (d.prevMin - d.bestMin) * 60,
+      }))
+      .filter((d) => d.secDropped > 1);
+    if (!drops.length) return null;
+    return drops.reduce((a, b) => (a.secDropped > b.secDropped ? a : b));
+  }, [distancePRs]);
+
   return (
     <div className="panel" style={{ padding: '20px 22px' }}>
       <div style={{ marginBottom: 16 }}>
@@ -145,6 +158,19 @@ export default function PersonalRecords() {
           <DistancePR key={d.key} record={d} onHover={setHovered} hovered={hovered} isAllTime={isAllTime} />
         ))}
       </div>
+
+      {biggestDrop ? (
+        <Highlight>
+          Biggest PR drop: <HlNum>{biggestDrop.record.label}</HlNum> down{' '}
+          <HlNum>{biggestDrop.secDropped.toFixed(0)} s</HlNum> —{' '}
+          <HlNum>{fmtDuration(biggestDrop.record.prevMin)} → {fmtDuration(biggestDrop.record.bestMin)}</HlNum>
+          {' '}on <HlNum>{fmtDate(biggestDrop.record.run.date, { year: true })}</HlNum>. Keep the streak going.
+        </Highlight>
+      ) : (
+        <Highlight tone="muted">
+          PRs locked in across your classic distances — next improvement starts with a harder effort.
+        </Highlight>
+      )}
     </div>
   );
 }

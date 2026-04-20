@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import {
   useData, useLink, useTooltip, useTweaks, useFilteredRuns,
   fmtDate, fmtPace, fmtDuration, fmtHr,
+  Highlight, HlNum,
 } from '@/lib/shared';
 
 export default function RunAtlas() {
@@ -226,6 +227,47 @@ export default function RunAtlas() {
         <AtlasStat label="PRs" value={runs.filter((r) => r.pr).length} />
         <AtlasStat label="Longest run" value={Math.max(...runs.map((r) => r.distance)).toFixed(1)} unit="km" />
       </div>
+
+      {(() => {
+        // Skip "current week" from the coverage denominator — it's often
+        // partial (today is mid-week) so including it makes consistency look
+        // artificially low for someone actively training.
+        const weeksToCount = weeks.length > 1 ? weeks.slice(0, -1) : weeks;
+        if (!weeksToCount.length) return null;
+        const covered = weeksToCount.filter((w) => w.days.some((d) => d.run)).length;
+        const total = weeksToCount.length;
+        const pct = Math.round((covered / total) * 100);
+
+        // Current streak: consecutive trailing weeks (from the most recent
+        // complete week backwards) that each contain ≥1 run.
+        let streak = 0;
+        for (let i = weeksToCount.length - 1; i >= 0; i--) {
+          if (weeksToCount[i].days.some((d) => d.run)) streak++;
+          else break;
+        }
+
+        if (pct >= 80) {
+          return (
+            <Highlight>
+              Steady habit: you&rsquo;ve shown up in <HlNum>{covered} of the last {total} weeks</HlNum>{' '}
+              (<HlNum>{pct}%</HlNum> coverage){streak >= 3 ? <>, riding a <HlNum>{streak}-week streak</HlNum></> : null}. That&rsquo;s how fitness compounds.
+            </Highlight>
+          );
+        }
+        if (pct >= 50) {
+          return (
+            <Highlight>
+              You ran in <HlNum>{covered} of the last {total} weeks</HlNum>{' '}
+              (<HlNum>{pct}%</HlNum> coverage){streak >= 2 ? <>, <HlNum>{streak}</HlNum> weeks in a row</> : null}. Stack a couple more back-to-back and the rhythm locks in.
+            </Highlight>
+          );
+        }
+        return (
+          <Highlight tone="muted">
+            <HlNum>{covered} of {total}</HlNum> weeks active in this window — two back-to-back weeks is the easiest way to start a streak.
+          </Highlight>
+        );
+      })()}
     </div>
   );
 }

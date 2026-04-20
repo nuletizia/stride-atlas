@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import {
   useData, useLink, useTooltip, useFilteredRuns,
   fmtDate, fmtPace, fmtHr, hasValidHr, pad,
+  Highlight, HlNum,
 } from '@/lib/shared';
 
 export default function AerobicEfficiency() {
@@ -18,8 +19,10 @@ export default function AerobicEfficiency() {
   );
   const [trendType, setTrendType] = useState('tempo');
 
-  // If the median pace between early and late halves drifts more than this,
-  // the HR delta is likely pace-driven, not fitness-driven, so we flag it.
+  // If the median pace slowed between early and late halves by more than
+  // this, the HR drop is likely pace-driven (easier effort), not fitness,
+  // so we flag it. Pace drifting FASTER is a pure win on both axes and is
+  // never flagged — a lower HR at a faster pace is unambiguously fitness.
   const PACE_DRIFT_WARN = 0.15; // min/km ≈ 9 s/km
 
   const toggleType = (t) => {
@@ -118,7 +121,9 @@ export default function AerobicEfficiency() {
       const earlyPace = medianOf(early.map((r) => r.pace));
       const latePace = medianOf(late.map((r) => r.pace));
       const paceDelta = latePace - earlyPace;
-      const paceDrifted = Math.abs(paceDelta) >= PACE_DRIFT_WARN;
+      // Positive paceDelta = late half slower. Only the "slower" direction
+      // makes the HR drop ambiguous; drifting faster is strictly a win.
+      const paceDrifted = paceDelta >= PACE_DRIFT_WARN;
 
       const dateFmt = (iso) =>
         new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
@@ -430,33 +435,29 @@ export default function AerobicEfficiency() {
             })}
           </div>
 
-          <div style={{
-            marginTop: 14, padding: '10px 14px',
-            background: 'var(--bgSunken)', border: '1px solid var(--ruleSoft)',
-            fontSize: 12.5, color: 'var(--inkSoft)', lineHeight: 1.55,
-            fontStyle: 'italic', fontFamily: 'var(--serif)',
-          }}>
-            {(() => {
-              // Only count wins where pace didn't drift — otherwise the "gain"
-              // could be the runner slowing down, not getting fitter.
-              const wins = bandReadouts.filter((b) => b.enough && b.delta < -1 && !b.paceDrifted);
-              if (!wins.length) {
-                const drifted = bandReadouts.filter((b) => b.enough && b.delta < -1 && b.paceDrifted);
-                if (drifted.length) return 'Some HR drops look like fitness, but pace shifted between halves — hold pace steady within a type to get a cleaner read.';
-                return 'Not enough separation yet — keep logging runs to build the trend.';
-              }
-              const best = wins.reduce((a, b) => (a.delta < b.delta ? a : b));
-              return (
-                <>
-                  Biggest fitness gain: <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>{typeMeta[best.type].label}</b> — average HR dropped{' '}
-                  <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>{Math.abs(best.delta).toFixed(1)} bpm</b>{' '}
-                  at similar pace ({fmtPace(best.earlyPace)} → {fmtPace(best.latePace)}). You&rsquo;re doing the same work with less effort.
-                </>
-              );
-            })()}
-          </div>
         </div>
       </div>
+
+      {(() => {
+        // Only count wins where pace didn't drift — otherwise the "gain"
+        // could be the runner slowing down, not getting fitter.
+        const wins = bandReadouts.filter((b) => b.enough && b.delta < -1 && !b.paceDrifted);
+        if (!wins.length) {
+          const drifted = bandReadouts.filter((b) => b.enough && b.delta < -1 && b.paceDrifted);
+          if (drifted.length) {
+            return <Highlight tone="muted">Some HR drops look like fitness, but pace shifted between halves — hold pace steady within a type to get a cleaner read.</Highlight>;
+          }
+          return <Highlight tone="muted">Not enough separation yet — keep logging runs to build the trend.</Highlight>;
+        }
+        const best = wins.reduce((a, b) => (a.delta < b.delta ? a : b));
+        return (
+          <Highlight>
+            Biggest fitness gain: <HlNum>{typeMeta[best.type].label}</HlNum> — average HR dropped{' '}
+            <HlNum>{Math.abs(best.delta).toFixed(1)} bpm</HlNum>{' '}
+            at similar pace (<HlNum>{fmtPace(best.earlyPace)} → {fmtPace(best.latePace)}</HlNum>). You&rsquo;re doing the same work with less effort.
+          </Highlight>
+        );
+      })()}
     </div>
   );
 }

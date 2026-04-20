@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import {
   useData, useLink, useTooltip, useTweaks, useFilteredRuns,
   fmtDate, fmtPace, fmtHr, hasValidHr,
+  Highlight, HlNum,
 } from '@/lib/shared';
 
 export default function PaceRibbon() {
@@ -182,6 +183,52 @@ export default function PaceRibbon() {
           })}
         </svg>
       </div>
+
+      {(() => {
+        const measure = (r) => metric === 'pace' ? r.pace : metric === 'distance' ? r.distance : r.hr;
+        const candidates = types
+          .map((t) => {
+            let arr = byType[t] || [];
+            if (metric === 'hr') arr = arr.filter(hasValidHr);
+            if (arr.length < 10) return null;
+            const first = arr.slice(0, 5).map(measure);
+            const last = arr.slice(-5).map(measure);
+            const firstMean = first.reduce((a, v) => a + v, 0) / first.length;
+            const lastMean = last.reduce((a, v) => a + v, 0) / last.length;
+            const improvement = metric === 'distance' ? lastMean - firstMean : firstMean - lastMean;
+            const rel = firstMean > 0 ? improvement / firstMean : 0;
+            return { type: t, firstMean, lastMean, improvement, rel };
+          })
+          .filter(Boolean);
+        const winners = candidates.filter((c) => c.improvement > 0);
+        if (!winners.length) {
+          return <Highlight tone="muted">Not enough runs of a single type yet in this view — 10+ per type makes this line richer.</Highlight>;
+        }
+        const best = winners.sort((a, b) => b.rel - a.rel)[0];
+        const label = meta[best.type].label;
+        if (metric === 'pace') {
+          return (
+            <Highlight>
+              <HlNum>{label}</HlNum> pace has drifted faster: rolling avg{' '}
+              <HlNum>{fmtPace(best.firstMean)} → {fmtPace(best.lastMean)}</HlNum> across this window.
+            </Highlight>
+          );
+        }
+        if (metric === 'hr') {
+          return (
+            <Highlight>
+              <HlNum>{label}</HlNum> HR is trending down: rolling avg{' '}
+              <HlNum>{Math.round(best.firstMean)} → {Math.round(best.lastMean)} bpm</HlNum> across this window.
+            </Highlight>
+          );
+        }
+        return (
+          <Highlight>
+            Your <HlNum>{label}</HlNum> runs are getting longer: rolling avg{' '}
+            <HlNum>{best.firstMean.toFixed(1)} → {best.lastMean.toFixed(1)} km</HlNum> across this window.
+          </Highlight>
+        );
+      })()}
     </div>
   );
 }

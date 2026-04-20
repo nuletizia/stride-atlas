@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import {
   useData, useLink, useTooltip, useFilteredRuns,
   fmtDate, fmtPace, fmtHr, pad,
+  Highlight, HlNum,
 } from '@/lib/shared';
 
 // Distance × Pace scatter. Shows every run as a dot; x = distance, y = pace.
@@ -375,6 +376,43 @@ export default function DistancePaceCurve() {
           </span>
         )}
       </div>
+
+      {(() => {
+        const e = trends?.early, l = trends?.late;
+        if (!e || !l || e.narrow || l.narrow) {
+          return <Highlight tone="muted">Need more runs (or more distance spread) to fit a trend — keep logging to unlock this line.</Highlight>;
+        }
+        const lo = Math.max(e.dLo, l.dLo);
+        const hi = Math.min(e.dHi, l.dHi);
+        let dRef = hi > lo ? (lo + hi) / 2 : (l.dLo + l.dHi) / 2;
+        dRef = dRef < 10 ? Math.max(1, Math.round(dRef)) : Math.round(dRef / 5) * 5;
+        // If rounding pushed us outside the overlap, pull back in.
+        if (hi > lo) dRef = Math.min(hi, Math.max(lo, dRef));
+        const earlyPace = e.a + e.b * Math.log(dRef);
+        const latePace = l.a + l.b * Math.log(dRef);
+        const deltaSec = (earlyPace - latePace) * 60;
+        if (deltaSec > 3) {
+          return (
+            <Highlight>
+              You&rsquo;re running faster: at <HlNum>{dRef} km</HlNum>, recent pace is{' '}
+              <HlNum>{deltaSec.toFixed(0)} s/km</HlNum> quicker than early pace{' '}
+              (<HlNum>{fmtPace(earlyPace)} → {fmtPace(latePace)}</HlNum>). The cloud is drifting up.
+            </Highlight>
+          );
+        }
+        if (deltaSec < -3) {
+          return (
+            <Highlight tone="muted">
+              At <HlNum>{dRef} km</HlNum>, recent pace is <HlNum>{Math.abs(deltaSec).toFixed(0)} s/km</HlNum> slower than early pace — a heavier stretch, or a shift in run mix.
+            </Highlight>
+          );
+        }
+        return (
+          <Highlight tone="muted">
+            Recent pace is holding steady against your earlier runs — the curve hasn&rsquo;t shifted yet.
+          </Highlight>
+        );
+      })()}
     </div>
   );
 }

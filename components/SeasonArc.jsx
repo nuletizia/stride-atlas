@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useData } from '@/lib/shared';
+import { useData, Highlight, HlNum } from '@/lib/shared';
 
 export default function SeasonArc() {
   const data = useData();
@@ -108,6 +108,61 @@ export default function SeasonArc() {
           );
         })}
       </svg>
+
+      {(() => {
+        if (totals.length < 2) {
+          return <Highlight tone="muted">First season logged — next year we&rsquo;ll start comparing your arc.</Highlight>;
+        }
+        const latest = totals[totals.length - 1];
+        const prev = totals[totals.length - 2];
+        const latestYear = Number(latest.year);
+        const currentCalYear = new Date().getFullYear();
+        const isInProgress = latestYear === currentCalYear;
+
+        let projected = latest.distance;
+        let inProgress = false;
+        if (isInProgress) {
+          const today = new Date();
+          const start = new Date(latestYear, 0, 1);
+          const dayOfYear = Math.floor((today - start) / 86400000) + 1;
+          const isLeap = (latestYear % 4 === 0 && latestYear % 100 !== 0) || latestYear % 400 === 0;
+          const daysInYear = isLeap ? 366 : 365;
+          const fraction = Math.min(1, dayOfYear / daysInYear);
+          if (fraction > 0 && fraction < 0.97) {
+            projected = latest.distance / fraction;
+            inProgress = true;
+          }
+        }
+
+        if (prev.distance <= 0) {
+          return <Highlight tone="muted">No distance logged in {prev.year} — next year we&rsquo;ll have a year-on-year read.</Highlight>;
+        }
+        const deltaPct = ((projected - prev.distance) / prev.distance) * 100;
+        const verb = inProgress ? 'is on pace for' : 'totalled';
+        const projLabel = `${Math.round(projected).toLocaleString()} km`;
+        const prevLabel = `${Math.round(prev.distance).toLocaleString()} km`;
+
+        if (deltaPct > 3) {
+          return (
+            <Highlight>
+              <HlNum>{latest.year}</HlNum> {verb} <HlNum>{projLabel}</HlNum> — that&rsquo;s{' '}
+              <HlNum>+{deltaPct.toFixed(0)}%</HlNum> vs. {prev.year} (<HlNum>{prevLabel}</HlNum>). Your arc keeps climbing.
+            </Highlight>
+          );
+        }
+        if (deltaPct < -3) {
+          return (
+            <Highlight tone="muted">
+              <HlNum>{latest.year}</HlNum> is currently tracking <HlNum>−{Math.abs(deltaPct).toFixed(0)}%</HlNum> vs. {prev.year} (<HlNum>{prevLabel}</HlNum>) — a lighter stretch, or room to push.
+            </Highlight>
+          );
+        }
+        return (
+          <Highlight>
+            <HlNum>{latest.year}</HlNum> is tracking almost exactly with {prev.year} (<HlNum>~{prevLabel}</HlNum> pace). Steady base.
+          </Highlight>
+        );
+      })()}
     </div>
   );
 }

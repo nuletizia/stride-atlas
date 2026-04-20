@@ -40,6 +40,36 @@ export function fmtElev(r) {
   return r && r.elev != null ? `${r.elev}` : '—';
 }
 
+// ---------- "Biggest improvement" callout primitives ----------
+// Single-sentence takeaway block rendered at the bottom of progress panels.
+// Accent left border makes it easy to spot; muted tone is used for
+// "keep logging" fallbacks or honest regressions.
+export function Highlight({ children, tone = 'accent' }) {
+  const borderColor = tone === 'muted' ? 'var(--ruleSoft)' : 'var(--accent)';
+  return (
+    <div style={{
+      marginTop: 14,
+      padding: '11px 14px 11px 18px',
+      background: 'var(--bgSunken)',
+      borderLeft: `3px solid ${borderColor}`,
+      borderTop: '1px solid var(--ruleSoft)',
+      borderRight: '1px solid var(--ruleSoft)',
+      borderBottom: '1px solid var(--ruleSoft)',
+      fontSize: 13.5,
+      color: 'var(--ink)',
+      lineHeight: 1.5,
+      fontStyle: 'italic',
+      fontFamily: 'var(--serif)',
+      fontWeight: 500,
+    }}>
+      {children}
+    </div>
+  );
+}
+export function HlNum({ children }) {
+  return <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>{children}</b>;
+}
+
 export function fmtDelta(delta, unit = '', inverse = false) {
   if (!isFinite(delta) || Math.abs(delta) < 0.005) return { text: '±0', cls: '' };
   const sign = delta > 0 ? '+' : '−';
