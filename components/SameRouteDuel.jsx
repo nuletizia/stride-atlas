@@ -89,9 +89,9 @@ export default function SameRouteDuel() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 32, alignItems: 'center' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 32, alignItems: 'center' }}>
         <div>
-          <svg width={W} height={H + 40}>
+          <svg viewBox={`0 0 ${W} ${H + 40}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
             <line x1={20} x2={W - 20} y1={H} y2={H} stroke="var(--ruleSoft)" />
             {routeRuns.map((r, i) => {
               const speedScore = (worst - r.duration) / (worst - best || 1);

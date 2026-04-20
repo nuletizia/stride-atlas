@@ -59,7 +59,7 @@ export default function WeekComparator() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
         <WeekCol title="This week" label={thisLabel} week={thisWeek} metrics={metrics} accent={false} />
         <WeekCol title="Best week" label={bestLabel} week={bestWeek} metrics={metrics} accent={true} />
       </div>

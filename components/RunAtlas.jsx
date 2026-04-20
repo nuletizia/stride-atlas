@@ -115,7 +115,7 @@ export default function RunAtlas() {
 
   return (
     <div className="panel" style={{ padding: '20px 22px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, gap: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, gap: 24, flexWrap: 'wrap' }}>
         <div>
           <div className="stat-label" style={{ marginBottom: 4 }}>Run Atlas</div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 520 }}>
@@ -126,7 +126,7 @@ export default function RunAtlas() {
         <Legend typeMeta={typeMeta} show={show} hide={hide} />
       </div>
 
-      <div style={{ overflowX: 'auto', paddingBottom: 6 }}>
+      <div className="mobile-scroll-fade" style={{ overflowX: 'auto', paddingBottom: 6 }}>
         <svg width={gridW} height={gridH} style={{ display: 'block' }}>
           {dayNames.map((d, i) => (
             <text

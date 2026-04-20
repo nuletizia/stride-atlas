@@ -465,7 +465,7 @@ export default function DistancePaceCurve() {
           Each card splits that type&rsquo;s runs by date — first half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>early</b>, second half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>recent</b> (≥2 per half). We show both median distance and median pace — distance growth and pace shift can move independently, so both deltas are always shown.
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
           {bandReadouts.map((b) => {
             const isActive = activeTrend === b.type;
             const color = b.type === 'all' ? 'var(--ink)' : `var(--type-${b.type})`;

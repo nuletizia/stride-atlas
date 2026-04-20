@@ -88,7 +88,7 @@ export default function SeasonArc() {
         </div>
       </div>
 
-      <svg width={W} height={H + 20}>
+      <svg viewBox={`0 0 ${W} ${H + 20}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
         {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => {
           const x = LEFT + (i / 12) * PLOT_W;
           return (

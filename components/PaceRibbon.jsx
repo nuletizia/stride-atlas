@@ -145,7 +145,7 @@ export default function PaceRibbon() {
         })
         .filter(Boolean);
       return (
-      <div style={{ overflowX: 'auto' }}>
+      <div className="mobile-scroll-fade" style={{ overflowX: 'auto' }}>
         <svg width={W} height={rowsToRender.length * H_ROW + 20} style={{ display: 'block' }}>
           {rowsToRender.map(({ type, arr }, ri) => {
             const values = arr.map(valueOf);

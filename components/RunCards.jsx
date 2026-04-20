@@ -456,7 +456,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, r
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: expanded ? 'repeat(5, 1fr)' : 'repeat(3, 1fr)', gap: 10, marginBottom: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(64px, 1fr))', gap: 10, marginBottom: 10 }}>
         <CardStat label="Dist" value={fmtDistance(run.distance, units, 2)} unit={distUnit(units)} />
         <CardStat label="Pace" value={fmtPaceUnit(run.pace, units)} unit={paceUnit(units)} />
         <CardStat label="HR" value={hasValidHr(run) ? run.hr : '—'} unit={hasValidHr(run) ? 'bpm' : ''} />
@@ -527,7 +527,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, meta, r
               units={units}
             />
           ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(64px, 1fr))', gap: 6 }}>
             {(() => {
               // Sort by active metric. In HR mode, peers without valid HR sink
               // to the bottom. Runs are ranked starting from 1 for the best

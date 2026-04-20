@@ -32,7 +32,7 @@ function Header() {
         <div className="eyebrow">A Running Journal · v1</div>
         <div className="wordmark"><b>Stride</b><i>Atlas</i></div>
       </div>
-      <div style={{ display: 'flex', gap: 18, alignItems: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: 18, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <div className="header-right">
           <b>{p.name}</b>{p.city ? ` · ${p.city}` : ''}<br />
           Goal · <b>{p.goalRace}</b><br />
@@ -138,7 +138,6 @@ function HrMaxCard() {
         border: '1px solid var(--rule)',
         borderRadius: 4,
         padding: '8px 12px',
-        minWidth: 170,
         background: 'var(--bg)',
         lineHeight: 1.5,
         cursor: 'help',

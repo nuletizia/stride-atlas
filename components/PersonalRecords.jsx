@@ -47,7 +47,7 @@ export default function PersonalRecords() {
             to compute these in the background.
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${DISTANCES.length}, 1fr)`, gap: 10, marginBottom: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginBottom: 12 }}>
           {DISTANCES.map((d) => (
             <div key={d.key} style={{
               padding: 14, background: 'var(--bgSunken)',
@@ -154,7 +154,7 @@ export default function PersonalRecords() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${DISTANCES.length}, 1fr)`, gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
         {distancePRs.map((d) => (
           <DistancePR key={d.key} record={d} onHover={setHovered} hovered={hovered} isAllTime={isAllTime} />
         ))}

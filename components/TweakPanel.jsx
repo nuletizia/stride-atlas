@@ -35,7 +35,7 @@ export default function TweakPanel() {
       </button>
 
       {open && (
-        <div className="tweaks" style={{ width: 300, bottom: 72 }}>
+        <div className="tweaks" style={{ bottom: 72 }}>
           <div className="tweaks-head">
             <span className="tweaks-title">Tweaks</span>
             <button
