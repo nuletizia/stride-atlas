@@ -135,15 +135,20 @@ export default function PaceRibbon() {
         <MetricToggle />
       </div>
 
+      {(() => {
+      // Pre-filter so empty rows (e.g. "recovery" with no runs) don't
+      // reserve vertical space below the last rendered ribbon.
+      const rowsToRender = rowTypes
+        .map((type) => {
+          let arr = byType[type] || [];
+          if (needsHr) arr = arr.filter(hasValidHr);
+          return arr.length ? { type, arr } : null;
+        })
+        .filter(Boolean);
+      return (
       <div style={{ overflowX: 'auto' }}>
-        <svg width={W} height={rowTypes.length * H_ROW + 20} style={{ display: 'block' }}>
-          {rowTypes.map((type, ri) => {
-            let arr = byType[type];
-            // Drop runs without a valid HR in HR/Efficiency modes — else they
-            // poison the bounds (min=0) and squash all real values into a
-            // tiny band.
-            if (needsHr) arr = arr.filter(hasValidHr);
-            if (!arr.length) return null;
+        <svg width={W} height={rowsToRender.length * H_ROW + 20} style={{ display: 'block' }}>
+          {rowsToRender.map(({ type, arr }, ri) => {
             const values = arr.map(valueOf);
             const bounds = {
               min: Math.min(...values) * 0.98,
@@ -262,6 +267,8 @@ export default function PaceRibbon() {
           })}
         </svg>
       </div>
+      );
+      })()}
 
       {(() => {
         const candidates = types

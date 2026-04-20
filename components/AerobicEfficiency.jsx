@@ -160,24 +160,43 @@ export default function AerobicEfficiency() {
     });
   }, [inView, dateRange]);
 
-  // Chart's trend lines match the readout cards exactly: mean HR of each
-  // half (first 50% vs last 50%), plus each half's own median pace so the
-  // reader sees *where* on the pace axis the HR sat.
+  // Chart centroid follows the currently-visible subset (filter aware):
+  // mean HR + median pace of each half split at the date midpoint. Decoupled
+  // from the band-card trendType so the "+" markers always match the cloud
+  // on screen — whether that's "All runs" or a filtered type.
   const trend = useMemo(() => {
-    const band = bandReadouts.find((b) => b.type === trendType);
-    if (!band || !band.enough) return null;
-    return {
-      startHr: band.earlyHr,
-      endHr: band.lateHr,
-      startPace: band.earlyPace,
-      endPace: band.latePace,
-      // HR now lives on the X axis, so the reference lines are vertical.
-      startX: xFor(band.earlyHr),
-      endX: xFor(band.lateHr),
-      delta: band.delta,
-      paceDrifted: band.paceDrifted,
+    const subset = inView.filter((r) => isAllMode || activeTypes.has(r.type));
+    if (subset.length < 4) return null;
+    const range = dateRange.end - dateRange.start || 1;
+    const midpoint = dateRange.start + range * 0.5;
+    const early = subset.filter((r) => new Date(r.date).getTime() <= midpoint);
+    const late = subset.filter((r) => new Date(r.date).getTime() > midpoint);
+    if (early.length < 2 || late.length < 2) return null;
+    const medianOf = (arr) => {
+      const sorted = [...arr].sort((a, b) => a - b);
+      return sorted[Math.floor(sorted.length / 2)];
     };
-  }, [bandReadouts, trendType, bounds]);
+    const earlyHr = early.reduce((a, r) => a + r.hr, 0) / early.length;
+    const lateHr = late.reduce((a, r) => a + r.hr, 0) / late.length;
+    const earlyPace = medianOf(early.map((r) => r.pace));
+    const latePace = medianOf(late.map((r) => r.pace));
+    const paceDrifted = (latePace - earlyPace) >= PACE_DRIFT_WARN;
+    return {
+      startHr: earlyHr, endHr: lateHr,
+      startPace: earlyPace, endPace: latePace,
+      startX: xFor(earlyHr), startY: yFor(earlyPace),
+      endX: xFor(lateHr), endY: yFor(latePace),
+      delta: lateHr - earlyHr,
+      paceDrifted,
+      earlyN: early.length, lateN: late.length,
+    };
+  }, [inView, activeTypes, isAllMode, dateRange, bounds]);
+
+  const scopeLabel = isAllMode
+    ? 'All runs'
+    : activeTypes.size === 1
+      ? typeMeta[[...activeTypes][0]].label
+      : `${activeTypes.size} types`;
 
   const showMetric = (r) => {
     const hour = Math.floor(r.duration / 60);
@@ -208,7 +227,7 @@ export default function AerobicEfficiency() {
           <div className="stat-label" style={{ marginBottom: 4 }}>Aerobic Efficiency</div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', lineHeight: 1.5 }}>
             Every run plotted by <b>heart rate × pace</b>. As you get fitter, dots drift <b>up-left</b> — faster pace at a <i>lower</i> HR.
-            Color shows workout type; darker dots are more recent.
+            Color shows workout type; darker dots are more recent. The bold <b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half — arrow shows the direction of progress.
           </div>
         </div>
 
@@ -293,16 +312,13 @@ export default function AerobicEfficiency() {
               <text x={M.l + 40} y={M.t + 32} style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 13, fill: 'var(--inkSoft)' }}>improving</text>
             </g>
 
-            {trend && (isAllMode || activeTypes.has(trendType)) && (
+            {trend && (
               <g>
-                {/* Two vertical reference lines at each half's mean HR. Labels
-                     stack in the top-right of the plot to avoid colliding
-                     with each other when the two HRs are close. Inked in the
-                     same dashed-early / solid-recent language as DPC. */}
-                <line x1={trend.startX} x2={trend.startX} y1={M.t} y2={H - M.b} stroke="var(--inkSoft)" strokeWidth={1.2} strokeDasharray="4 3" opacity={0.55} />
-                <line x1={trend.endX} x2={trend.endX} y1={M.t} y2={H - M.b} stroke="var(--ink)" strokeWidth={1.6} opacity={0.85} />
+                {/* Labels stack in the top-right of the plot so long copy
+                     doesn't crowd the centroids when early and recent land
+                     close to each other. */}
                 <text x={W - M.r - 6} y={M.t + 10} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: 'var(--inkSoft)' }}>
-                  {typeMeta[trendType].label} · early · {Math.round(trend.startHr)} bpm @ {fmtPace(paceToDisplay(trend.startPace, units))}
+                  {scopeLabel} · early · {Math.round(trend.startHr)} bpm @ {fmtPace(paceToDisplay(trend.startPace, units))}
                 </text>
                 <text x={W - M.r - 6} y={M.t + 22} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: 'var(--ink)', fontWeight: 600 }}>
                   recent · {Math.round(trend.endHr)} bpm @ {fmtPace(paceToDisplay(trend.endPace, units))} ({trend.delta >= 0 ? '+' : '−'}{Math.abs(Math.round(trend.delta))} bpm{trend.paceDrifted ? ' · pace shifted' : ''})
@@ -354,6 +370,31 @@ export default function AerobicEfficiency() {
                 );
               })}
 
+            {/* Direction-of-progress: plus-marker centroids joined by an
+                 accent-colored arrow. Accent (not ink) so the summary pops
+                 against any type color in the cloud below. */}
+            {trend && (
+              <g>
+                <defs>
+                  <marker id="ae-prog-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                    <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)" />
+                  </marker>
+                </defs>
+                <line
+                  x1={trend.startX} y1={trend.startY}
+                  x2={trend.endX} y2={trend.endY}
+                  stroke="var(--accent)" strokeWidth={1.8}
+                  markerEnd="url(#ae-prog-arrow)"
+                />
+                {/* Early centroid: thin accent plus */}
+                <line x1={trend.startX - 8} y1={trend.startY} x2={trend.startX + 8} y2={trend.startY} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
+                <line x1={trend.startX} y1={trend.startY - 8} x2={trend.startX} y2={trend.startY + 8} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
+                {/* Recent centroid: bolder accent plus */}
+                <line x1={trend.endX - 9} y1={trend.endY} x2={trend.endX + 9} y2={trend.endY} stroke="var(--accent)" strokeWidth={3} />
+                <line x1={trend.endX} y1={trend.endY - 9} x2={trend.endX} y2={trend.endY + 9} stroke="var(--accent)" strokeWidth={3} />
+              </g>
+            )}
+
             <rect x={M.l} y={M.t} width={plotW} height={plotH} fill="none" stroke="var(--rule)" strokeWidth={1} />
           </svg>
 
@@ -362,8 +403,9 @@ export default function AerobicEfficiency() {
               <svg width={10} height={10} style={{ display: 'block' }}>
                 <circle cx={5} cy={5} r={3.2} fill="none" stroke="var(--ink)" strokeWidth={1.2} />
               </svg>
-              <svg width={24} height={6}>
-                <line x1={0} x2={24} y1={3} y2={3} stroke="var(--inkSoft)" strokeWidth={1.2} strokeDasharray="3 2" opacity={0.6} />
+              <svg width={12} height={12} style={{ display: 'block' }}>
+                <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
+                <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
               </svg>
               early {trend && (
                 <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--inkSoft)' }}>
@@ -375,8 +417,9 @@ export default function AerobicEfficiency() {
               <svg width={10} height={10} style={{ display: 'block' }}>
                 <circle cx={5} cy={5} r={3.2} fill="var(--ink)" />
               </svg>
-              <svg width={24} height={6}>
-                <line x1={0} x2={24} y1={3} y2={3} stroke="var(--ink)" strokeWidth={1.6} />
+              <svg width={12} height={12} style={{ display: 'block' }}>
+                <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={3} />
+                <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={3} />
               </svg>
               recent {trend && (
                 <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>

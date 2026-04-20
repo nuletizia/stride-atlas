@@ -83,6 +83,37 @@ export default function DistancePaceCurve() {
     return (t - dateRange.start) / (dateRange.end - dateRange.start);
   };
 
+  // (distance × pace) centroid for each half of the visible subset. Uses
+  // median on both axes so outlier distances (races, long days) don't skew
+  // the marker. Arrow from early → recent shows the direction of progress.
+  const centroids = useMemo(() => {
+    const subset = inView.filter((r) => isAllMode || activeTypes.has(r.type));
+    if (subset.length < 4) return null;
+    const midT = dateRange.start + (dateRange.end - dateRange.start) / 2;
+    const early = subset.filter((r) => new Date(r.date).getTime() <= midT);
+    const late = subset.filter((r) => new Date(r.date).getTime() > midT);
+    if (early.length < 2 || late.length < 2) return null;
+    const medianOf = (arr) => {
+      const sorted = [...arr].sort((a, b) => a - b);
+      return sorted[Math.floor(sorted.length / 2)];
+    };
+    const startDist = medianOf(early.map((r) => r.distance));
+    const endDist = medianOf(late.map((r) => r.distance));
+    const startPace = medianOf(early.map((r) => r.pace));
+    const endPace = medianOf(late.map((r) => r.pace));
+    return {
+      startX: xFor(startDist), startY: yFor(startPace),
+      endX: xFor(endDist), endY: yFor(endPace),
+      startDist, endDist, startPace, endPace,
+    };
+  }, [inView, activeTypes, isAllMode, dateRange, bounds]);
+
+  const scopeLabel = isAllMode
+    ? 'All runs'
+    : activeTypes.size === 1
+      ? typeMeta[[...activeTypes][0]].label
+      : `${activeTypes.size} types`;
+
   // Distance ticks live at clean *display* values (2/5/10 km or 1/2/5 mi)
   // and carry the km position used by xFor.
   const distTicks = useMemo(() => {
@@ -215,14 +246,9 @@ export default function DistancePaceCurve() {
           <div className="stat-label" style={{ marginBottom: 4 }}>Aerobic Endurance</div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', lineHeight: 1.5 }}>
             Every run plotted by <b>distance × pace</b>. Fast pace is at the top of the chart; longer runs
-            sit to the right. The cloud naturally slopes toward the lower-right (longer = slower). We split
-            your visible window in half by date and fit a curve through each half — when the <b>recent</b>
-            curve sits <b>above</b> the <b>early</b> one, you&rsquo;re running faster at every distance.
-            <br/>
-            <span className="muted" style={{ fontSize: 12 }}>
-              Tip: the trend curves are most meaningful with many workout types visible. Filtering to a single
-              type can hide the curves if there aren&rsquo;t enough runs or the distances are too similar.
-            </span>
+            sit to the right. The cloud naturally slopes toward the lower-right (longer = slower). The bold
+            {' '}<b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half — arrow
+            shows the direction of progress (up = faster, right = longer).
           </div>
         </div>
 
@@ -314,14 +340,6 @@ export default function DistancePaceCurve() {
           >improving</text>
         </g>
 
-        {/* Trend lines: early (muted) + recent (strong) */}
-        {trends?.early && (
-          <path d={trendPath(trends.early)} fill="none" stroke="var(--inkSoft)" strokeWidth={1.2} strokeDasharray="4 3" opacity={0.55} />
-        )}
-        {trends?.late && (
-          <path d={trendPath(trends.late)} fill="none" stroke="var(--ink)" strokeWidth={1.6} opacity={0.85} />
-        )}
-
         {/* Dots — older first so newer sits on top */}
         {inView
           .slice()
@@ -366,6 +384,35 @@ export default function DistancePaceCurve() {
             );
           })}
 
+        {/* Direction-of-progress: plus-marker centroids joined by an
+             accent arrow. Accent (not ink) so the summary pops against
+             any type color in the cloud. Rendered after dots. */}
+        {centroids && (
+          <g>
+            <defs>
+              <marker id="dpc-prog-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)" />
+              </marker>
+            </defs>
+            <line
+              x1={centroids.startX} y1={centroids.startY}
+              x2={centroids.endX} y2={centroids.endY}
+              stroke="var(--accent)" strokeWidth={1.8}
+              markerEnd="url(#dpc-prog-arrow)"
+            />
+            <line x1={centroids.startX - 8} y1={centroids.startY} x2={centroids.startX + 8} y2={centroids.startY} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
+            <line x1={centroids.startX} y1={centroids.startY - 8} x2={centroids.startX} y2={centroids.startY + 8} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
+            <line x1={centroids.endX - 9} y1={centroids.endY} x2={centroids.endX + 9} y2={centroids.endY} stroke="var(--accent)" strokeWidth={3} />
+            <line x1={centroids.endX} y1={centroids.endY - 9} x2={centroids.endX} y2={centroids.endY + 9} stroke="var(--accent)" strokeWidth={3} />
+            <text x={W - M.r - 6} y={M.t + 10} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: 'var(--inkSoft)' }}>
+              {scopeLabel} · early · {fmtDistance(centroids.startDist, units, 1)} {distUnit(units)} @ {fmtPace(paceToDisplay(centroids.startPace, units))}
+            </text>
+            <text x={W - M.r - 6} y={M.t + 22} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fill: 'var(--ink)', fontWeight: 600 }}>
+              recent · {fmtDistance(centroids.endDist, units, 1)} {distUnit(units)} @ {fmtPace(paceToDisplay(centroids.endPace, units))}
+            </text>
+          </g>
+        )}
+
         <rect x={M.l} y={M.t} width={plotW} height={plotH} fill="none" stroke="var(--rule)" strokeWidth={1} />
       </svg>
 
@@ -379,7 +426,10 @@ export default function DistancePaceCurve() {
           <svg width={10} height={10} style={{ display: 'block' }}>
             <circle cx={5} cy={5} r={3.2} fill="none" stroke="var(--ink)" strokeWidth={1.2} />
           </svg>
-          <svg width={24} height={6}><line x1={0} x2={24} y1={3} y2={3} stroke="var(--inkSoft)" strokeWidth={1.2} strokeDasharray="3 2" opacity={0.6} /></svg>
+          <svg width={12} height={12} style={{ display: 'block' }}>
+            <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
+            <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
+          </svg>
           early {trends?.early && !trends.early.narrow && (
             <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--inkSoft)' }}>
               · {fmtRange(trends.early.from, trends.early.to)} · {trends.early.n} runs
@@ -390,7 +440,10 @@ export default function DistancePaceCurve() {
           <svg width={10} height={10} style={{ display: 'block' }}>
             <circle cx={5} cy={5} r={3.2} fill="var(--ink)" />
           </svg>
-          <svg width={24} height={6}><line x1={0} x2={24} y1={3} y2={3} stroke="var(--ink)" strokeWidth={1.6} /></svg>
+          <svg width={12} height={12} style={{ display: 'block' }}>
+            <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={3} />
+            <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={3} />
+          </svg>
           recent {trends?.late && !trends.late.narrow && (
             <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>
               · {fmtRange(trends.late.from, trends.late.to)} · {trends.late.n} runs
