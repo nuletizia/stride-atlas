@@ -288,11 +288,13 @@ export default function DistancePaceCurve() {
               <path d="M0,0 L10,5 L0,10 z" fill="var(--inkSoft)" />
             </marker>
           </defs>
+          {/* Dotted (not dashed) so it doesn't echo the dashed "early" trend. */}
           <line
             x1={M.l + 32} y1={H - M.b - 14}
             x2={W - M.r - 16} y2={M.t + 18}
-            stroke="var(--inkSoft)" strokeWidth={1}
-            strokeDasharray="3 3"
+            stroke="var(--inkMuted)" strokeWidth={1}
+            strokeDasharray="1 4"
+            strokeLinecap="round"
             markerEnd="url(#dp-arrow)"
           />
           <text

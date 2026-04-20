@@ -125,8 +125,9 @@ export default function AerobicEfficiency() {
       const early = typeRuns.filter((r) => new Date(r.date).getTime() <= midpoint);
       const late = typeRuns.filter((r) => new Date(r.date).getTime() > midpoint);
 
-      // Need ≥3 per half so we're averaging multiple runs, not a single session.
-      if (early.length < 3 || late.length < 3) return { type: t, enough: false };
+      // Need ≥2 per half so each side is at least a short average, not a
+      // single session. (Relaxed from 3; noisier but reaches more types.)
+      if (early.length < 2 || late.length < 2) return { type: t, enough: false };
 
       const earlyHr = early.reduce((a, r) => a + r.hr, 0) / early.length;
       const lateHr = late.reduce((a, r) => a + r.hr, 0) / late.length;
@@ -269,12 +270,14 @@ export default function AerobicEfficiency() {
                 </marker>
               </defs>
               {/* Improvement points up-left: faster pace (higher Y position) at
-                   lower HR (lower X position). */}
+                   lower HR (lower X position). Dotted style (not dashed) to
+                   keep it visually distinct from the dashed "early" trend. */}
               <line
                 x1={W - M.r - 16} y1={H - M.b - 14}
                 x2={M.l + 32} y2={M.t + 18}
-                stroke="var(--inkSoft)" strokeWidth={1}
-                strokeDasharray="3 3"
+                stroke="var(--inkMuted)" strokeWidth={1}
+                strokeDasharray="1 4"
+                strokeLinecap="round"
                 markerEnd="url(#ae-arrow)"
               />
               <text x={M.l + 40} y={M.t + 32} style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 13, fill: 'var(--inkSoft)' }}>improving</text>
@@ -334,18 +337,40 @@ export default function AerobicEfficiency() {
             <rect x={M.l} y={M.t} width={plotW} height={plotH} fill="none" stroke="var(--rule)" strokeWidth={1} />
           </svg>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, paddingLeft: M.l, fontSize: 10.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '.08em' }}>
-            <span>older</span>
-            <svg width={120} height={10} style={{ display: 'block' }}>
-              <defs>
-                <linearGradient id="recgrad" x1="0" x2="1">
-                  <stop offset="0" stopColor="var(--type-tempo)" stopOpacity={0.25} />
-                  <stop offset="1" stopColor="var(--type-tempo)" stopOpacity={0.9} />
-                </linearGradient>
-              </defs>
-              <rect width={120} height={10} fill="url(#recgrad)" rx={5} />
-            </svg>
-            <span>newer</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 8, paddingLeft: M.l, fontSize: 10.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '.08em', flexWrap: 'wrap' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width={24} height={6}>
+                <line x1={0} x2={24} y1={3} y2={3} stroke={`var(--type-${trendType})`} strokeWidth={1.2} strokeDasharray="4 4" opacity={0.7} />
+              </svg>
+              early {trend && (
+                <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--inkSoft)' }}>
+                  · {typeMeta[trendType].label} · {Math.round(trend.startHr)} bpm @ {fmtPace(paceToDisplay(trend.startPace, units))}
+                </span>
+              )}
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width={24} height={6}>
+                <line x1={0} x2={24} y1={3} y2={3} stroke={`var(--type-${trendType})`} strokeWidth={1.6} />
+              </svg>
+              recent {trend && (
+                <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>
+                  · {Math.round(trend.endHr)} bpm @ {fmtPace(paceToDisplay(trend.endPace, units))}
+                </span>
+              )}
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>older</span>
+              <svg width={120} height={10} style={{ display: 'block' }}>
+                <defs>
+                  <linearGradient id="recgrad" x1="0" x2="1">
+                    <stop offset="0" stopColor="var(--type-tempo)" stopOpacity={0.25} />
+                    <stop offset="1" stopColor="var(--type-tempo)" stopOpacity={0.9} />
+                  </linearGradient>
+                </defs>
+                <rect width={120} height={10} fill="url(#recgrad)" rx={5} />
+              </svg>
+              <span>newer</span>
+            </span>
           </div>
         </div>
 
@@ -460,11 +485,11 @@ export default function AerobicEfficiency() {
       </div>
 
       {(() => {
-        // Only count wins where pace didn't drift — otherwise the "gain"
-        // could be the runner slowing down, not getting fitter.
-        const wins = bandReadouts.filter((b) => b.enough && b.delta < -1 && !b.paceDrifted);
+        // Any HR drop counts (delta < 0). Pace-drift still disqualifies —
+        // otherwise the "gain" could be the runner slowing down, not fitness.
+        const wins = bandReadouts.filter((b) => b.enough && b.delta < 0 && !b.paceDrifted);
         if (!wins.length) {
-          const drifted = bandReadouts.filter((b) => b.enough && b.delta < -1 && b.paceDrifted);
+          const drifted = bandReadouts.filter((b) => b.enough && b.delta < 0 && b.paceDrifted);
           if (drifted.length) {
             return <Highlight tone="muted">Some HR drops look like fitness, but pace shifted between halves — hold pace steady within a type to get a cleaner read.</Highlight>;
           }
