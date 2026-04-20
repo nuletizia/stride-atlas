@@ -117,6 +117,55 @@ export default function DistancePaceCurve() {
       ? typeMeta[[...activeTypes][0]].label
       : `${activeTypes.size} types`;
 
+  // Per-type (and "all") early/recent readouts for the endurance cards.
+  // Same count-based split + median-of-both methodology as the chart
+  // centroids, so the cards and the "+" markers agree exactly.
+  const bandReadouts = useMemo(() => {
+    const types = ['all', 'easy', 'tempo', 'long', 'intervals'];
+    const medianOf = (arr) => {
+      const s = [...arr].sort((a, b) => a - b);
+      return s[Math.floor(s.length / 2)];
+    };
+    return types.map((t) => {
+      const typeRuns = t === 'all' ? inView : inView.filter((r) => r.type === t);
+      if (typeRuns.length < 4) return { type: t, enough: false };
+      const sorted = [...typeRuns].sort((a, b) => a.date.localeCompare(b.date));
+      const mid = Math.floor(sorted.length / 2);
+      const early = sorted.slice(0, mid);
+      const late = sorted.slice(mid);
+      if (early.length < 2 || late.length < 2) return { type: t, enough: false };
+      const startDist = medianOf(early.map((r) => r.distance));
+      const endDist = medianOf(late.map((r) => r.distance));
+      const startPace = medianOf(early.map((r) => r.pace));
+      const endPace = medianOf(late.map((r) => r.pace));
+      const distDelta = endDist - startDist;       // positive = longer now
+      const paceDelta = startPace - endPace;        // positive = faster now (min/km drop)
+      const dateFmt = (iso) =>
+        new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      const earlyDates = early.map((r) => r.date).sort();
+      const lateDates = late.map((r) => r.date).sort();
+      return {
+        type: t, enough: true,
+        startDist, endDist, startPace, endPace,
+        distDelta, paceDelta,
+        earlyN: early.length, lateN: late.length,
+        earlyLabel: `${dateFmt(earlyDates[0])} → ${dateFmt(earlyDates[earlyDates.length - 1])}`,
+        lateLabel: `${dateFmt(lateDates[0])} → ${dateFmt(lateDates[lateDates.length - 1])}`,
+      };
+    });
+  }, [inView]);
+
+  // `null` until user clicks a card. While null, the highlight defaults to
+  // the type with the biggest clean pace improvement, so the first read
+  // shows the strongest endurance story without a click.
+  const [trendType, setTrendType] = useState(null);
+  const winnerType = useMemo(() => {
+    const wins = bandReadouts.filter((b) => b.type !== 'all' && b.enough && b.paceDelta > 0);
+    if (!wins.length) return null;
+    return wins.reduce((a, b) => (a.paceDelta > b.paceDelta ? a : b)).type;
+  }, [bandReadouts]);
+  const activeTrend = trendType ?? winnerType ?? 'easy';
+
   // Distance ticks live at clean *display* values (2/5/10 km or 1/2/5 mi)
   // and carry the km position used by xFor.
   const distTicks = useMemo(() => {
@@ -466,50 +515,163 @@ export default function DistancePaceCurve() {
           </svg>
           newer
         </span>
-        {trends?.reason && (
-          <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--accent)', fontStyle: 'italic', fontFamily: 'var(--serif)' }}>
-            — trend curves hidden: {trends.reason}
-          </span>
-        )}
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--ruleSoft)', paddingTop: 16, marginTop: 16 }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+          fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--inkMuted)',
+          textTransform: 'uppercase', letterSpacing: '.12em', marginBottom: 4,
+        }}>
+          <span>Distance × pace · early vs recent</span>
+          <span style={{ fontStyle: 'normal', textTransform: 'none', letterSpacing: 0, fontSize: 10.5, color: 'var(--inkMuted)' }}>Click to drive the highlight →</span>
+        </div>
+        <div style={{
+          fontSize: 11, color: 'var(--inkMuted)', marginBottom: 10,
+          fontStyle: 'italic', fontFamily: 'var(--serif)',
+        }}>
+          Each card shows the median run of each half. Watch both axes — distance growth and pace shift can tell different stories.
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
+          {bandReadouts.map((b) => {
+            const isActive = activeTrend === b.type;
+            const color = b.type === 'all' ? 'var(--ink)' : `var(--type-${b.type})`;
+            const distArrow = b.enough && Math.abs(kmToDisplay(b.distDelta, units)) > 0.1
+              ? (b.distDelta > 0 ? '↑' : '↓') : '=';
+            const paceArrow = b.enough && Math.abs(b.paceDelta * 60 * paceK) > 1
+              ? (b.paceDelta > 0 ? '↓' : '↑') : '=';
+            return (
+              <button
+                key={b.type}
+                onClick={() => b.enough && setTrendType(b.type)}
+                disabled={!b.enough}
+                style={{
+                  textAlign: 'left',
+                  background: isActive ? 'var(--bgSunken)' : 'transparent',
+                  borderTop: `3px solid ${color}`,
+                  borderRight: '1px solid var(--ruleSoft)',
+                  borderBottom: '1px solid var(--ruleSoft)',
+                  borderLeft: '1px solid var(--ruleSoft)',
+                  borderRadius: 2,
+                  padding: '10px 12px',
+                  cursor: b.enough ? 'pointer' : 'not-allowed',
+                  opacity: b.enough ? 1 : 0.45,
+                  fontFamily: 'inherit',
+                  color: 'var(--ink)',
+                  display: 'block',
+                  width: '100%',
+                  boxShadow: isActive ? 'inset 0 0 0 1px var(--rule)' : 'none',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{b.type === 'all' ? 'All' : typeMeta[b.type].label}</span>
+                  {!b.enough && <span className="mono" style={{ fontSize: 10, color: 'var(--inkMuted)' }}>n/a</span>}
+                </div>
+                {b.enough && (
+                  <>
+                    {/* Distance row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'baseline', gap: 6, marginBottom: 4 }}>
+                      <span className="mono muted" style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '.08em' }}>Dist</span>
+                      <span className="mono" style={{ fontSize: 11, color: 'var(--inkSoft)' }}>
+                        {fmtDistance(b.startDist, units, 1)} → {fmtDistance(b.endDist, units, 1)}
+                      </span>
+                      <span
+                        className="num"
+                        style={{
+                          fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                          color: b.distDelta > 0.1 ? 'var(--positive)' : b.distDelta < -0.1 ? 'var(--inkSoft)' : 'var(--inkMuted)',
+                        }}
+                      >
+                        {distArrow} {Math.abs(kmToDisplay(b.distDelta, units)).toFixed(1)}
+                      </span>
+                    </div>
+                    {/* Pace row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
+                      <span className="mono muted" style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '.08em' }}>Pace</span>
+                      <span className="mono" style={{ fontSize: 11, color: 'var(--inkSoft)' }}>
+                        {fmtPace(paceToDisplay(b.startPace, units))} → {fmtPace(paceToDisplay(b.endPace, units))}
+                      </span>
+                      <span
+                        className="num"
+                        style={{
+                          fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                          color: b.paceDelta > 0.02 ? 'var(--positive)' : b.paceDelta < -0.02 ? 'var(--inkSoft)' : 'var(--inkMuted)',
+                        }}
+                      >
+                        {paceArrow} {Math.abs(b.paceDelta * 60 * paceK).toFixed(0)}s
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--inkMuted)', fontFamily: 'var(--mono)' }}>
+                      {b.earlyN} early · {b.lateN} recent
+                    </div>
+                    <div style={{ marginTop: 2, fontSize: 9.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', opacity: 0.8 }}>
+                      {b.earlyLabel} · {b.lateLabel}
+                    </div>
+                  </>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {(() => {
-        const e = trends?.early, l = trends?.late;
-        if (!e || !l || e.narrow || l.narrow) {
-          return <Highlight tone="muted">Need more runs (or more distance spread) to fit a trend — keep logging to unlock this line.</Highlight>;
+        // Highlight reflects the active card (user's click, or the pace-
+        // improvement winner by default). Distance and pace can shift
+        // independently so both deltas are always named.
+        const band = bandReadouts.find((b) => b.type === activeTrend);
+        const label = band ? (band.type === 'all' ? 'Overall' : typeMeta[band.type].label) : '';
+        if (!band || !band.enough) {
+          return <Highlight tone="muted">Not enough runs in this type yet — keep logging to unlock the endurance read.</Highlight>;
         }
-        const lo = Math.max(e.dLo, l.dLo);
-        const hi = Math.min(e.dHi, l.dHi);
-        let dRef = hi > lo ? (lo + hi) / 2 : (l.dLo + l.dHi) / 2;
-        dRef = dRef < 10 ? Math.max(1, Math.round(dRef)) : Math.round(dRef / 5) * 5;
-        // If rounding pushed us outside the overlap, pull back in.
-        if (hi > lo) dRef = Math.min(hi, Math.max(lo, dRef));
-        const earlyPace = e.a + e.b * Math.log(dRef);
-        const latePace = l.a + l.b * Math.log(dRef);
-        const deltaSec = (earlyPace - latePace) * 60;
-        const dRefDisp = kmToDisplay(dRef, units);
-        const dRefDispLabel = dRefDisp < 10 ? dRefDisp.toFixed(1) : Math.round(dRefDisp);
-        // Convert the per-km seconds delta into the displayed pace unit.
-        const deltaSecDisp = deltaSec * paceK;
-        if (deltaSec > 3) {
+        const distDisp = kmToDisplay(band.distDelta, units);
+        const paceSec = band.paceDelta * 60 * paceK; // positive = faster
+        const distGrew = distDisp > 0.3;
+        const distShrank = distDisp < -0.3;
+        const faster = paceSec > 3;
+        const slower = paceSec < -3;
+        const distStr = <>{fmtDistance(band.startDist, units, 1)} → {fmtDistance(band.endDist, units, 1)} {distUnit(units)}</>;
+        const paceStr = <>{fmtPace(paceToDisplay(band.startPace, units))} → {fmtPace(paceToDisplay(band.endPace, units))} {paceUnit(units)}</>;
+
+        if (faster && distGrew) {
           return (
             <Highlight>
-              You&rsquo;re running faster: at <HlNum>{dRefDispLabel} {distUnit(units)}</HlNum>, recent pace is{' '}
-              <HlNum>{deltaSecDisp.toFixed(0)} s{paceUnit(units)}</HlNum> quicker than early pace{' '}
-              (<HlNum>{fmtPace(paceToDisplay(earlyPace, units))} → {fmtPace(paceToDisplay(latePace, units))}</HlNum>). The cloud is drifting up.
+              <HlNum>{label}</HlNum>: stretching longer and running faster. Distance <HlNum>{distStr}</HlNum>, pace <HlNum>{paceStr}</HlNum>. Clean endurance gain.
             </Highlight>
           );
         }
-        if (deltaSec < -3) {
+        if (faster) {
+          return (
+            <Highlight>
+              <HlNum>{label}</HlNum>: same ground, faster. <HlNum>{paceStr}</HlNum> — that&rsquo;s <HlNum>{paceSec.toFixed(0)} s{paceUnit(units)}</HlNum> quicker at a similar distance.
+            </Highlight>
+          );
+        }
+        if (distGrew && !slower) {
+          return (
+            <Highlight>
+              <HlNum>{label}</HlNum>: stretching longer. Distance <HlNum>{distStr}</HlNum>, pace <HlNum>{paceStr}</HlNum>. Base-building phase.
+            </Highlight>
+          );
+        }
+        if (slower && distShrank) {
           return (
             <Highlight tone="muted">
-              At <HlNum>{dRefDispLabel} {distUnit(units)}</HlNum>, recent pace is <HlNum>{Math.abs(deltaSecDisp).toFixed(0)} s{paceUnit(units)}</HlNum> slower than early pace — a heavier stretch, or a shift in run mix.
+              <HlNum>{label}</HlNum>: shorter and easier in this window. <HlNum>{distStr}</HlNum>, <HlNum>{paceStr}</HlNum>. Recovery or off-season.
+            </Highlight>
+          );
+        }
+        if (slower) {
+          return (
+            <Highlight tone="muted">
+              <HlNum>{label}</HlNum>: pace drifted slower at a similar distance. <HlNum>{paceStr}</HlNum>.
             </Highlight>
           );
         }
         return (
           <Highlight tone="muted">
-            Recent pace is holding steady against your earlier runs — the curve hasn&rsquo;t shifted yet.
+            <HlNum>{label}</HlNum>: holding steady. <HlNum>{distStr}</HlNum>, <HlNum>{paceStr}</HlNum>.
           </Highlight>
         );
       })()}

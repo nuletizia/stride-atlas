@@ -691,11 +691,11 @@ function ScatterDot({ cx, cy, r, fill, fillOpacity, stroke, strokeWidth, title, 
   );
 }
 
-// Mini pace × HR scatter plotting this run + its similar-run cohort.
+// Mini HR × pace scatter plotting this run + its similar-run cohort.
 // Complements the numeric grid by showing where the current run sits
 // spatially among its peers. Same axis convention as the Aerobic Efficiency
-// panel (faster pace = left, lower HR = bottom → "improving" corner is
-// down-left). Dots are clickable — clicking a peer jumps to that run.
+// panel: HR on X (low → high), pace on Y (faster = top). Improving corner
+// is up-left. Dots are clickable — clicking a peer jumps to that run.
 function PeerScatter({ run, color, onPeerClick, units = 'km' }) {
   const selfHasHr = hasValidHr(run);
   const hrPeers = run.peers.filter(hasValidHr);
@@ -735,8 +735,11 @@ function PeerScatter({ run, color, onPeerClick, units = 'km' }) {
   const M = { l: 40, r: 14, t: 14, b: 30 };
   const plotW = W - M.l - M.r;
   const plotH = H - M.t - M.b;
-  const xFor = (p) => M.l + ((p - bounds.paceMin) / (bounds.paceMax - bounds.paceMin)) * plotW;
-  const yFor = (hr) => M.t + (1 - (hr - bounds.hrMin) / (bounds.hrMax - bounds.hrMin)) * plotH;
+  // X: HR (low → high, left-to-right natural).
+  // Y: pace, inverted so fastest pace (smallest min/km value) sits at the
+  // top — improving corner reads as "up-left": faster pace at lower HR.
+  const xFor = (hr) => M.l + ((hr - bounds.hrMin) / (bounds.hrMax - bounds.hrMin)) * plotW;
+  const yFor = (p) => M.t + ((p - bounds.paceMin) / (bounds.paceMax - bounds.paceMin)) * plotH;
 
   // Two pace + two HR reference ticks, rounded to clean values.
   const paceTickStep = (bounds.paceMax - bounds.paceMin) > 1.5 ? 0.5 : 0.25;
@@ -750,17 +753,22 @@ function PeerScatter({ run, color, onPeerClick, units = 'km' }) {
   return (
     <div onClick={(e) => e.stopPropagation()}>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: 420, height: 'auto', display: 'block' }}>
-        {/* Grid */}
-        {hrTicks.map((hr) => (
+        {/* Grid — HR verticals on X, pace horizontals on Y */}
+        {hrTicks.map((hr, i) => (
           <g key={`h-${hr}`}>
-            <line x1={M.l} x2={W - M.r} y1={yFor(hr)} y2={yFor(hr)} stroke="var(--ruleSoft)" strokeWidth={1} />
-            <text x={M.l - 6} y={yFor(hr) + 3} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9, fill: 'var(--inkMuted)' }}>{hr}</text>
+            <line
+              x1={xFor(hr)} x2={xFor(hr)}
+              y1={M.t} y2={H - M.b}
+              stroke="var(--ruleSoft)" strokeWidth={1}
+              strokeDasharray={i === 0 || i === hrTicks.length - 1 ? '0' : '2 3'}
+            />
+            <text x={xFor(hr)} y={H - M.b + 13} textAnchor="middle" style={{ fontFamily: 'var(--mono)', fontSize: 9, fill: 'var(--inkMuted)' }}>{hr}</text>
           </g>
         ))}
         {paceTicks.map((p) => (
           <g key={`p-${p}`}>
-            <line x1={xFor(p)} x2={xFor(p)} y1={M.t} y2={H - M.b} stroke="var(--ruleSoft)" strokeWidth={1} strokeDasharray="2 3" />
-            <text x={xFor(p)} y={H - M.b + 13} textAnchor="middle" style={{ fontFamily: 'var(--mono)', fontSize: 9, fill: 'var(--inkMuted)' }}>{fmtPace(paceToDisplay(p, units))}</text>
+            <line x1={M.l} x2={W - M.r} y1={yFor(p)} y2={yFor(p)} stroke="var(--ruleSoft)" strokeWidth={1} />
+            <text x={M.l - 6} y={yFor(p) + 3} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 9, fill: 'var(--inkMuted)' }}>{fmtPace(paceToDisplay(p, units))}</text>
           </g>
         ))}
 
@@ -770,14 +778,14 @@ function PeerScatter({ run, color, onPeerClick, units = 'km' }) {
           textAnchor="middle"
           transform={`rotate(-90 ${M.l - 30} ${M.t + plotH / 2})`}
           style={{ fontFamily: 'var(--mono)', fontSize: 9, fill: 'var(--inkSoft)', letterSpacing: '.08em', textTransform: 'uppercase' }}
-        >HR (bpm)</text>
+        >Pace · faster ↑</text>
         <text
           x={M.l + plotW / 2} y={H - 4}
           textAnchor="middle"
           style={{ fontFamily: 'var(--mono)', fontSize: 9, fill: 'var(--inkSoft)', letterSpacing: '.08em', textTransform: 'uppercase' }}
-        >Pace · faster ←</text>
+        >HR (bpm)</text>
 
-        {/* Improving arrow (down-left: faster + lower HR) */}
+        {/* Improving arrow (up-left: faster pace + lower HR) */}
         <g opacity="0.45">
           <defs>
             <marker id={`ps-arrow-${run.id}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
@@ -785,13 +793,13 @@ function PeerScatter({ run, color, onPeerClick, units = 'km' }) {
             </marker>
           </defs>
           <line
-            x1={W - M.r - 10} y1={M.t + 14}
-            x2={M.l + 20} y2={H - M.b - 10}
+            x1={W - M.r - 10} y1={H - M.b - 10}
+            x2={M.l + 20} y2={M.t + 14}
             stroke="var(--inkSoft)" strokeWidth={0.8}
             strokeDasharray="2 3"
             markerEnd={`url(#ps-arrow-${run.id})`}
           />
-          <text x={M.l + 30} y={H - M.b - 14} style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 10, fill: 'var(--inkSoft)' }}>improving</text>
+          <text x={M.l + 30} y={M.t + 22} style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 10, fill: 'var(--inkSoft)' }}>improving</text>
         </g>
 
         {/* Peer dots — wrapped with an invisible larger hit circle so they're
@@ -799,7 +807,7 @@ function PeerScatter({ run, color, onPeerClick, units = 'km' }) {
         {hrPeers.map((p) => (
           <ScatterDot
             key={p.id}
-            cx={xFor(p.pace)} cy={yFor(p.hr)}
+            cx={xFor(p.hr)} cy={yFor(p.pace)}
             r={4.5}
             fill={color}
             fillOpacity={0.55}
@@ -813,7 +821,7 @@ function PeerScatter({ run, color, onPeerClick, units = 'km' }) {
         {/* Current run — larger, outlined so it reads as the focus. Not
             clickable (it's already the expanded card). */}
         <ScatterDot
-          cx={xFor(run.pace)} cy={yFor(run.hr)}
+          cx={xFor(run.hr)} cy={yFor(run.pace)}
           r={6.5}
           fill={color}
           fillOpacity={0.9}
