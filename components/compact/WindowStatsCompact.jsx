@@ -42,15 +42,36 @@ export default function WindowStatsCompact() {
     const weeks = Math.max(1, span / (7 * 86400000));
     const perWeek = runs.length / weeks;
 
-    // Latest five runs sorted descending — enough context to read training
-    // rhythm over a week or two without overwhelming the tile.
+    // Latest three runs sorted descending — enough rhythm to read without
+    // crowding the tile once the type-mix stripe and HR column are stacked
+    // above/beside them.
     const latest = [...runs]
       .sort((a, b) => b.date.localeCompare(a.date))
-      .slice(0, 5);
+      .slice(0, 3);
+
+    // Distance per workout type across the whole window — drives the
+    // full-width color stripe that sits between the stats row and the
+    // latest-runs list. Sort descending so dominant types anchor the left.
+    const byType = {};
+    runs.forEach((r) => {
+      byType[r.type] = (byType[r.type] || 0) + r.distance;
+    });
+    const types = Object.entries(byType).sort((a, b) => b[1] - a[1]);
+
+    // 80/20 intensity split. Easy = aerobic-base work (easy + long +
+    // recovery); hard = threshold-and-above (tempo + intervals + race).
+    // Expressed as percentages of total km so a glance says whether the
+    // runner is respecting the classic 80/20 polarised distribution.
+    const easyKm = (byType.easy || 0) + (byType.long || 0) + (byType.recovery || 0);
+    const hardKm = (byType.tempo || 0) + (byType.intervals || 0) + (byType.race || 0);
+    const catTotal = easyKm + hardKm;
+    const easyPct = catTotal > 0 ? Math.round((easyKm / catTotal) * 100) : 0;
+    const hardPct = catTotal > 0 ? 100 - easyPct : 0;
 
     return {
       runCount: runs.length,
-      totalKm, totalMin, prCount, perWeek, latest,
+      totalKm, totalMin, prCount, perWeek, latest, types,
+      easyPct, hardPct,
     };
   }, [runs]);
 
@@ -77,6 +98,60 @@ export default function WindowStatsCompact() {
           <Stat label="Time" value={fmtDuration(view.totalMin)} />
           <Stat label="Per week" value={view.perWeek.toFixed(1)} />
         </div>
+
+        {view.types.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div
+              title="Distance share by workout type"
+              style={{ display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden' }}
+            >
+              {view.types.map(([t, km]) => (
+                <div
+                  key={t}
+                  title={`${meta[t]?.label ?? t}: ${kmToDisplay(km, units).toFixed(1)} ${distUnit(units)}`}
+                  style={{
+                    flex: km,
+                    background: `var(--type-${t})`,
+                  }}
+                />
+              ))}
+            </div>
+            <div
+              title="Easy = easy + long + recovery · Hard = tempo + intervals + race"
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontFamily: 'var(--mono)',
+                fontSize: 9,
+                color: 'var(--inkMuted)',
+                letterSpacing: '.06em',
+                textTransform: 'uppercase',
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--type-easy)' }} />
+                <span>
+                  Easy{' '}
+                  <b style={{ color: 'var(--ink)', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                    {view.easyPct}%
+                  </b>
+                </span>
+              </span>
+              <span style={{ opacity: 0.7, fontStyle: 'italic', textTransform: 'none', letterSpacing: 0 }}>
+                target 80/20
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span>
+                  Hard{' '}
+                  <b style={{ color: 'var(--ink)', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>
+                    {view.hardPct}%
+                  </b>
+                </span>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--type-intervals)' }} />
+              </span>
+            </div>
+          </div>
+        )}
 
         <div style={{ borderTop: '1px solid var(--ruleSoft)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div
