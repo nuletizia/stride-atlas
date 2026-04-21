@@ -93,17 +93,39 @@ export default function DistancePaceCurveCompact() {
   const xFor = (d) => M.l + ((d - bounds.xMin) / (bounds.xMax - bounds.xMin || 1)) * plotW;
   const yFor = (p) => M.t + ((p - bounds.yMin) / (bounds.yMax - bounds.yMin || 1)) * plotH;
 
-  // Headline prefers the progress story when we have a split, falls back to
-  // longest/fastest otherwise so empty-trend windows still say something.
+  // Headline has to reflect BOTH axes honestly. The old "pace dropped at
+  // similar distance" was a lie unless we actually checked distance stayed
+  // similar — so branch on whether each axis moved meaningfully and describe
+  // the quadrant we're in.
   let headline;
   if (trend) {
-    const paceSec = (trend.earlyPace - trend.latePace) * 60;
-    if (paceSec > 1) {
-      headline = `Pace dropped ${paceSec.toFixed(0)}s at similar distance.`;
-    } else if (paceSec < -1) {
-      headline = `Longer runs, pace up ${Math.abs(paceSec).toFixed(0)}s.`;
+    const paceSec = (trend.earlyPace - trend.latePace) * 60;  // + = faster
+    const distDeltaKm = trend.lateDist - trend.earlyDist;      // + = longer
+    const distDeltaPct = trend.earlyDist > 0 ? Math.abs(distDeltaKm / trend.earlyDist) : 0;
+    const distChanged = distDeltaPct >= 0.1;
+    const paceChanged = Math.abs(paceSec) >= 2;
+    const distDisp = Math.abs(kmToDisplay(distDeltaKm, units)).toFixed(1);
+    const u = distUnit(units);
+    const paceStr = Math.abs(paceSec).toFixed(0);
+
+    if (!distChanged && !paceChanged) {
+      headline = `Pace and distance holding steady.`;
+    } else if (!distChanged) {
+      headline = paceSec > 0
+        ? `Pace dropped ${paceStr}s at similar distance.`
+        : `Pace up ${paceStr}s at similar distance.`;
+    } else if (!paceChanged) {
+      headline = distDeltaKm > 0
+        ? `Runs ${distDisp} ${u} longer at similar pace.`
+        : `Runs ${distDisp} ${u} shorter at similar pace.`;
+    } else if (distDeltaKm > 0 && paceSec > 0) {
+      headline = `${distDisp} ${u} longer and ${paceStr}s faster.`;
+    } else if (distDeltaKm > 0 && paceSec < 0) {
+      headline = `${distDisp} ${u} longer, ${paceStr}s slower pace.`;
+    } else if (distDeltaKm < 0 && paceSec > 0) {
+      headline = `${distDisp} ${u} shorter, ${paceStr}s faster.`;
     } else {
-      headline = `Pace holding as distance holds.`;
+      headline = `${distDisp} ${u} shorter and ${paceStr}s slower.`;
     }
   } else {
     headline = `Longest ${kmToDisplay(longest.distance, units).toFixed(1)} ${distUnit(units)} · fastest ${fmtPace(paceToDisplay(fastest.pace, units))}${paceUnit(units)}`;

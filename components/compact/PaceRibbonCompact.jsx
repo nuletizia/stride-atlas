@@ -3,13 +3,18 @@
 import { useMemo } from 'react';
 import {
   useFilteredRuns, useTweaks,
-  fmtPace, paceToDisplay, paceUnit,
+  fmtPace, paceToDisplay, paceUnit, paceUnitLong,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
 
+function fmtShortDate(ts) {
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+}
+
 // Simplified Trend Ribbons: overall pace only, single ribbon with rolling
-// average. Drops the per-type rows that carry most of the full panel's value —
-// that's the tradeoff of the tile format. Still shows the progression arc.
+// average. Matches the AE / DPC compact treatment — axis labels for time
+// and pace, start/end extent values at the plot corners, and a tiny legend
+// explaining the dots and the rolling-average line.
 export default function PaceRibbonCompact() {
   const runs = useFilteredRuns();
   const { units } = useTweaks();
@@ -48,47 +53,134 @@ export default function PaceRibbonCompact() {
   const { sorted, ts, xMin, xMax, pMin, pMax, rolling } = series;
 
   const W = 320;
-  const H = 110;
-  const PAD_X = 6;
-  const PAD_Y = 10;
-  const plotW = W - PAD_X * 2;
-  const plotH = H - PAD_Y * 2;
+  const H = 160;
+  // Asymmetric margins: left for y-axis label + pace values; bottom for
+  // x-axis dates + axis label + legend row.
+  const M = { l: 36, r: 6, t: 8, b: 44 };
+  const plotW = W - M.l - M.r;
+  const plotH = H - M.t - M.b;
 
-  // Lower pace value = faster, so we invert y: fastest pace sits at the top.
-  const xFor = (t) => PAD_X + ((t - xMin) / (xMax - xMin || 1)) * plotW;
-  const yFor = (p) => PAD_Y + ((p - pMin) / (pMax - pMin || 1)) * plotH;
+  // Zoom y-axis around the rolling-average line so its slope dominates the
+  // frame instead of being swamped by noisy individual-run outliers. Pad the
+  // rolling span by a multiplier so it doesn't touch the frame, floor at a
+  // minimum so flat periods still read sensibly, and clamp to per-run
+  // bounds so the zoom never pretends there's data outside the actual range.
+  const rollMin = Math.min(...rolling);
+  const rollMax = Math.max(...rolling);
+  const rollSpan = rollMax - rollMin;
+  const rollCenter = (rollMin + rollMax) / 2;
+  const halfSpan = Math.max(rollSpan * 1.5, 0.2) / 2;
+  const yMin = Math.max(rollCenter - halfSpan, pMin);
+  const yMax = Math.min(rollCenter + halfSpan, pMax);
+
+  // Lower pace value = faster, so fastest sits at the top of the plot.
+  const xFor = (t) => M.l + ((t - xMin) / (xMax - xMin || 1)) * plotW;
+  const yFor = (p) => M.t + ((p - yMin) / (yMax - yMin || 1)) * plotH;
 
   const rollingPath = rolling.map((v, i) =>
     (i === 0 ? 'M ' : 'L ') + xFor(ts[i]) + ' ' + yFor(v)
   ).join(' ');
 
-  const firstR = rolling[0];
-  const lastR = rolling[rolling.length - 1];
-  const improvedSec = (firstR - lastR) * 60;
-  const improved = improvedSec > 1;
-  const regressed = improvedSec < -1;
+  // Early-vs-late means across 5 runs each side (same method as the full
+  // panel's highlight logic). More robust than rolling[0]/rolling[n-1],
+  // which only cover ~3 runs at the window edges. When the series is short
+  // the window shrinks to keep both sides non-empty.
+  const HALF = Math.max(1, Math.min(5, Math.floor(sorted.length / 2)));
+  const earlyMeanKm = sorted.slice(0, HALF).reduce((a, r) => a + r.pace, 0) / HALF;
+  const lateMeanKm  = sorted.slice(-HALF).reduce((a, r) => a + r.pace, 0) / HALF;
+  const earlyDisp = paceToDisplay(earlyMeanKm, units);
+  const lateDisp  = paceToDisplay(lateMeanKm, units);
+  const earlyStr = fmtPace(earlyDisp);
+  const lateStr = fmtPace(lateDisp);
+  // Delta is in display-unit seconds (s/km or s/mi), not a unit-less number.
+  const deltaSec = (earlyDisp - lateDisp) * 60;
 
-  const headline = improved
-    ? `Pace dropped ${improvedSec.toFixed(0)}s over ${sorted.length} runs.`
-    : regressed
-      ? `Pace up ${Math.abs(improvedSec).toFixed(0)}s over ${sorted.length} runs.`
-      : `Holding steady at ${fmtPace(paceToDisplay(lastR, units))}${paceUnit(units)}.`;
+  let headline;
+  if (Math.abs(deltaSec) < 3) {
+    headline = `Holding around ${lateStr}${paceUnit(units)} · ${sorted.length} runs.`;
+  } else {
+    headline = `Rolling avg ${earlyStr} → ${lateStr}${paceUnit(units)} · ${sorted.length} runs.`;
+  }
+
+  // Extent labels describe the visible (zoomed) frame so the numbers at
+  // top/bottom of the plot match where the axis actually ends.
+  const yTopLabel = fmtPace(paceToDisplay(yMin, units));
+  const yBotLabel = fmtPace(paceToDisplay(yMax, units));
+  const legendY = M.t + plotH + 28;
+  const TICK = 'var(--inkMuted)';
 
   return (
     <CompactTile label="Trend Ribbons · Pace" headline={headline}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }} preserveAspectRatio="none">
-        <line x1={PAD_X} x2={W - PAD_X} y1={H - PAD_Y + 2} y2={H - PAD_Y + 2} stroke="var(--ruleSoft)" />
-        {sorted.map((r, i) => (
-          <circle
-            key={r.id}
-            cx={xFor(ts[i])}
-            cy={yFor(r.pace)}
-            r={1.8}
-            fill={`var(--type-${r.type})`}
-            opacity={0.6}
-          />
-        ))}
-        <path d={rollingPath} fill="none" stroke="var(--ink)" strokeWidth={1.4} opacity={0.85} />
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: '100%', height: '100%', display: 'block' }}
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <defs>
+          <clipPath id="prc-clip">
+            <rect x={M.l} y={M.t} width={plotW} height={plotH} />
+          </clipPath>
+        </defs>
+
+        <rect x={M.l} y={M.t} width={plotW} height={plotH} fill="none" stroke="var(--ruleSoft)" />
+
+        {/* Y axis: rotated label + pace extents */}
+        <text
+          x={10} y={M.t + plotH / 2}
+          transform={`rotate(-90 10 ${M.t + plotH / 2})`}
+          textAnchor="middle"
+          style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.08em', textTransform: 'uppercase' }}
+        >
+          Pace ({paceUnitLong(units)})
+        </text>
+        <text x={M.l - 4} y={M.t + 3} textAnchor="end" dominantBaseline="hanging"
+          style={{ fontFamily: 'var(--mono)', fontSize: 9, fill: TICK }}>
+          {yTopLabel}
+        </text>
+        <text x={M.l - 4} y={M.t + plotH} textAnchor="end"
+          style={{ fontFamily: 'var(--mono)', fontSize: 9, fill: TICK }}>
+          {yBotLabel}
+        </text>
+
+        {/* X axis: first/last dates + axis label */}
+        <text x={M.l} y={M.t + plotH + 12} textAnchor="start"
+          style={{ fontFamily: 'var(--mono)', fontSize: 9, fill: TICK }}>
+          {fmtShortDate(xMin)}
+        </text>
+        <text x={M.l + plotW / 2} y={M.t + plotH + 12} textAnchor="middle"
+          style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.08em', textTransform: 'uppercase' }}>
+          Time
+        </text>
+        <text x={M.l + plotW} y={M.t + plotH + 12} textAnchor="end"
+          style={{ fontFamily: 'var(--mono)', fontSize: 9, fill: TICK }}>
+          {fmtShortDate(xMax)}
+        </text>
+
+        {/* Legend: dot = run (type-colored), line = 5-run rolling avg */}
+        <g transform={`translate(${M.l + plotW / 2 - 60}, ${legendY})`}>
+          <circle cx={0} cy={0} r={2.2} fill="var(--type-easy)" opacity={0.8} />
+          <text x={6} y={3} style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+            run
+          </text>
+          <line x1={34} y1={0} x2={52} y2={0} stroke="var(--ink)" strokeWidth={1.4} opacity={0.85} />
+          <text x={58} y={3} style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+            5-run avg
+          </text>
+        </g>
+
+        <g clipPath="url(#prc-clip)">
+          {sorted.map((r, i) => (
+            <circle
+              key={r.id}
+              cx={xFor(ts[i])}
+              cy={yFor(r.pace)}
+              r={1.8}
+              fill={`var(--type-${r.type})`}
+              opacity={0.6}
+            />
+          ))}
+          <path d={rollingPath} fill="none" stroke="var(--ink)" strokeWidth={1.4} opacity={0.85} />
+        </g>
       </svg>
     </CompactTile>
   );
