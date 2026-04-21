@@ -220,11 +220,11 @@ function DashboardBody({ effectiveMode, athleteName, runCount }) {
       {isCompact ? (
         <CompactGrid>
           <PanelErrorBoundary name="Run Atlas"><RunAtlasCompact /></PanelErrorBoundary>
+          <PanelErrorBoundary name="In View"><WindowStatsCompact /></PanelErrorBoundary>
           <PanelErrorBoundary name="Personal Records"><PersonalRecordsCompact /></PanelErrorBoundary>
           <PanelErrorBoundary name="Trend Ribbons"><PaceRibbonCompact /></PanelErrorBoundary>
           <PanelErrorBoundary name="Aerobic Efficiency"><AerobicEfficiencyCompact /></PanelErrorBoundary>
           <PanelErrorBoundary name="Distance × Pace"><DistancePaceCurveCompact /></PanelErrorBoundary>
-          <PanelErrorBoundary name="In View"><WindowStatsCompact /></PanelErrorBoundary>
           <PanelErrorBoundary name="Same-Route Duel"><SameRouteDuelCompact /></PanelErrorBoundary>
           <PanelErrorBoundary name="Week Comparator"><WeekComparatorCompact /></PanelErrorBoundary>
           <PanelErrorBoundary name="Season Arc"><SeasonArcCompact /></PanelErrorBoundary>
@@ -232,11 +232,11 @@ function DashboardBody({ effectiveMode, athleteName, runCount }) {
       ) : (
         <>
           <div className="section"><PanelErrorBoundary name="Run Atlas"><RunAtlas /></PanelErrorBoundary></div>
+          <div className="section"><PanelErrorBoundary name="Run Cards"><RunCards /></PanelErrorBoundary></div>
           <div className="section"><PanelErrorBoundary name="Personal Records"><PersonalRecords /></PanelErrorBoundary></div>
           <div className="section"><PanelErrorBoundary name="Trend Ribbons"><PaceRibbon /></PanelErrorBoundary></div>
           <div className="section"><PanelErrorBoundary name="Aerobic Efficiency"><AerobicEfficiency /></PanelErrorBoundary></div>
           <div className="section"><PanelErrorBoundary name="Aerobic Endurance"><DistancePaceCurve /></PanelErrorBoundary></div>
-          <div className="section"><PanelErrorBoundary name="Run Cards"><RunCards /></PanelErrorBoundary></div>
           <div className="section"><PanelErrorBoundary name="Same-Route Duel"><SameRouteDuel /></PanelErrorBoundary></div>
           <div className="section"><PanelErrorBoundary name="Week Comparator"><WeekComparator /></PanelErrorBoundary></div>
           <div className="section"><PanelErrorBoundary name="Season Arc"><SeasonArc /></PanelErrorBoundary></div>
