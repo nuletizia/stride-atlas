@@ -3,14 +3,17 @@
 import { useMemo } from 'react';
 import {
   useData, useFilteredRuns, useTweaks,
-  kmToDisplay, distUnit, fmtDuration,
+  fmtDate, fmtDistance, fmtDuration, fmtPaceUnit,
+  kmToDisplay, distUnit, paceUnit,
+  hasValidHr,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
 
-// Replaces RunCards in compact mode — RunCards is an interactive detail view
-// that doesn't meaningfully compress to a tile. This tile shows aggregate
-// stats for whatever time window the user has selected (1m / 3m / 6m / 1y /
-// all / custom) so it stays in sync with the rest of the dashboard.
+// Replaces RunCards in compact mode. RunCards in the full view is all about
+// per-run cohort detail — so the compact keeps that flavor by surfacing the
+// three most recent runs as tiny inline rows. Aggregate totals on top
+// provide the window summary; the run list below is the one piece of
+// information no other compact tile carries.
 
 const RANGE_LABEL = {
   '1m': 'Last Month',
@@ -39,14 +42,15 @@ export default function WindowStatsCompact() {
     const weeks = Math.max(1, span / (7 * 86400000));
     const perWeek = runs.length / weeks;
 
-    const byType = {};
-    runs.forEach((r) => {
-      byType[r.type] = (byType[r.type] || 0) + r.distance;
-    });
-    const types = Object.entries(byType).sort((a, b) => b[1] - a[1]);
+    // Latest five runs sorted descending — enough context to read training
+    // rhythm over a week or two without overwhelming the tile.
+    const latest = [...runs]
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 5);
+
     return {
       runCount: runs.length,
-      totalKm, totalMin, prCount, perWeek, types,
+      totalKm, totalMin, prCount, perWeek, latest,
     };
   }, [runs]);
 
@@ -67,28 +71,140 @@ export default function WindowStatsCompact() {
 
   return (
     <CompactTile label={label} headline={headline}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0, flex: 1 }}>
         <div style={{ display: 'flex', gap: 14 }}>
           <Stat label="Distance" value={`${kmToDisplay(view.totalKm, units).toFixed(1)} ${distUnit(units)}`} />
           <Stat label="Time" value={fmtDuration(view.totalMin)} />
           <Stat label="Per week" value={view.perWeek.toFixed(1)} />
         </div>
-        {view.types.length > 0 && (
-          <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden' }}>
-            {view.types.map(([t, km]) => (
-              <div
-                key={t}
-                title={`${meta[t]?.label ?? t}: ${kmToDisplay(km, units).toFixed(1)} ${distUnit(units)}`}
-                style={{
-                  flex: km,
-                  background: `var(--type-${t})`,
-                }}
-              />
+
+        <div style={{ borderTop: '1px solid var(--ruleSoft)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div
+            className="mono muted"
+            style={{
+              fontSize: 9,
+              textTransform: 'uppercase',
+              letterSpacing: '.1em',
+            }}
+          >
+            Latest runs
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {view.latest.map((r) => (
+              <RunRow key={r.id} run={r} units={units} typeLabel={meta[r.type]?.label ?? r.type} />
             ))}
           </div>
-        )}
+        </div>
       </div>
     </CompactTile>
+  );
+}
+
+function RunRow({ run, units, typeLabel }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 7,
+        fontSize: 11,
+        color: 'var(--inkSoft)',
+        lineHeight: 1.3,
+      }}
+    >
+      <span
+        style={{
+          width: 6, height: 6, borderRadius: '50%',
+          background: `var(--type-${run.type})`,
+          flexShrink: 0,
+        }}
+      />
+      <span
+        className="mono"
+        style={{
+          fontSize: 9.5,
+          width: 38,
+          color: 'var(--inkMuted)',
+          letterSpacing: '.04em',
+          fontVariantNumeric: 'tabular-nums',
+          flexShrink: 0,
+        }}
+      >
+        {fmtDate(run.date)}
+      </span>
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          color: 'var(--ink)',
+        }}
+      >
+        {typeLabel}
+      </span>
+      <span
+        className="num"
+        style={{
+          fontVariantNumeric: 'tabular-nums',
+          color: 'var(--ink)',
+          fontWeight: 500,
+          minWidth: 46,
+          textAlign: 'right',
+        }}
+      >
+        {fmtDistance(run.distance, units, 1)}
+        <span className="mono muted" style={{ fontSize: 9, marginLeft: 2 }}>
+          {distUnit(units)}
+        </span>
+      </span>
+      <span
+        className="mono"
+        style={{
+          fontSize: 9.5,
+          minWidth: 44,
+          textAlign: 'right',
+          color: 'var(--inkMuted)',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {fmtPaceUnit(run.pace, units)}
+        <span style={{ marginLeft: 1 }}>{paceUnit(units)}</span>
+      </span>
+      <span
+        className="mono"
+        style={{
+          fontSize: 9.5,
+          minWidth: 32,
+          textAlign: 'right',
+          color: 'var(--inkMuted)',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {hasValidHr(run) ? (
+          <>
+            {run.hr}
+            <span className="muted" style={{ fontSize: 8.5, marginLeft: 1 }}>bpm</span>
+          </>
+        ) : '—'}
+      </span>
+      {run.pr && (
+        <span
+          className="mono"
+          style={{
+            fontSize: 8.5,
+            fontWeight: 700,
+            color: 'var(--accent)',
+            letterSpacing: '.08em',
+            marginLeft: -2,
+            flexShrink: 0,
+          }}
+        >
+          PR
+        </span>
+      )}
+    </div>
   );
 }
 
