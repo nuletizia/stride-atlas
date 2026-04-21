@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   DataProvider, TooltipProvider, LinkProvider, TweakProvider,
   HrMaxProvider, useHrMax,
@@ -17,10 +17,20 @@ import PersonalRecords from './PersonalRecords';
 import SameRouteDuel from './SameRouteDuel';
 import WeekComparator from './WeekComparator';
 import SeasonArc from './SeasonArc';
-import TweakPanel from './TweakPanel';
+import TweakPanel, { COMPACT_MIN_WIDTH } from './TweakPanel';
 import ConnectBanner from './ConnectBanner';
 import TouchDismissHandler from './TouchDismissHandler';
 import PanelErrorBoundary from './PanelErrorBoundary';
+import CompactGrid from './CompactGrid';
+import RunAtlasCompact from './compact/RunAtlasCompact';
+import PersonalRecordsCompact from './compact/PersonalRecordsCompact';
+import PaceRibbonCompact from './compact/PaceRibbonCompact';
+import AerobicEfficiencyCompact from './compact/AerobicEfficiencyCompact';
+import DistancePaceCurveCompact from './compact/DistancePaceCurveCompact';
+import WindowStatsCompact from './compact/WindowStatsCompact';
+import SameRouteDuelCompact from './compact/SameRouteDuelCompact';
+import WeekComparatorCompact from './compact/WeekComparatorCompact';
+import SeasonArcCompact from './compact/SeasonArcCompact';
 
 function Header() {
   const data = useData();
@@ -166,6 +176,97 @@ function HrMaxCard() {
   );
 }
 
+// Body content is split out so it can read `viewMode` from TweakContext.
+// That context isn't available at the root Dashboard level because the
+// provider wraps this body.
+function DashboardBody({ effectiveMode, athleteName, runCount }) {
+  const { viewMode } = useTweaks();
+  const [canCompact, setCanCompact] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia(`(min-width: ${COMPACT_MIN_WIDTH}px)`);
+    const update = () => setCanCompact(mq.matches);
+    update();
+    mq.addEventListener?.('change', update);
+    return () => mq.removeEventListener?.('change', update);
+  }, []);
+
+  const isCompact = viewMode === 'compact' && canCompact;
+
+  return (
+    <div className="app">
+      <ConnectBanner mode={effectiveMode} athleteName={athleteName} runCount={runCount} />
+      <Header />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, gap: 24, flexWrap: 'wrap' }}>
+        <div>
+          <div className="section-title" style={{ fontSize: 22, marginBottom: 2 }}>
+            Progress, <i>in one page.</i>
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 620, lineHeight: 1.5 }}>
+            {isCompact ? (
+              <>Every panel at a glance. Switch to <b>Full</b> in View to drill in.</>
+            ) : (
+              <>Each panel below shows one slice of your training, from a season arc
+              down to single runs. Scroll through to read the arc, then click any
+              dot, bar, or calendar cell to open that run&rsquo;s card and see how
+              it compares against similar runs.</>
+            )}
+          </div>
+        </div>
+        <TimeRangeControl />
+      </div>
+
+      {isCompact ? (
+        <CompactGrid>
+          <PanelErrorBoundary name="Run Atlas"><RunAtlasCompact /></PanelErrorBoundary>
+          <PanelErrorBoundary name="Personal Records"><PersonalRecordsCompact /></PanelErrorBoundary>
+          <PanelErrorBoundary name="Trend Ribbons"><PaceRibbonCompact /></PanelErrorBoundary>
+          <PanelErrorBoundary name="Aerobic Efficiency"><AerobicEfficiencyCompact /></PanelErrorBoundary>
+          <PanelErrorBoundary name="Distance × Pace"><DistancePaceCurveCompact /></PanelErrorBoundary>
+          <PanelErrorBoundary name="In View"><WindowStatsCompact /></PanelErrorBoundary>
+          <PanelErrorBoundary name="Same-Route Duel"><SameRouteDuelCompact /></PanelErrorBoundary>
+          <PanelErrorBoundary name="Week Comparator"><WeekComparatorCompact /></PanelErrorBoundary>
+          <PanelErrorBoundary name="Season Arc"><SeasonArcCompact /></PanelErrorBoundary>
+        </CompactGrid>
+      ) : (
+        <>
+          <div className="section"><PanelErrorBoundary name="Run Atlas"><RunAtlas /></PanelErrorBoundary></div>
+          <div className="section"><PanelErrorBoundary name="Personal Records"><PersonalRecords /></PanelErrorBoundary></div>
+          <div className="section"><PanelErrorBoundary name="Trend Ribbons"><PaceRibbon /></PanelErrorBoundary></div>
+          <div className="section"><PanelErrorBoundary name="Aerobic Efficiency"><AerobicEfficiency /></PanelErrorBoundary></div>
+          <div className="section"><PanelErrorBoundary name="Aerobic Endurance"><DistancePaceCurve /></PanelErrorBoundary></div>
+          <div className="section"><PanelErrorBoundary name="Run Cards"><RunCards /></PanelErrorBoundary></div>
+          <div className="section"><PanelErrorBoundary name="Same-Route Duel"><SameRouteDuel /></PanelErrorBoundary></div>
+          <div className="section"><PanelErrorBoundary name="Week Comparator"><WeekComparator /></PanelErrorBoundary></div>
+          <div className="section"><PanelErrorBoundary name="Season Arc"><SeasonArc /></PanelErrorBoundary></div>
+        </>
+      )}
+
+      <div style={{
+        marginTop: 48, paddingTop: 20, borderTop: '1px solid var(--rule)',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--inkMuted)',
+        letterSpacing: '.08em', textTransform: 'uppercase',
+        gap: 16, flexWrap: 'wrap',
+      }}>
+        <span>Stride Atlas</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <img
+            src="/strava-logos/powered-by-strava-horiz-orange.svg"
+            alt="Powered by Strava"
+            style={{ height: 18, width: 'auto' }}
+          />
+          <a
+            href="/privacy"
+            style={{ color: 'inherit', textDecoration: 'none' }}
+          >Privacy</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard({ data, mode = 'demo', athleteName = null }) {
   // In user mode, if they have <THIN_THRESHOLD runs, swap the "signed in"
   // banner for an honest "your history is thin" message. Demo mode stays
@@ -180,56 +281,11 @@ export default function Dashboard({ data, mode = 'demo', athleteName = null }) {
         <TooltipProvider>
           <LinkProvider>
             <TouchDismissHandler />
-            <div className="app">
-              <ConnectBanner mode={effectiveMode} athleteName={athleteName} runCount={runCount} />
-              <Header />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, gap: 24, flexWrap: 'wrap' }}>
-                <div>
-                  <div className="section-title" style={{ fontSize: 22, marginBottom: 2 }}>
-                    Progress, <i>in one page.</i>
-                  </div>
-                  <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 620, lineHeight: 1.5 }}>
-                    Each panel below shows one slice of your training, from a season arc
-                    down to single runs. Scroll through to read the arc, then click any
-                    dot, bar, or calendar cell to open that run&rsquo;s card and see how
-                    it compares against similar runs.
-                  </div>
-                </div>
-                <TimeRangeControl />
-              </div>
-
-              <div className="section"><PanelErrorBoundary name="Run Atlas"><RunAtlas /></PanelErrorBoundary></div>
-              <div className="section"><PanelErrorBoundary name="Personal Records"><PersonalRecords /></PanelErrorBoundary></div>
-              <div className="section"><PanelErrorBoundary name="Trend Ribbons"><PaceRibbon /></PanelErrorBoundary></div>
-              <div className="section"><PanelErrorBoundary name="Aerobic Efficiency"><AerobicEfficiency /></PanelErrorBoundary></div>
-              <div className="section"><PanelErrorBoundary name="Aerobic Endurance"><DistancePaceCurve /></PanelErrorBoundary></div>
-              <div className="section"><PanelErrorBoundary name="Run Cards"><RunCards /></PanelErrorBoundary></div>
-              <div className="section"><PanelErrorBoundary name="Same-Route Duel"><SameRouteDuel /></PanelErrorBoundary></div>
-              <div className="section"><PanelErrorBoundary name="Week Comparator"><WeekComparator /></PanelErrorBoundary></div>
-              <div className="section"><PanelErrorBoundary name="Season Arc"><SeasonArc /></PanelErrorBoundary></div>
-
-              <div style={{
-                marginTop: 48, paddingTop: 20, borderTop: '1px solid var(--rule)',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--inkMuted)',
-                letterSpacing: '.08em', textTransform: 'uppercase',
-                gap: 16, flexWrap: 'wrap',
-              }}>
-                <span>Stride Atlas</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                  <img
-                    src="/strava-logos/powered-by-strava-horiz-orange.svg"
-                    alt="Powered by Strava"
-                    style={{ height: 18, width: 'auto' }}
-                  />
-                  <a
-                    href="/privacy"
-                    style={{ color: 'inherit', textDecoration: 'none' }}
-                  >Privacy</a>
-                </div>
-              </div>
-            </div>
-
+            <DashboardBody
+              effectiveMode={effectiveMode}
+              athleteName={athleteName}
+              runCount={runCount}
+            />
             <TweakPanel />
           </LinkProvider>
         </TooltipProvider>

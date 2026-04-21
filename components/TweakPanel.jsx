@@ -1,9 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTweaks } from '@/lib/shared';
 import { palettes } from '@/lib/theme';
 import TimeRangeControl from './TimeRangeControl';
+
+// Compact view is desktop-only — the 3x3 grid has no meaning on a phone.
+// We disable the toggle below this width and force the dashboard to full.
+export const COMPACT_MIN_WIDTH = 1100;
 
 const STYLES = [
   { id: 'editorial', label: 'Editorial',      sub: 'Warm paper · serif',      serif: "'Instrument Serif', serif",  hasDark: true },
@@ -16,8 +20,18 @@ const familyOf = (s) => (s === 'editorial_dark' ? 'editorial' : s);
 const isEditorialDark = (s) => s === 'editorial_dark';
 
 export default function TweakPanel() {
-  const { style, setStyle, units, setUnits } = useTweaks();
+  const { style, setStyle, units, setUnits, viewMode, setViewMode } = useTweaks();
   const [open, setOpen] = useState(false);
+  const [canCompact, setCanCompact] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia(`(min-width: ${COMPACT_MIN_WIDTH}px)`);
+    const update = () => setCanCompact(mq.matches);
+    update();
+    mq.addEventListener?.('change', update);
+    return () => mq.removeEventListener?.('change', update);
+  }, []);
 
   const activeFamily = familyOf(style);
 
@@ -54,6 +68,26 @@ export default function TweakPanel() {
               style={{ background: 'transparent', border: 'none', color: 'var(--inkMuted)', cursor: 'pointer', fontSize: 14 }}
               aria-label="Close"
             >×</button>
+          </div>
+
+          <div className="tweaks-row">
+            <label>View</label>
+            <div
+              className="seg"
+              title={canCompact ? undefined : 'Compact view is desktop-only.'}
+              style={{ opacity: canCompact ? 1 : 0.55 }}
+            >
+              <button
+                className={viewMode === 'full' ? 'on' : ''}
+                onClick={() => setViewMode('full')}
+              >Full</button>
+              <button
+                className={viewMode === 'compact' ? 'on' : ''}
+                onClick={() => canCompact && setViewMode('compact')}
+                disabled={!canCompact}
+                style={{ cursor: canCompact ? 'pointer' : 'not-allowed' }}
+              >Compact</button>
+            </div>
           </div>
 
           <div className="tweaks-row">

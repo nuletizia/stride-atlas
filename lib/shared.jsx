@@ -290,6 +290,9 @@ export function TweakProvider({ children }) {
   // when timeRange === 'custom'. Null = consumer falls back to [first, last]
   // activity dates from the data.
   const [customRange, setCustomRange] = useState(null);
+  // 'full' (default): vertical scroll of nine panels. 'compact': single-screen
+  // 3x3 glance grid. Gated to desktop viewports in the consumer, not here.
+  const [viewMode, setViewMode] = useState('full');
   const [open, setOpen] = useState(false);
 
   // Load from localStorage after mount to avoid SSR hydration mismatch
@@ -303,6 +306,7 @@ export function TweakProvider({ children }) {
       if (s.customRange && typeof s.customRange === 'object' && s.customRange.from && s.customRange.to) {
         setCustomRange({ from: s.customRange.from, to: s.customRange.to });
       }
+      if (s.viewMode === 'compact' || s.viewMode === 'full') setViewMode(s.viewMode);
     }
   }, []);
 
@@ -321,14 +325,19 @@ export function TweakProvider({ children }) {
     setUnits(u); persist({ units: u });
   };
   const setCustomRangeP = (v) => { setCustomRange(v); persist({ customRange: v }); };
+  const setViewModeP = (v) => {
+    const m = v === 'compact' ? 'compact' : 'full';
+    setViewMode(m); persist({ viewMode: m });
+  };
 
   return (
     <TweakContext.Provider value={{
-      style, theme: style, timeRange, metric, units, customRange,
+      style, theme: style, timeRange, metric, units, customRange, viewMode,
       open, setOpen,
       setStyle: setStyleP, setTheme: setStyleP,
       setTimeRange: setRangeP, setMetric: setMetricP, setUnits: setUnitsP,
       setCustomRange: setCustomRangeP,
+      setViewMode: setViewModeP,
     }}>
       {children}
     </TweakContext.Provider>
