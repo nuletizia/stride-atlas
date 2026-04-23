@@ -164,13 +164,20 @@ export default function RunCards() {
 
   const filtered = useMemo(() => {
     let arr = withPeers;
+    // HR-required modes only consider HR-valid runs. A run with no HR
+    // can't be ranked on heart rate or efficiency, so showing it in the
+    // grid alongside ranked peers would be misleading — and it'd dilute
+    // the rank denominator with cards that always read "—". Hide them.
+    if (effectiveRankBy === 'hr' || effectiveRankBy === 'efficiency') {
+      arr = arr.filter(hasValidHr);
+    }
     if (typeFilter !== 'all') arr = arr.filter((r) => r.type === typeFilter);
     if (sortBy === 'newest') arr = [...arr].sort((a, b) => b.date.localeCompare(a.date));
     else if (sortBy === 'fastest') arr = [...arr].sort((a, b) => a.pace - b.pace);
     else if (sortBy === 'longest') arr = [...arr].sort((a, b) => b.distance - a.distance);
     else if (sortBy === 'prs') arr = [...arr].sort((a, b) => (b.pr ? 1 : 0) - (a.pr ? 1 : 0) || b.date.localeCompare(a.date));
     return arr;
-  }, [withPeers, typeFilter, sortBy]);
+  }, [withPeers, typeFilter, sortBy, effectiveRankBy]);
 
   const focusId = pinnedId ?? expandedId ?? hoveredCardId ?? hovered?.runId;
   const focusRun = withPeers.find((r) => r.id === focusId);
@@ -179,11 +186,17 @@ export default function RunCards() {
   // Click a peer tile inside "Recent similar runs" → expand that peer's card
   // and scroll to it. Also used by cross-panel jumps (AE/DPC dot click).
   // If the target is hidden by the type filter, widen to 'all' first so the
-  // card exists in the DOM. Always uncap so the node is rendered.
+  // card exists in the DOM. Same fallback for the active rank mode: when an
+  // HR-less run is jumped to while in HR/EF mode (which hides such runs),
+  // flip back to pace so the target card actually appears. Always uncap so
+  // the node is rendered.
   const jumpToRun = (runId) => {
     const target = withPeers.find((r) => r.id === runId);
     if (!target) return;
     if (typeFilter !== 'all' && target.type !== typeFilter) setTypeFilter('all');
+    if ((effectiveRankBy === 'hr' || effectiveRankBy === 'efficiency') && !hasValidHr(target)) {
+      setRankBy('pace');
+    }
     if (capped) setCapped(false);
     setExpandedId(runId);
     requestAnimationFrame(() => {
@@ -552,6 +565,18 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
             >
               {hasValidHr(run) ? run.hr : '—'}<span className="mono muted" style={{ fontSize: 9, marginLeft: 1, fontWeight: 400 }}>bpm</span>
             </span>
+            <span
+              className="num"
+              title="Efficiency: speed (m/min) ÷ avg HR · higher is better"
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: run.ef != null ? 'var(--inkSoft)' : 'var(--inkMuted)',
+                fontStyle: run.ef != null ? 'normal' : 'italic',
+              }}
+            >
+              {run.ef != null ? run.ef.toFixed(2) : '—'}<span className="mono muted" style={{ fontSize: 9, marginLeft: 2, fontWeight: 400 }}>EF</span>
+            </span>
           </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
@@ -666,6 +691,11 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
         <CardStat label="Dist" value={fmtDistance(run.distance, units, 2)} unit={distUnit(units)} />
         <CardStat label="Pace" value={fmtPaceUnit(run.pace, units)} unit={paceUnit(units)} />
         <CardStat label="HR" value={hasValidHr(run) ? run.hr : '—'} unit={hasValidHr(run) ? 'bpm' : ''} />
+        <CardStat
+          label="EF"
+          value={run.ef != null ? run.ef.toFixed(2) : '—'}
+          title="Efficiency: speed (m/min) ÷ avg HR · higher is better"
+        />
         {expanded && <CardStat label="Time" value={fmtDuration(run.duration)} />}
         {expanded && <CardStat label="Elev" value={run.elev != null ? `${Math.round(elevToDisplay(run.elev, units))}` : '—'} unit={run.elev != null ? elevUnit(units) : ''} />}
       </div>
@@ -709,7 +739,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
               fontSize: 10, color: 'var(--inkMuted)', letterSpacing: '.08em', textTransform: 'uppercase',
               flex: '1 1 auto', minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.5,
             }}>
-              Recent similar runs{peerView === 'grid' ? ` · sorted by ${isHrMode ? 'lowest avg HR' : 'fastest pace'}` : ' · HR × pace'}
+              Recent similar runs{peerView === 'grid' ? ` · sorted by ${isHrMode ? 'lowest avg HR' : isEfMode ? 'highest efficiency' : 'fastest pace'}` : ' · HR × pace'}
             </div>
             <div
               className="seg"
@@ -738,9 +768,9 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
           ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(64px, 1fr))', gap: 6 }}>
             {(() => {
-              // Sort by active metric. In HR mode, peers without valid HR sink
-              // to the bottom. Runs are ranked starting from 1 for the best
-              // one on the metric; the current run's own rank is `run.rank`.
+              // Sort by active metric. HR and EF modes float HR-less peers
+              // to the bottom (they can't be ranked on those metrics).
+              // EF sorts descending since higher efficiency is better.
               const sorted = [...run.peers].sort((a, b) => {
                 if (isHrMode) {
                   const aHas = hasValidHr(a), bHas = hasValidHr(b);
@@ -749,11 +779,20 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
                   if (!aHas && !bHas) return b.date.localeCompare(a.date);
                   return a.hr - b.hr;
                 }
+                if (isEfMode) {
+                  const aHas = hasValidHr(a), bHas = hasValidHr(b);
+                  if (aHas && !bHas) return -1;
+                  if (!aHas && bHas) return 1;
+                  if (!aHas && !bHas) return b.date.localeCompare(a.date);
+                  return efOf(b) - efOf(a);
+                }
                 return a.pace - b.pace;
               });
               return sorted.slice(0, 8).map((p, i) => {
                 const pFaster = p.pace < run.pace;
                 const pLowerHr = hasValidHr(p) && hasValidHr(run) && p.hr < run.hr;
+                const pEf = efOf(p);
+                const pHigherEf = pEf != null && run.ef != null && pEf > run.ef;
                 const clickable = typeof onPeerClick === 'function';
                 return (
                   <div
@@ -786,6 +825,19 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
                       <span className="mono" style={{ fontSize: 10, color: hasValidHr(p) ? (pLowerHr ? 'var(--positive)' : 'var(--inkSoft)') : 'var(--inkMuted)', fontStyle: hasValidHr(p) ? 'normal' : 'italic' }}>
                         HR {hasValidHr(p) ? `${p.hr} bpm` : '—'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 1 }}>
+                      <span
+                        className="mono"
+                        title="Efficiency: speed (m/min) ÷ avg HR · higher is better"
+                        style={{
+                          fontSize: 10,
+                          color: pEf != null ? (pHigherEf ? 'var(--positive)' : 'var(--inkSoft)') : 'var(--inkMuted)',
+                          fontStyle: pEf != null ? 'normal' : 'italic',
+                        }}
+                      >
+                        EF {pEf != null ? pEf.toFixed(2) : '—'}
                       </span>
                     </div>
                   </div>
@@ -1093,9 +1145,9 @@ function PeerScatter({ run, color, onPeerClick, units = 'km' }) {
   );
 }
 
-function CardStat({ label, value, unit }) {
+function CardStat({ label, value, unit, title }) {
   return (
-    <div>
+    <div title={title}>
       <div className="mono" style={{ fontSize: 9, color: 'var(--inkMuted)', letterSpacing: '.1em', textTransform: 'uppercase' }}>{label}</div>
       <div className="num" style={{ fontSize: 15, fontWeight: 500, letterSpacing: '-0.01em', lineHeight: 1.15 }}>
         {value}
