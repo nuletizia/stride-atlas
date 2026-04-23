@@ -290,9 +290,12 @@ export function TweakProvider({ children }) {
   // when timeRange === 'custom'. Null = consumer falls back to [first, last]
   // activity dates from the data.
   const [customRange, setCustomRange] = useState(null);
-  // 'full' (default): vertical scroll of nine panels. 'compact': single-screen
-  // 3x3 glance grid. Gated to desktop viewports in the consumer, not here.
-  const [viewMode, setViewMode] = useState('full');
+  // 'compact' (default): single-screen 3x3 glance grid — the strongest
+  // first impression of the dashboard's "dense, not noisy" thesis. 'full':
+  // vertical scroll of nine panels for drill-down. Mobile viewports get
+  // forced back to 'full' by the consumer (Dashboard); the preference still
+  // sticks for when the user comes back on desktop.
+  const [viewMode, setViewMode] = useState('compact');
   const [open, setOpen] = useState(false);
 
   // Load from localStorage after mount to avoid SSR hydration mismatch

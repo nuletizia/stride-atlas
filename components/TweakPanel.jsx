@@ -78,15 +78,15 @@ export default function TweakPanel() {
               style={{ opacity: canCompact ? 1 : 0.55 }}
             >
               <button
-                className={viewMode === 'full' ? 'on' : ''}
-                onClick={() => setViewMode('full')}
-              >Full</button>
-              <button
                 className={viewMode === 'compact' ? 'on' : ''}
                 onClick={() => canCompact && setViewMode('compact')}
                 disabled={!canCompact}
                 style={{ cursor: canCompact ? 'pointer' : 'not-allowed' }}
               >Compact</button>
+              <button
+                className={viewMode === 'full' ? 'on' : ''}
+                onClick={() => setViewMode('full')}
+              >Full</button>
             </div>
           </div>
 
