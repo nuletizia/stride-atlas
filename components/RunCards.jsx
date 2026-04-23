@@ -9,6 +9,13 @@ import {
   Highlight, HlNum, MI_PER_KM,
 } from '@/lib/shared';
 
+// Efficiency factor: speed (m/min) ÷ avg HR. Same compound metric the
+// PaceRibbon exposes — higher means more speed per heartbeat, so the
+// "better" direction is up (opposite of pace and HR, where lower is
+// better). Null for runs without valid HR.
+const efOf = (r) =>
+  hasValidHr(r) && r.pace ? (1000 / r.pace) / r.hr : null;
+
 export default function RunCards() {
   const data = useData();
   const runs = useFilteredRuns();
@@ -24,7 +31,7 @@ export default function RunCards() {
   const [expandedId, setExpandedId] = useState(null);
   const [pinnedId, setPinnedId] = useState(null);
   const [capped, setCapped] = useState(true);
-  const [rankBy, setRankBy] = useState('pace'); // 'pace' | 'hr'
+  const [rankBy, setRankBy] = useState('pace'); // 'pace' | 'hr' | 'efficiency'
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Transient: the run we just jumped to, so we can flash-outline its card
   // as an orientation cue. Cleared by a timer after the animation ends.
@@ -49,8 +56,9 @@ export default function RunCards() {
   // Type-wide rank — same denominator for every card of the same type, so
   // "3/47" on card A and "14/47" on card B are directly comparable. Peer rank
   // (below) has a card-specific denominator driven by the ±distTol filter.
-  // In HR mode we rank only runs with valid HR, ascending (lowest first);
-  // runs without HR get no type rank.
+  // HR and Efficiency modes rank only runs with valid HR; pace mode ranks
+  // every run. Pace and HR sort ascending (lower = better), efficiency
+  // sorts descending (higher = better).
   const typeRankMap = useMemo(() => {
     const byType = new Map();
     runs.forEach((r) => {
@@ -62,6 +70,10 @@ export default function RunCards() {
       if (effectiveRankBy === 'hr') {
         const withHr = arr.filter(hasValidHr);
         const sorted = [...withHr].sort((a, b) => a.hr - b.hr);
+        sorted.forEach((r, i) => out.set(r.id, { rank: i + 1, total: withHr.length }));
+      } else if (effectiveRankBy === 'efficiency') {
+        const withHr = arr.filter(hasValidHr);
+        const sorted = [...withHr].sort((a, b) => efOf(b) - efOf(a));
         sorted.forEach((r, i) => out.set(r.id, { rank: i + 1, total: withHr.length }));
       } else {
         const sorted = [...arr].sort((a, b) => a.pace - b.pace);
@@ -91,6 +103,7 @@ export default function RunCards() {
         ...base, peers: [], peerCount: 0, peerIds: new Set(),
         avgPace: null, bestPace: null, paceDelta: 0, paceRank: null, paceRankTotal: 0,
         avgHR: null, bestHR: null, hrPeerCount: 0, hrDelta: null, hrRank: null, hrRankTotal: 0,
+        ef: efOf(r), avgEF: null, bestEF: null, efPeerCount: 0, efDelta: null, efRank: null, efRankTotal: 0,
       };
 
       // Pace aggregates — computed over the full peer set.
@@ -115,10 +128,27 @@ export default function RunCards() {
         hrDelta = r.hr - avgHR;
       }
 
+      // Efficiency aggregates — share the HR-valid peer set since the metric
+      // requires HR. Sort/rank descending because higher efficiency is better.
+      const efPeers = hrPeers;
+      const efPeerCount = efPeers.length;
+      const efSelf = efOf(r);
+      const avgEF = efPeerCount ? efPeers.reduce((a, p) => a + efOf(p), 0) / efPeerCount : null;
+      const bestEF = efPeerCount ? Math.max(...efPeers.map(efOf)) : null;
+      let efRank = null, efRankTotal = 0, efDelta = null;
+      if (efSelf != null && efPeerCount) {
+        const efsSorted = [...efPeers.map(efOf), efSelf].sort((a, b) => b - a);
+        efRank = efsSorted.indexOf(efSelf) + 1;
+        efRankTotal = efPeerCount + 1;
+        efDelta = efSelf - avgEF;
+      }
+
       // Active mode fields (consumed by RunCard directly).
       const active = effectiveRankBy === 'hr'
         ? { peerCount: hrPeerCount, rank: hrRank, rankTotal: hrRankTotal }
-        : { peerCount: n, rank: paceRank, rankTotal: paceRankTotal };
+        : effectiveRankBy === 'efficiency'
+          ? { peerCount: efPeerCount, rank: efRank, rankTotal: efRankTotal }
+          : { peerCount: n, rank: paceRank, rankTotal: paceRankTotal };
 
       return {
         ...base,
@@ -126,6 +156,7 @@ export default function RunCards() {
         avgPace, bestPace, avgDist,
         paceDelta: r.pace - avgPace, paceRank, paceRankTotal,
         avgHR, bestHR, hrPeerCount, hrDelta, hrRank, hrRankTotal,
+        ef: efSelf, avgEF, bestEF, efPeerCount, efDelta, efRank, efRankTotal,
         ...active,
       };
     });
@@ -266,7 +297,7 @@ export default function RunCards() {
             </span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 220 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 260 }}>
             <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.1em' }}>Rank by</span>
             <div className="chip-row">
               <button
@@ -280,9 +311,19 @@ export default function RunCards() {
                 title={hrAvailable ? 'Rank by average heart rate' : 'Too few runs with HR data'}
                 style={!hrAvailable ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}
               >HR</button>
+              <button
+                className={`chip ${effectiveRankBy === 'efficiency' ? 'active' : ''}`}
+                onClick={() => hrAvailable && setRankBy('efficiency')}
+                disabled={!hrAvailable}
+                title={hrAvailable ? 'Speed (m/min) ÷ avg HR; higher = more efficient' : 'Too few runs with HR data'}
+                style={{
+                  borderLeft: '3px solid var(--accent)',
+                  ...(hrAvailable ? {} : { opacity: 0.4, cursor: 'not-allowed' }),
+                }}
+              >Efficiency</button>
             </div>
             <span style={{ fontSize: 11, color: 'var(--inkMuted)', lineHeight: 1.4 }}>
-              What each card&rsquo;s rank number means. <b>Pace</b> = fastest first. <b>HR</b> = lowest avg HR first (useful for aerobic base).
+              What each card&rsquo;s rank number means. <b>Pace</b> = fastest first. <b>HR</b> = lowest avg HR first (useful for aerobic base). <b>Efficiency</b> = highest speed-per-bpm first.
             </span>
           </div>
 
@@ -404,6 +445,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
   const color = `var(--type-${run.type})`;
   const hasPeers = run.peerCount > 0;
   const isHrMode = rankBy === 'hr';
+  const isEfMode = rankBy === 'efficiency';
   // min/km → min/display-unit; used to format per-unit pace deltas.
   const paceK = units === 'mi' ? 1 / MI_PER_KM : 1;
   // Local to the expanded card: grid view (numeric tiles) vs scatter
@@ -411,8 +453,9 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
   const [peerView, setPeerView] = useState('grid');
 
   // Metric accessor — lets the rest of the render read `m.*` without caring
-  // which mode is active. `better(d)` is always "delta < 0", because both
-  // lower pace and lower HR are the good direction.
+  // which mode is active. Pace and HR: lower delta = better. Efficiency
+  // inverts: higher delta = better. The `better`/`sign` derivation below
+  // handles that asymmetry so the styling stays mode-agnostic.
   const m = isHrMode
     ? {
         delta: run.hrDelta,
@@ -423,6 +466,17 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
         unit: 'bpm',
         fmtDeltaShort: (d) => `${Math.abs(Math.round(d))} bpm`,
         fmtDeltaLong: (d) => `${Math.abs(Math.round(d))} bpm vs avg`,
+      }
+    : isEfMode
+    ? {
+        delta: run.efDelta,
+        avg: run.avgEF,
+        best: run.bestEF,
+        self: run.ef,
+        fmt: (v) => (v == null ? '—' : v.toFixed(2)),
+        unit: '',
+        fmtDeltaShort: (d) => Math.abs(d).toFixed(2),
+        fmtDeltaLong: (d) => `${Math.abs(d).toFixed(2)} vs avg`,
       }
     : {
         delta: run.paceDelta,
@@ -436,14 +490,18 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
       };
   const delta = m.delta ?? 0;
   const hasDelta = m.delta != null;
-  const better = hasDelta && delta < 0;
-  const sign = better ? '−' : '+';
+  // Better-direction: lower for pace/HR, higher for efficiency.
+  const better = hasDelta && (isEfMode ? delta > 0 : delta < 0);
+  // Sign always tracks the actual sign of the delta, so a positive
+  // efficiency delta reads as "+0.05" (good) rather than getting flipped
+  // by the `better`-derived sign the old code used.
+  const sign = delta < 0 ? '−' : '+';
 
   // Type-wide rank shares a denominator across every card of the same type.
-  // In HR mode the label gets a "· HR" suffix so the shrunken denominator is
-  // self-explanatory.
+  // HR and Efficiency modes get a suffix so the shrunken denominator (HR-
+  // valid runs only) is self-explanatory.
   const typeRankText = run.typeRankTotal
-    ? `${ordinal(run.typeRank)}/${run.typeRankTotal} ${meta[run.type].label.toLowerCase()}${isHrMode ? ' · HR' : ''}`
+    ? `${ordinal(run.typeRank)}/${run.typeRankTotal} ${meta[run.type].label.toLowerCase()}${isHrMode ? ' · HR' : isEfMode ? ' · EF' : ''}`
     : null;
   const compact = density === 'compact' && !expanded;
 
@@ -497,7 +555,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
           </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
-          <span className="mono" style={{ fontSize: 9, color: 'var(--inkMuted)', letterSpacing: '.06em' }} title={`Rank across all runs of this type · ${isHrMode ? 'HR' : 'pace'}`}>
+          <span className="mono" style={{ fontSize: 9, color: 'var(--inkMuted)', letterSpacing: '.06em' }} title={`Rank across all runs of this type · ${isHrMode ? 'HR' : isEfMode ? 'efficiency' : 'pace'}`}>
             {typeRankText || '—'}
           </span>
           {hasPeers ? <MiniPeerBar run={run} color={color} rankBy={rankBy} /> : <span className="mono muted" style={{ fontSize: 9, fontStyle: 'italic' }}>no peers</span>}
@@ -536,9 +594,15 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
       )}
 
       {expanded && (() => {
-        const peerCount = isHrMode ? run.hrPeerCount : run.peerCount;
+        const peerCount = isHrMode || isEfMode
+          ? (isEfMode ? run.efPeerCount : run.hrPeerCount)
+          : run.peerCount;
         const typeLabel = meta[run.type].label.toLowerCase();
-        const metricWord = isHrMode ? 'HR' : 'pace';
+        const metricWord = isHrMode ? 'HR' : isEfMode ? 'efficiency' : 'pace';
+        // Better- and worse-direction phrases per metric. "Better" matches
+        // the directional `better` flag computed above (delta<0 for pace/HR,
+        // delta>0 for efficiency).
+        const betterPhrase = isHrMode ? 'lower HR' : isEfMode ? 'more efficient' : 'faster';
         const deltaStr = hasDelta ? m.fmtDeltaShort(delta) : null;
         if (!peerCount) {
           return (
@@ -547,7 +611,10 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
             </Highlight>
           );
         }
-        if (run.pr && !isHrMode) {
+        // PR banner only in pace mode — a Strava PR is a time/pace record,
+        // not an HR or efficiency one, so the "Personal record" framing
+        // would over-claim in those modes.
+        if (run.pr && !isHrMode && !isEfMode) {
           return (
             <Highlight>
               <HlNum>Personal record</HlNum> over <HlNum>{fmtDistance(run.distance, units, 1)} {distUnit(units)}</HlNum>
@@ -560,7 +627,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
           return (
             <Highlight>
               <HlNum>Best of {peerCount}</HlNum> similar {typeLabel} peers on {metricWord}
-              {hasDelta && delta < 0 && <>, <HlNum>{deltaStr}</HlNum> better than the avg</>}
+              {hasDelta && better && <>, <HlNum>{deltaStr}</HlNum> better than the avg</>}
               .
             </Highlight>
           );
@@ -569,19 +636,19 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
           return (
             <Highlight>
               <HlNum>{ordinal(run.rank)} of {peerCount}</HlNum> similar peers on {metricWord}
-              {hasDelta && delta < 0 && <>, <HlNum>{deltaStr}</HlNum> better than the avg</>}
+              {hasDelta && better && <>, <HlNum>{deltaStr}</HlNum> better than the avg</>}
               .
             </Highlight>
           );
         }
-        if (hasDelta && delta < 0) {
+        if (hasDelta && better) {
           return (
             <Highlight>
-              <HlNum>{deltaStr}</HlNum> {isHrMode ? 'lower HR' : 'faster'} than the avg of <HlNum>{peerCount}</HlNum> similar {typeLabel} peers, ranked <HlNum>{ordinal(run.rank)}</HlNum> of {run.rankTotal}.
+              <HlNum>{deltaStr}</HlNum> {betterPhrase} than the avg of <HlNum>{peerCount}</HlNum> similar {typeLabel} peers, ranked <HlNum>{ordinal(run.rank)}</HlNum> of {run.rankTotal}.
             </Highlight>
           );
         }
-        if (hasDelta && delta > 0) {
+        if (hasDelta && !better) {
           return (
             <Highlight tone="muted">
               Ranked <HlNum>{ordinal(run.rank)}</HlNum> of <HlNum>{run.rankTotal}</HlNum> similar peers, <HlNum>{deltaStr}</HlNum> off the {metricWord} avg.
@@ -607,7 +674,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
         <div style={{ borderTop: '1px dashed var(--ruleSoft)', paddingTop: 10 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
             <span className="mono" style={{ fontSize: 10, color: 'var(--inkMuted)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
-              vs {run.peerCount} {isHrMode ? 'HR peers' : 'similar'} · {ordinal(run.rank)} of {run.rankTotal}
+              vs {run.peerCount} {isHrMode ? 'HR peers' : isEfMode ? 'EF peers' : 'similar'} · {ordinal(run.rank)} of {run.rankTotal}
               {typeRankText && (
                 <span style={{ marginLeft: 8, opacity: 0.75 }}>· {typeRankText}</span>
               )}
@@ -629,8 +696,8 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
         </div>
       ) : (
         <div className="mono muted" style={{ fontSize: 10.5, fontStyle: 'italic', textAlign: 'center', padding: '6px 0', borderTop: '1px dashed var(--ruleSoft)', marginTop: 4 }}>
-          {isHrMode && hasPeers
-            ? 'No HR data for this run; can’t rank by heart rate'
+          {(isHrMode || isEfMode) && hasPeers
+            ? `No HR data for this run; can’t rank by ${isEfMode ? 'efficiency' : 'heart rate'}`
             : 'First of its kind. No similar runs yet'}
         </div>
       )}
@@ -733,33 +800,44 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
   );
 }
 
-// Reads the active metric off a run/peer: `pace` unless rankBy === 'hr'.
-// In HR mode we only want HR-valid entries; the caller filters accordingly.
+// Reads the active metric off a run/peer for the mini distribution charts.
+// HR + Efficiency modes filter peers to those with valid HR (efficiency
+// requires HR by definition).
 function axisFor(run, rankBy) {
   const isHr = rankBy === 'hr';
+  const isEf = rankBy === 'efficiency';
+  if (isEf) {
+    const peers = run.peers.filter(hasValidHr);
+    const self = run.ef;
+    const avg = run.avgEF;
+    const values = peers.map(efOf);
+    return { isHr: false, isEf: true, peers, self, avg, values };
+  }
   const peers = isHr ? run.peers.filter(hasValidHr) : run.peers;
   const self = isHr ? run.hr : run.pace;
   const avg = isHr ? run.avgHR : run.avgPace;
   const values = peers.map((p) => (isHr ? p.hr : p.pace));
-  return { isHr, peers, self, avg, values };
+  return { isHr, isEf: false, peers, self, avg, values };
 }
 
 function MiniPeerBar({ run, color, rankBy }) {
-  const { isHr, peers, self, avg, values } = axisFor(run, rankBy);
+  const { isHr, isEf, peers, self, avg, values } = axisFor(run, rankBy);
   if (!peers.length || self == null || avg == null) {
-    return <div className="mono muted" style={{ fontSize: 9, fontStyle: 'italic', flex: 1, textAlign: 'center' }}>no HR peers</div>;
+    return <div className="mono muted" style={{ fontSize: 9, fontStyle: 'italic', flex: 1, textAlign: 'center' }}>{isEf ? 'no EF peers' : 'no HR peers'}</div>;
   }
   const all = [...values, self];
   const lo = Math.min(...all);
   const hi = Math.max(...all);
-  const span = Math.max(isHr ? 1 : 0.1, hi - lo);
+  // Per-axis floors for the visible span — too small and a near-uniform
+  // cohort collapses every dot onto the marker.
+  const span = Math.max(isHr ? 1 : isEf ? 0.05 : 0.1, hi - lo);
   const selfX = ((self - lo) / span) * 100;
   const avgX = ((avg - lo) / span) * 100;
   return (
     <div style={{ position: 'relative', flex: 1, height: 10, margin: '0 4px' }}>
       <div style={{ position: 'absolute', left: 0, right: 0, top: 4, height: 2, background: 'var(--bgSunken)', borderRadius: 1 }} />
-      {peers.map((p) => {
-        const v = isHr ? p.hr : p.pace;
+      {peers.map((p, i) => {
+        const v = isEf ? values[i] : (isHr ? p.hr : p.pace);
         const x = ((v - lo) / span) * 100;
         return <span key={p.id} style={{ position: 'absolute', left: `${x}%`, top: 3, width: 4, height: 4, marginLeft: -2, borderRadius: '50%', background: color, opacity: 0.45 }} />;
       })}
@@ -770,20 +848,34 @@ function MiniPeerBar({ run, color, rankBy }) {
 }
 
 function PeerDistribution({ run, color, showAxis, rankBy, units = 'km' }) {
-  const { isHr, peers, self, avg, values } = axisFor(run, rankBy);
+  const { isHr, isEf, peers, self, avg, values } = axisFor(run, rankBy);
   if (!peers.length || self == null || avg == null) return null;
   const all = [...values, self];
   const lo = Math.min(...all);
   const hi = Math.max(...all);
-  const span = Math.max(isHr ? 1 : 0.1, hi - lo);
+  const span = Math.max(isHr ? 1 : isEf ? 0.05 : 0.1, hi - lo);
   const selfX = ((self - lo) / span) * 100;
   const avgX = ((avg - lo) / span) * 100;
+  // Axis-end labels — describe what each end means in the active metric.
+  // Pace and HR: lower (left) is better. Efficiency: higher (right) is
+  // better. Labels include the numeric value so the user can read the
+  // actual extent of the cohort.
+  const leftLabel = isHr
+    ? `lower HR ${Math.round(lo)}`
+    : isEf
+      ? `lower EF ${lo.toFixed(2)}`
+      : `faster ${fmtPace(paceToDisplay(lo, units))}`;
+  const rightLabel = isHr
+    ? `higher HR ${Math.round(hi)}`
+    : isEf
+      ? `higher EF ${hi.toFixed(2)}`
+      : `slower ${fmtPace(paceToDisplay(hi, units))}`;
   return (
     <div>
       <div style={{ position: 'relative', height: 18 }}>
         <div style={{ position: 'absolute', left: 0, right: 0, top: 8, height: 2, background: 'var(--bgSunken)', borderRadius: 1 }} />
-        {peers.map((p) => {
-          const v = isHr ? p.hr : p.pace;
+        {peers.map((p, i) => {
+          const v = isEf ? values[i] : (isHr ? p.hr : p.pace);
           const x = ((v - lo) / span) * 100;
           return <span key={p.id} style={{ position: 'absolute', left: `${x}%`, top: 6, width: 6, height: 6, marginLeft: -3, borderRadius: '50%', background: color, opacity: 0.45 }} />;
         })}
@@ -792,8 +884,8 @@ function PeerDistribution({ run, color, showAxis, rankBy, units = 'km' }) {
       </div>
       {showAxis && (
         <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--inkMuted)', marginTop: 2 }}>
-          <span>{isHr ? `lower HR ${Math.round(lo)}` : `faster ${fmtPace(paceToDisplay(lo, units))}`}</span>
-          <span>{isHr ? `higher HR ${Math.round(hi)}` : `slower ${fmtPace(paceToDisplay(hi, units))}`}</span>
+          <span>{leftLabel}</span>
+          <span>{rightLabel}</span>
         </div>
       )}
     </div>
