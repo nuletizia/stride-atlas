@@ -47,11 +47,17 @@ export default function DistancePaceCurveCompact() {
         const s = [...arr].sort((a, b) => a - b);
         return s[Math.floor(s.length / 2)];
       };
+      // Date-range labels for the legend so "early / recent" lands as
+      // concrete months instead of being abstract halves.
+      const fmtRange = (iso) =>
+        new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
       trend = {
         earlyDist: medianOf(early.map((r) => r.distance)),
         lateDist: medianOf(late.map((r) => r.distance)),
         earlyPace: medianOf(early.map((r) => r.pace)),
         latePace: medianOf(late.map((r) => r.pace)),
+        earlyRange: `${fmtRange(early[0].date)} → ${fmtRange(early[early.length - 1].date)}`,
+        lateRange:  `${fmtRange(late[0].date)} → ${fmtRange(late[late.length - 1].date)}`,
       };
     }
 
@@ -70,8 +76,9 @@ export default function DistancePaceCurveCompact() {
   const W = 320;
   const H = 160;
   // Asymmetric margins make room for the rotated y-axis label + values on
-  // the left, and x-axis values + label + dot legend along the bottom.
-  const M = { l: 36, r: 6, t: 8, b: 44 };
+  // the left, and x-axis values + a two-line dot/date legend along the
+  // bottom.
+  const M = { l: 36, r: 6, t: 8, b: 56 };
   const plotW = W - M.l - M.r;
   const plotH = H - M.t - M.b;
 
@@ -189,16 +196,37 @@ export default function DistancePaceCurveCompact() {
           {xMaxLabel}
         </text>
 
-        {/* Legend: hollow = early, filled = recent */}
-        <g transform={`translate(${M.l + plotW / 2 - 54}, ${legendY})`}>
-          <circle cx={0} cy={0} r={3} fill="var(--bgRaised)" stroke="var(--ink)" strokeWidth={1} strokeOpacity={0.55} />
-          <text x={7} y={3} style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+        {/* Legend: hollow = early on the left, filled = recent on the right.
+             Spatial positioning mirrors the time order (early left, recent
+             right). When a trend exists the date range for each half sits
+             directly beneath its label so readers know what window the
+             dots span. */}
+        <g transform={`translate(0, ${legendY})`}>
+          <circle cx={M.l + 3} cy={0} r={3} fill="var(--bgRaised)" stroke="var(--ink)" strokeWidth={1} strokeOpacity={0.55} />
+          <text x={M.l + 10} y={3}
+            style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
             early
           </text>
-          <circle cx={52} cy={0} r={3} fill="var(--ink)" fillOpacity={0.75} />
-          <text x={59} y={3} style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+          {trend && (
+            <text x={M.l} y={13}
+              style={{ fontFamily: 'var(--mono)', fontSize: 8, fill: TICK, opacity: 0.85 }}
+              textAnchor="start">
+              {trend.earlyRange}
+            </text>
+          )}
+
+          <circle cx={M.l + plotW - 49} cy={0} r={3} fill="var(--ink)" fillOpacity={0.75} />
+          <text x={M.l + plotW - 42} y={3}
+            style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
             recent
           </text>
+          {trend && (
+            <text x={M.l + plotW} y={13}
+              style={{ fontFamily: 'var(--mono)', fontSize: 8, fill: TICK, opacity: 0.85 }}
+              textAnchor="end">
+              {trend.lateRange}
+            </text>
+          )}
         </g>
         <g clipPath="url(#dpcc-clip)">
           {points.map((r, i) => {
