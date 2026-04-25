@@ -198,18 +198,10 @@ function buildStrideSummary(runs, units) {
   const first = new Date(sorted[0].date + 'T00:00:00').getTime();
   const last = new Date(sorted[sorted.length - 1].date + 'T00:00:00').getTime();
   const spanDays = Math.max(1, Math.round((last - first) / 86_400_000) + 1);
-  const totalWeeks = Math.max(1, Math.ceil(spanDays / 7));
   // Below 3 weeks the signal is too noisy to make a meaningful headline.
-  if (totalWeeks < 3) return null;
+  if (spanDays < 21) return null;
 
-  const weekKey = (iso) => {
-    const d = new Date(iso + 'T00:00:00');
-    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-    return d.toISOString().slice(0, 10);
-  };
-  const activeWeeks = new Set(runs.map((r) => weekKey(r.date))).size;
-
-  // Split-by-count for trend signals — same convention the scatter panels
+  // Split-by-count for trend signals, same convention the scatter panels
   // use, so the summary agrees with the per-panel arrows.
   const mid = Math.floor(sorted.length / 2);
   const early = sorted.slice(0, mid);
@@ -282,13 +274,9 @@ function buildStrideSummary(runs, units) {
     return <Fragment key={`s-${i}`}>{sep}{s}</Fragment>;
   });
 
+  if (segments.length === 0) return null;
   return (
-    <>
-      Active in <Strong>{activeWeeks}</Strong> of {totalWeeks} weeks.
-      {segments.length > 0 && (
-        <> Compared to your earlier runs, {joined}.</>
-      )}
-    </>
+    <>Compared to your earlier runs, {joined}.</>
   );
 }
 
