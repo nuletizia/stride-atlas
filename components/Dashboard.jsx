@@ -176,22 +176,6 @@ function HrMaxCard() {
   );
 }
 
-// Up arrow when the shift is an improvement (green), down when it isn't
-// (soft ink). Only the arrow carries color — the surrounding text stays
-// neutral, so the sentence reads as prose with a quality marker rather
-// than as a colored chip.
-function DeltaArrow({ ok }) {
-  return (
-    <span style={{
-      color: ok ? 'var(--positive)' : 'var(--inkSoft)',
-      fontWeight: 700,
-      fontStyle: 'normal',
-      fontFamily: 'var(--mono)',
-      marginRight: 2,
-    }}>{ok ? '↑' : '↓'}</span>
-  );
-}
-
 // Bold non-italic sans for the metric phrase, matching the existing
 // convention in body explainers (the italic-serif container would
 // otherwise render the bold as italic-bold-serif which reads as
@@ -238,20 +222,24 @@ function buildStrideSummary(runs, units) {
 
   const segments = [];
 
-  // Pace: lower min/km value = faster = improvement.
+  // Each segment is phrased so it slots after "Compared to your earlier
+  // runs, " — the lead clause sets the reference frame so each segment
+  // doesn't have to re-explain "than what."
+
+  // Pace: lower min/km value = faster.
   const earlyPace = medianOf(early.map((r) => r.pace));
   const latePace = medianOf(late.map((r) => r.pace));
   if (earlyPace != null && latePace != null) {
     const sec = (earlyPace - latePace) * 60 * (units === 'mi' ? 1 / MI_PER_KM : 1);
     if (Math.abs(sec) >= 3) {
-      const ok = sec > 0;
+      const better = sec > 0;
       segments.push(
-        <span key="pace"><DeltaArrow ok={ok} />running <Strong>{Math.abs(sec).toFixed(0)}s{paceUnit(units)} {ok ? 'faster' : 'slower'}</Strong></span>
+        <span key="pace">you&rsquo;re now <Strong>{Math.abs(sec).toFixed(0)}s{paceUnit(units)} {better ? 'faster' : 'slower'}</Strong></span>
       );
     }
   }
 
-  // HR (mean): lower bpm = improvement (read in conjunction with pace).
+  // HR (mean): lower bpm at similar effort signals fitness.
   const earlyHr = early.filter(hasValidHr).map((r) => r.hr);
   const lateHr = late.filter(hasValidHr).map((r) => r.hr);
   if (earlyHr.length >= 3 && lateHr.length >= 3) {
@@ -259,38 +247,47 @@ function buildStrideSummary(runs, units) {
     const lateAvg = lateHr.reduce((a, b) => a + b, 0) / lateHr.length;
     const hrDelta = earlyAvg - lateAvg;  // positive = HR fell
     if (Math.abs(hrDelta) >= 1.5) {
-      const ok = hrDelta > 0;
+      const better = hrDelta > 0;
       segments.push(
-        <span key="hr"><DeltaArrow ok={ok} />heart rate <Strong>{Math.abs(hrDelta).toFixed(0)} bpm {ok ? 'lower' : 'higher'}</Strong></span>
+        <span key="hr">your heart rate is <Strong>{Math.abs(hrDelta).toFixed(0)} bpm {better ? 'lower' : 'higher'}</Strong></span>
       );
     }
   }
 
-  // Distance (median run length): longer = improvement. "Typical run"
-  // reads as everyday English; "median" felt clinical.
+  // Distance (median run length). "Typical run" reads as everyday
+  // English; "median" felt clinical.
   const earlyDist = medianOf(early.map((r) => r.distance));
   const lateDist = medianOf(late.map((r) => r.distance));
   if (earlyDist != null && lateDist != null) {
     const delta = kmToDisplay(lateDist - earlyDist, units);
     if (Math.abs(delta) >= 0.5) {
-      const ok = delta > 0;
+      const better = delta > 0;
       segments.push(
-        <span key="dist"><DeltaArrow ok={ok} />typical run <Strong>{Math.abs(delta).toFixed(1)} {distUnit(units)} {ok ? 'longer' : 'shorter'}</Strong></span>
+        <span key="dist">your typical run is <Strong>{Math.abs(delta).toFixed(1)} {distUnit(units)} {better ? 'longer' : 'shorter'}</Strong></span>
       );
     }
   }
 
+  // Join segments as natural prose: "A and B" for two, "A, B, and C"
+  // for three or more, comma-separated otherwise.
+  const joined = segments.map((s, i) => {
+    const isFirst = i === 0;
+    const isLast = i === segments.length - 1;
+    let sep = '';
+    if (!isFirst) {
+      if (segments.length === 2) sep = ' and ';
+      else if (isLast) sep = ', and ';
+      else sep = ', ';
+    }
+    return <Fragment key={`s-${i}`}>{sep}{s}</Fragment>;
+  });
+
   return (
     <>
-      Active in <Strong>{activeWeeks}</Strong> of {totalWeeks} weeks
-      {segments.length > 0 ? ': ' : ''}
-      {segments.map((s, i) => (
-        <Fragment key={`s-${i}`}>
-          {i > 0 && ', '}
-          {s}
-        </Fragment>
-      ))}
-      {'.'}
+      Active in <Strong>{activeWeeks}</Strong> of {totalWeeks} weeks.
+      {segments.length > 0 && (
+        <> Compared to your earlier runs, {joined}.</>
+      )}
     </>
   );
 }
