@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   DataProvider, TooltipProvider, LinkProvider, TweakProvider,
   HrMaxProvider, useHrMax,
@@ -176,9 +176,26 @@ function HrMaxCard() {
   );
 }
 
+// Colored delta chip for the top-line summary. `ok` reflects whether the
+// shift is an improvement (green) or a regression (soft ink) — the
+// caller decides which direction maps to "ok" per metric.
+function DeltaChip({ ok, children }) {
+  return (
+    <span style={{
+      color: ok ? 'var(--positive)' : 'var(--inkSoft)',
+      fontWeight: 600,
+      fontStyle: 'normal',
+      fontFamily: 'var(--mono)',
+      whiteSpace: 'nowrap',
+    }}>{children}</span>
+  );
+}
+
 // One-sentence top-line summary: consistency + pace trend + HR efficiency
 // + distance growth, drawing on the same early/recent split logic the
 // scatter panels use. Returns null when nothing is meaningful enough.
+// Returns JSX so the deltas can carry color + arrows (matching the cards
+// inside the scatter panels).
 function buildStrideSummary(runs, units) {
   if (runs.length < 4) return null;
 
@@ -186,24 +203,19 @@ function buildStrideSummary(runs, units) {
   const first = new Date(sorted[0].date + 'T00:00:00').getTime();
   const last = new Date(sorted[sorted.length - 1].date + 'T00:00:00').getTime();
   const spanDays = Math.max(1, Math.round((last - first) / 86_400_000) + 1);
-
-  const parts = [];
-
-  // Consistency: weeks active vs total weeks in the window. Skip when the
-  // window is shorter than 3 weeks (signal gets noisy below that).
   const totalWeeks = Math.max(1, Math.ceil(spanDays / 7));
-  if (totalWeeks >= 3) {
-    const weekKey = (iso) => {
-      const d = new Date(iso + 'T00:00:00');
-      d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-      return d.toISOString().slice(0, 10);
-    };
-    const activeWeeks = new Set(runs.map((r) => weekKey(r.date))).size;
-    parts.push(`active in ${activeWeeks} of ${totalWeeks} weeks`);
-  }
+  // Below 3 weeks the signal is too noisy to make a meaningful headline.
+  if (totalWeeks < 3) return null;
 
-  // Split-by-count for the trend signals — same convention the scatter
-  // panels use, so the summary agrees with the per-panel arrows.
+  const weekKey = (iso) => {
+    const d = new Date(iso + 'T00:00:00');
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return d.toISOString().slice(0, 10);
+  };
+  const activeWeeks = new Set(runs.map((r) => weekKey(r.date))).size;
+
+  // Split-by-count for trend signals — same convention the scatter panels
+  // use, so the summary agrees with the per-panel arrows.
   const mid = Math.floor(sorted.length / 2);
   const early = sorted.slice(0, mid);
   const late = sorted.slice(mid);
@@ -213,42 +225,62 @@ function buildStrideSummary(runs, units) {
     return s[Math.floor(s.length / 2)];
   };
 
-  // Pace trend (median, in min/km → display unit, expressed as seconds).
+  const segments = [];
+
+  // Pace: lower min/km value = faster = improvement.
   const earlyPace = medianOf(early.map((r) => r.pace));
   const latePace = medianOf(late.map((r) => r.pace));
   if (earlyPace != null && latePace != null) {
     const sec = (earlyPace - latePace) * 60 * (units === 'mi' ? 1 / MI_PER_KM : 1);
     if (Math.abs(sec) >= 3) {
-      parts.push(`pace ${sec > 0 ? 'down' : 'up'} ${Math.abs(sec).toFixed(0)}s${paceUnit(units)}`);
+      const ok = sec > 0;
+      segments.push(
+        <span key="pace">pace <DeltaChip ok={ok}>{ok ? '↓' : '↑'} {Math.abs(sec).toFixed(0)}s{paceUnit(units)} {ok ? 'faster' : 'slower'}</DeltaChip></span>
+      );
     }
   }
 
-  // HR efficiency (mean HR), only counts runs with valid HR; needs a
-  // sample on each side or we'd be reporting noise.
+  // HR (mean): lower bpm = improvement (read in conjunction with pace).
   const earlyHr = early.filter(hasValidHr).map((r) => r.hr);
   const lateHr = late.filter(hasValidHr).map((r) => r.hr);
   if (earlyHr.length >= 3 && lateHr.length >= 3) {
     const earlyAvg = earlyHr.reduce((a, b) => a + b, 0) / earlyHr.length;
     const lateAvg = lateHr.reduce((a, b) => a + b, 0) / lateHr.length;
-    const hrDelta = earlyAvg - lateAvg;  // positive = HR fell (good)
+    const hrDelta = earlyAvg - lateAvg;  // positive = HR fell
     if (Math.abs(hrDelta) >= 1.5) {
-      parts.push(`HR ${hrDelta > 0 ? 'down' : 'up'} ${Math.abs(hrDelta).toFixed(0)} bpm`);
+      const ok = hrDelta > 0;
+      segments.push(
+        <span key="hr">HR <DeltaChip ok={ok}>{ok ? '↓' : '↑'} {Math.abs(hrDelta).toFixed(0)} bpm {ok ? 'lower' : 'higher'}</DeltaChip></span>
+      );
     }
   }
 
-  // Distance growth (median run length).
+  // Distance (median run length): longer = improvement.
   const earlyDist = medianOf(early.map((r) => r.distance));
   const lateDist = medianOf(late.map((r) => r.distance));
   if (earlyDist != null && lateDist != null) {
     const delta = kmToDisplay(lateDist - earlyDist, units);
     if (Math.abs(delta) >= 0.5) {
-      parts.push(`median run ${Math.abs(delta).toFixed(1)} ${distUnit(units)} ${delta > 0 ? 'longer' : 'shorter'}`);
+      const ok = delta > 0;
+      segments.push(
+        <span key="dist">median run <DeltaChip ok={ok}>{ok ? '↑' : '↓'} {Math.abs(delta).toFixed(1)} {distUnit(units)} {ok ? 'longer' : 'shorter'}</DeltaChip></span>
+      );
     }
   }
 
-  if (!parts.length) return null;
-  const lead = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
-  return [lead, ...parts.slice(1)].join(', ') + '.';
+  return (
+    <>
+      Active in <b style={{ fontStyle: 'normal' }}>{activeWeeks}</b> of {totalWeeks} weeks
+      {segments.length > 0 ? ': ' : ''}
+      {segments.map((s, i) => (
+        <Fragment key={`s-${i}`}>
+          {i > 0 && ', '}
+          {s}
+        </Fragment>
+      ))}
+      {'.'}
+    </>
+  );
 }
 
 // Body content is split out so it can read `viewMode` from TweakContext.
