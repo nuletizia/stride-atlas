@@ -230,6 +230,11 @@ export function LinkProvider({ children }) {
   const [hovered, setHovered] = useState(null);
   const [focusRequest, setFocusRequest] = useState(null);
   const [pendingFocusId, setPendingFocusId] = useState(null);
+  // `selectedRunId` mirrors the run currently expanded in RunCards, so
+  // cross-panel views (Trend Ribbons + the two scatters) can ring the
+  // matching dot. Persistent until the card collapses, unlike `hovered`
+  // which clears on mouseleave.
+  const [selectedRunId, setSelectedRunId] = useState(null);
   const [isTouch, setIsTouch] = useState(false);
 
   useEffect(() => {
@@ -255,6 +260,7 @@ export function LinkProvider({ children }) {
     <LinkContext.Provider value={{
       hovered, setHovered,
       focusRequest, setFocusRequest,
+      selectedRunId, setSelectedRunId,
       isTouch, pendingFocusId, setPendingFocusId, requestFocus,
     }}>
       {children}

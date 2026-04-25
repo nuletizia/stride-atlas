@@ -317,14 +317,11 @@ function DashboardBody({ effectiveMode, athleteName, runCount }) {
               {summary}
             </div>
           )}
-          <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 620, lineHeight: 1.5 }}>
-            {isCompact ? (
-              <>Every panel at a glance. Switch to <b>Full</b> in View to drill in.</>
-            ) : (
-              <>Each panel below shows one slice of your training. Click any
-              dot, bar, or calendar cell to open that run&rsquo;s card.</>
-            )}
-          </div>
+          {isCompact && (
+            <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 620, lineHeight: 1.5 }}>
+              Every panel at a glance. Switch to <b>Full</b> in View to drill in.
+            </div>
+          )}
         </div>
         <TimeRangeControl />
       </div>

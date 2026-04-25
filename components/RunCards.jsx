@@ -19,7 +19,7 @@ const efOf = (r) =>
 export default function RunCards() {
   const data = useData();
   const runs = useFilteredRuns();
-  const { hovered, setHovered, focusRequest, setFocusRequest } = useLink();
+  const { hovered, setHovered, focusRequest, setFocusRequest, setSelectedRunId } = useLink();
   const { units } = useTweaks();
   const meta = data.typeMeta;
 
@@ -236,6 +236,15 @@ export default function RunCards() {
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [expandedId]);
+
+  // Mirror the expanded card into LinkContext so cross-panel views (Trend
+  // Ribbons + the two scatters) can ring the matching dot. Stays set
+  // until the card collapses; clears on unmount so a stale highlight
+  // doesn't survive a remount.
+  useEffect(() => {
+    setSelectedRunId(expandedId);
+    return () => setSelectedRunId(null);
+  }, [expandedId, setSelectedRunId]);
 
   const types = ['all', 'easy', 'tempo', 'intervals', 'recovery', 'long', 'race'];
   const minCol = density === 'compact' ? 150 : 220;

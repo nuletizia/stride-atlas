@@ -18,7 +18,7 @@ import { useScatterZoom } from '@/lib/useScatterZoom';
 export default function DistancePaceCurve() {
   const data = useData();
   const runs = useFilteredRuns();
-  const { hovered, setHovered, isTouch, pendingFocusId, requestFocus } = useLink();
+  const { hovered, setHovered, isTouch, pendingFocusId, requestFocus, selectedRunId } = useLink();
   const { show, hide } = useTooltip();
   const { units } = useTweaks();
   const typeMeta = data.typeMeta;
@@ -343,8 +343,9 @@ export default function DistancePaceCurve() {
             const cy = yFor(r.pace);
             const rec = recencyOf(r.date);
             const isHover = hovered?.runId === r.id;
+            const isSelected = selectedRunId === r.id;
             const isMatch = hovered && !isHover && (hovered.type === r.type || hovered.routeId === r.routeId);
-            const dim = hovered && !isHover && !isMatch;
+            const dim = hovered && !isHover && !isMatch && !isSelected;
             const size = 3.2 + Math.sqrt(r.distance) * 0.55;
             const fillOp = dim ? 0.1 : (0.25 + rec * 0.65);
             const fillBase = isAllMode ? 'var(--ink)' : `var(--type-${r.type})`;
@@ -378,6 +379,14 @@ export default function DistancePaceCurve() {
                   strokeOpacity={isHollow ? fillOp : 1}
                   strokeWidth={isHollow ? (isHover ? 1.8 : 1.2) : (isHover ? 1.5 : 0)}
                 />
+                {isSelected && (
+                  <circle
+                    cx={cx} cy={cy} r={size + 4}
+                    fill="none"
+                    stroke="var(--accent)"
+                    strokeWidth={1.8}
+                  />
+                )}
               </g>
             );
           })}

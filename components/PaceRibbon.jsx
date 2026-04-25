@@ -12,7 +12,7 @@ import {
 export default function PaceRibbon() {
   const data = useData();
   const runs = useFilteredRuns();
-  const { hovered, setHovered, isTouch, pendingFocusId, requestFocus } = useLink();
+  const { hovered, setHovered, isTouch, pendingFocusId, requestFocus, selectedRunId } = useLink();
   const { show, hide } = useTooltip();
   const { metric, units } = useTweaks();
 
@@ -225,8 +225,9 @@ export default function PaceRibbon() {
                     const cx = xFor(r);
                     const cy = getY(r, bounds);
                     const isHover = hovered?.runId === r.id;
+                    const isSelected = selectedRunId === r.id;
                     const isMatch = hovered && (hovered.type === r.type || hovered.routeId === r.routeId);
-                    const dim = hovered && !isHover && !isMatch;
+                    const dim = hovered && !isHover && !isMatch && !isSelected;
                     return (
                       <g
                         key={r.id}
@@ -262,6 +263,7 @@ export default function PaceRibbon() {
                         <circle cx={cx} cy={cy} r={r.pr ? 4 : 2.8} fill={color} />
                         {r.pr && <circle cx={cx} cy={cy} r={6} fill="none" stroke="var(--ink)" strokeWidth={1} />}
                         {isHover && <circle cx={cx} cy={cy} r={8} fill="none" stroke="var(--ink)" opacity={0.5} />}
+                        {isSelected && <circle cx={cx} cy={cy} r={7} fill="none" stroke="var(--accent)" strokeWidth={1.8} />}
                       </g>
                     );
                   })}
