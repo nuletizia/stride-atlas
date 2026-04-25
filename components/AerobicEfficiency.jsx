@@ -45,7 +45,7 @@ export default function AerobicEfficiency() {
   const selectAll = () => setActiveTypes(new Set());
 
   const W = 640;
-  const H = 360;
+  const H = 260;
   const M = { l: 48, r: 20, t: 22, b: 40 };
   const plotW = W - M.l - M.r;
   const plotH = H - M.t - M.b;

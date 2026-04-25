@@ -160,6 +160,9 @@ export default function DistancePaceCurveCompact() {
           <marker id="dpcc-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
             <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)" />
           </marker>
+          <marker id="dpcc-imp" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--inkMuted)" />
+          </marker>
         </defs>
 
         <rect x={M.l} y={M.t} width={plotW} height={plotH} fill="none" stroke="var(--ruleSoft)" />
@@ -229,6 +232,21 @@ export default function DistancePaceCurveCompact() {
           )}
         </g>
         <g clipPath="url(#dpcc-clip)">
+          {/* Improvement reference: faster pace (up) + longer dist (right). */}
+          <g opacity={0.5}>
+            <line
+              x1={M.l + 8} y1={M.t + plotH - 6}
+              x2={M.l + plotW - 10} y2={M.t + 8}
+              stroke="var(--inkMuted)" strokeWidth={1}
+              strokeDasharray="1 4" strokeLinecap="round"
+              markerEnd="url(#dpcc-imp)"
+            />
+            <text
+              x={M.l + plotW - 14} y={M.t + 18}
+              textAnchor="end"
+              style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 9, fill: 'var(--inkSoft)' }}
+            >improving</text>
+          </g>
           {points.map((r, i) => {
             const cx = xFor(r.distance);
             const cy = yFor(r.pace);
