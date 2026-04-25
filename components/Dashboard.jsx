@@ -311,6 +311,11 @@ function classifyTraining(s) {
   if (hr === 'lower' && pace === 'faster') {
     return { name: 'fitness gains', gloss: 'faster at lower effort, pure fitness' };
   }
+  // Pace and distance both up, no HR signal to confirm fitness. Still
+  // unambiguous progress on both axes — worth labelling.
+  if (pace === 'faster' && dist === 'longer' && (hr === 'flat' || hr === 'missing')) {
+    return { name: 'all-around progress', gloss: 'faster pace and longer runs' };
+  }
   if (hr === 'higher' && pace === 'faster') {
     return { name: 'speed focus', gloss: 'pushing pace at higher effort' };
   }
