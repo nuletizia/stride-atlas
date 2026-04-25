@@ -186,14 +186,11 @@ function Strong({ children }) {
   );
 }
 
-// One-sentence top-line summary: consistency + pace trend + HR efficiency
-// + distance growth, drawing on the same early/recent split logic the
-// scatter panels use. Returns null when nothing is meaningful enough.
-// Returns JSX so the deltas can carry color + arrows (matching the cards
-// inside the scatter panels).
-function buildStrideSummary(runs, units) {
+// Pure-numeric signals shared by the summary sentence and the training-
+// pattern classifier. Returns null when the window is too short or has too
+// few runs to mean anything.
+function computeStrideSignals(runs, units) {
   if (runs.length < 4) return null;
-
   const sorted = [...runs].sort((a, b) => a.date.localeCompare(b.date));
   const first = new Date(sorted[0].date + 'T00:00:00').getTime();
   const last = new Date(sorted[sorted.length - 1].date + 'T00:00:00').getTime();
@@ -212,57 +209,74 @@ function buildStrideSummary(runs, units) {
     return s[Math.floor(s.length / 2)];
   };
 
+  const earlyPace = medianOf(early.map((r) => r.pace));
+  const latePace = medianOf(late.map((r) => r.pace));
+  // Convert km-pace delta to display-unit seconds (positive = faster).
+  const paceSec = (earlyPace != null && latePace != null)
+    ? (earlyPace - latePace) * 60 * (units === 'mi' ? 1 / MI_PER_KM : 1)
+    : 0;
+
+  const earlyHr = early.filter(hasValidHr).map((r) => r.hr);
+  const lateHr = late.filter(hasValidHr).map((r) => r.hr);
+  // Need ≥3 valid-HR runs on each side to trust the HR delta. Without
+  // that, treat HR as missing so the categorizer falls back to pace +
+  // distance archetypes.
+  const hrPresent = earlyHr.length >= 3 && lateHr.length >= 3;
+  const hrDelta = hrPresent
+    ? (earlyHr.reduce((a, b) => a + b, 0) / earlyHr.length)
+      - (lateHr.reduce((a, b) => a + b, 0) / lateHr.length)
+    : 0;
+
+  const earlyDist = medianOf(early.map((r) => r.distance));
+  const lateDist = medianOf(late.map((r) => r.distance));
+  const distDelta = (earlyDist != null && lateDist != null)
+    ? kmToDisplay(lateDist - earlyDist, units)
+    : 0;
+
+  return {
+    paceSec, hrDelta, distDelta, hrPresent, spanDays,
+    paceMeaningful: Math.abs(paceSec) >= 3,
+    hrMeaningful: hrPresent && Math.abs(hrDelta) >= 1.5,
+    distMeaningful: Math.abs(distDelta) >= 0.5,
+  };
+}
+
+// One-sentence top-line summary: pace trend + HR efficiency + distance
+// growth, drawing on the same early/recent split logic the scatter
+// panels use. Returns JSX so the deltas can carry bold formatting.
+function buildStrideSummary(runs, units) {
+  const s = computeStrideSignals(runs, units);
+  if (!s) return null;
+
   const segments = [];
 
   // Each segment is phrased so it slots after "Compared to your earlier
   // runs, " — the lead clause sets the reference frame so each segment
   // doesn't have to re-explain "than what."
-
-  // Pace: lower min/km value = faster.
-  const earlyPace = medianOf(early.map((r) => r.pace));
-  const latePace = medianOf(late.map((r) => r.pace));
-  if (earlyPace != null && latePace != null) {
-    const sec = (earlyPace - latePace) * 60 * (units === 'mi' ? 1 / MI_PER_KM : 1);
-    if (Math.abs(sec) >= 3) {
-      const better = sec > 0;
-      segments.push(
-        <span key="pace">you&rsquo;re now <Strong>{Math.abs(sec).toFixed(0)}s{paceUnit(units)} {better ? 'faster' : 'slower'}</Strong></span>
-      );
-    }
+  if (s.paceMeaningful) {
+    const better = s.paceSec > 0;
+    segments.push(
+      <span key="pace">you&rsquo;re now <Strong>{Math.abs(s.paceSec).toFixed(0)}s{paceUnit(units)} {better ? 'faster' : 'slower'}</Strong></span>
+    );
+  }
+  if (s.hrMeaningful) {
+    const better = s.hrDelta > 0;
+    segments.push(
+      <span key="hr">your heart rate is <Strong>{Math.abs(s.hrDelta).toFixed(0)} bpm {better ? 'lower' : 'higher'}</Strong></span>
+    );
+  }
+  if (s.distMeaningful) {
+    const better = s.distDelta > 0;
+    segments.push(
+      <span key="dist">your typical run is <Strong>{Math.abs(s.distDelta).toFixed(1)} {distUnit(units)} {better ? 'longer' : 'shorter'}</Strong></span>
+    );
   }
 
-  // HR (mean): lower bpm at similar effort signals fitness.
-  const earlyHr = early.filter(hasValidHr).map((r) => r.hr);
-  const lateHr = late.filter(hasValidHr).map((r) => r.hr);
-  if (earlyHr.length >= 3 && lateHr.length >= 3) {
-    const earlyAvg = earlyHr.reduce((a, b) => a + b, 0) / earlyHr.length;
-    const lateAvg = lateHr.reduce((a, b) => a + b, 0) / lateHr.length;
-    const hrDelta = earlyAvg - lateAvg;  // positive = HR fell
-    if (Math.abs(hrDelta) >= 1.5) {
-      const better = hrDelta > 0;
-      segments.push(
-        <span key="hr">your heart rate is <Strong>{Math.abs(hrDelta).toFixed(0)} bpm {better ? 'lower' : 'higher'}</Strong></span>
-      );
-    }
-  }
-
-  // Distance (median run length). "Typical run" reads as everyday
-  // English; "median" felt clinical.
-  const earlyDist = medianOf(early.map((r) => r.distance));
-  const lateDist = medianOf(late.map((r) => r.distance));
-  if (earlyDist != null && lateDist != null) {
-    const delta = kmToDisplay(lateDist - earlyDist, units);
-    if (Math.abs(delta) >= 0.5) {
-      const better = delta > 0;
-      segments.push(
-        <span key="dist">your typical run is <Strong>{Math.abs(delta).toFixed(1)} {distUnit(units)} {better ? 'longer' : 'shorter'}</Strong></span>
-      );
-    }
-  }
+  if (segments.length === 0) return null;
 
   // Join segments as natural prose: "A and B" for two, "A, B, and C"
   // for three or more, comma-separated otherwise.
-  const joined = segments.map((s, i) => {
+  const joined = segments.map((seg, i) => {
     const isFirst = i === 0;
     const isLast = i === segments.length - 1;
     let sep = '';
@@ -271,13 +285,48 @@ function buildStrideSummary(runs, units) {
       else if (isLast) sep = ', and ';
       else sep = ', ';
     }
-    return <Fragment key={`s-${i}`}>{sep}{s}</Fragment>;
+    return <Fragment key={`s-${i}`}>{sep}{seg}</Fragment>;
   });
 
-  if (segments.length === 0) return null;
   return (
     <>Compared to your earlier runs, {joined}.</>
   );
+}
+
+// Map signed signals to a tri-state per metric, then pattern-match
+// against a small set of training-block archetypes. Returns null when
+// no archetype is a clean match — better to stay silent than to label
+// a mixed window incorrectly.
+function classifyTraining(s) {
+  if (!s) return null;
+  const pace = s.paceMeaningful ? (s.paceSec > 0 ? 'faster' : 'slower') : 'flat';
+  const hr = !s.hrPresent ? 'missing' : s.hrMeaningful ? (s.hrDelta > 0 ? 'lower' : 'higher') : 'flat';
+  const dist = s.distMeaningful ? (s.distDelta > 0 ? 'longer' : 'shorter') : 'flat';
+
+  // Priority order: HR-rich archetypes first (more informative), then
+  // HR-optional fallbacks. First match wins.
+  if (hr === 'lower' && pace === 'slower' && (dist === 'longer' || dist === 'flat')) {
+    return { name: 'aerobic base building', gloss: 'easier and longer at lower effort' };
+  }
+  if (hr === 'lower' && pace === 'faster') {
+    return { name: 'fitness gains', gloss: 'faster at lower effort, pure fitness' };
+  }
+  if (hr === 'higher' && pace === 'faster') {
+    return { name: 'speed focus', gloss: 'pushing pace at higher effort' };
+  }
+  if (hr === 'higher' && (pace === 'slower' || pace === 'flat')) {
+    return { name: 'showing strain', gloss: 'working harder for the same or slower pace, fatigue, heat, or under-recovered' };
+  }
+  if (hr === 'lower' && dist === 'shorter') {
+    return { name: 'easing back', gloss: 'lighter volume at lower effort, taper or recovery' };
+  }
+  if (dist === 'longer' && (pace === 'slower' || pace === 'flat') && (hr === 'flat' || hr === 'missing')) {
+    return { name: 'building distance', gloss: 'stretching distance at familiar effort' };
+  }
+  if (pace === 'faster' && (dist === 'flat' || dist === 'shorter') && (hr === 'flat' || hr === 'missing')) {
+    return { name: 'picking up pace', gloss: 'faster at familiar volume' };
+  }
+  return null;
 }
 
 // Body content is split out so it can read `viewMode` from TweakContext.
@@ -286,7 +335,9 @@ function buildStrideSummary(runs, units) {
 function DashboardBody({ effectiveMode, athleteName, runCount }) {
   const { viewMode, units } = useTweaks();
   const filteredRuns = useFilteredRuns();
+  const signals = computeStrideSignals(filteredRuns, units);
   const summary = buildStrideSummary(filteredRuns, units);
+  const pattern = classifyTraining(signals);
   const [canCompact, setCanCompact] = useState(true);
 
   useEffect(() => {
@@ -315,6 +366,14 @@ function DashboardBody({ effectiveMode, athleteName, runCount }) {
               color: 'var(--ink)', maxWidth: 720, lineHeight: 1.5, marginBottom: 6,
             }}>
               {summary}
+            </div>
+          )}
+          {summary && pattern && (
+            <div style={{
+              fontSize: 13, fontFamily: 'var(--serif)', fontStyle: 'italic',
+              color: 'var(--inkSoft)', maxWidth: 720, lineHeight: 1.5, marginBottom: 6,
+            }}>
+              Looks like <Strong>{pattern.name}</Strong>: {pattern.gloss}.
             </div>
           )}
           {isCompact && (
