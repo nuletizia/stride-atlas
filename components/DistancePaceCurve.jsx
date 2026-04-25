@@ -145,6 +145,7 @@ export default function DistancePaceCurve() {
       const startPace = medianOf(early.map((r) => r.pace));
       const endPace = medianOf(late.map((r) => r.pace));
       const distDelta = endDist - startDist;       // positive = longer now
+      const distPct = startDist > 0 ? (distDelta / startDist) * 100 : 0;
       const paceDelta = startPace - endPace;        // positive = faster now (min/km drop)
       const dateFmt = (iso) =>
         new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
@@ -153,7 +154,7 @@ export default function DistancePaceCurve() {
       return {
         type: t, enough: true,
         startDist, endDist, startPace, endPace,
-        distDelta, paceDelta,
+        distDelta, distPct, paceDelta,
         earlyN: early.length, lateN: late.length,
         earlyLabel: `${dateFmt(earlyDates[0])} → ${dateFmt(earlyDates[earlyDates.length - 1])}`,
         lateLabel: `${dateFmt(lateDates[0])} → ${dateFmt(lateDates[lateDates.length - 1])}`,
@@ -162,13 +163,13 @@ export default function DistancePaceCurve() {
   }, [inView]);
 
   // `null` until user clicks a card. While null, the highlight defaults to
-  // the type with the biggest clean pace improvement, so the first read
-  // shows the strongest endurance story without a click.
+  // the type with the biggest distance growth, so the first read shows
+  // the strongest durability story without a click.
   const [trendType, setTrendType] = useState(null);
   const winnerType = useMemo(() => {
-    const wins = bandReadouts.filter((b) => b.type !== 'all' && b.enough && b.paceDelta > 0);
+    const wins = bandReadouts.filter((b) => b.type !== 'all' && b.enough && b.distDelta > 0);
     if (!wins.length) return null;
-    return wins.reduce((a, b) => (a.paceDelta > b.paceDelta ? a : b)).type;
+    return wins.reduce((a, b) => (a.distDelta > b.distDelta ? a : b)).type;
   }, [bandReadouts]);
   const activeTrend = trendType ?? winnerType ?? 'easy';
 
@@ -480,7 +481,7 @@ export default function DistancePaceCurve() {
           fontSize: 11, color: 'var(--inkMuted)', marginBottom: 10,
           fontStyle: 'italic', fontFamily: 'var(--serif)',
         }}>
-          Same split, applied per type: runs sorted by date, halved by count (≥2 per half). We compare median distance and median pace between the two halves; distance growth and pace shift can move independently, so both deltas are always shown.
+          Same split, applied per type: runs sorted by date, halved by count (≥2 per half). We compare the median distance and show each half&rsquo;s median pace alongside.
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
@@ -489,8 +490,6 @@ export default function DistancePaceCurve() {
             const color = b.type === 'all' ? 'var(--ink)' : `var(--type-${b.type})`;
             const distArrow = b.enough && Math.abs(kmToDisplay(b.distDelta, units)) > 0.1
               ? (b.distDelta > 0 ? '↑' : '↓') : '=';
-            const paceArrow = b.enough && Math.abs(b.paceDelta * 60 * paceK) > 1
-              ? (b.paceDelta > 0 ? '↓' : '↑') : '=';
             return (
               <button
                 key={b.type}
@@ -516,43 +515,48 @@ export default function DistancePaceCurve() {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
                   <span style={{ fontSize: 13, fontWeight: 500 }}>{b.type === 'all' ? 'All' : typeMeta[b.type].label}</span>
-                  {!b.enough && <span className="mono" style={{ fontSize: 10, color: 'var(--inkMuted)' }}>n/a</span>}
+                  {b.enough ? (
+                    <span className="mono" style={{ fontSize: 10, color: 'var(--inkMuted)' }}>
+                      {fmtPace(paceToDisplay(b.startPace, units))} → {fmtPace(paceToDisplay(b.endPace, units))}
+                    </span>
+                  ) : (
+                    <span className="mono" style={{ fontSize: 10, color: 'var(--inkMuted)' }}>n/a</span>
+                  )}
                 </div>
                 {b.enough && (
                   <>
-                    {/* Distance row */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'baseline', gap: 6, marginBottom: 4 }}>
-                      <span className="mono muted" style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '.08em' }}>Dist</span>
-                      <span className="mono" style={{ fontSize: 11, color: 'var(--inkSoft)' }}>
-                        {fmtDistance(b.startDist, units, 1)} → {fmtDistance(b.endDist, units, 1)}
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
+                      <span className="num" style={{ fontSize: 26, fontWeight: 500, color: 'var(--ink)', lineHeight: 1 }}>
+                        {kmToDisplay(b.endDist, units).toFixed(1)}
                       </span>
+                      <span className="mono muted" style={{ fontSize: 10 }}>{distUnit(units)}</span>
+                      <span style={{ flex: 1 }} />
                       <span
                         className="num"
                         style={{
-                          fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                          fontSize: 12,
                           color: b.distDelta > 0.1 ? 'var(--positive)' : b.distDelta < -0.1 ? 'var(--inkSoft)' : 'var(--inkMuted)',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
                         }}
                       >
                         {distArrow} {Math.abs(kmToDisplay(b.distDelta, units)).toFixed(1)}
                       </span>
                     </div>
-                    {/* Pace row */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
-                      <span className="mono muted" style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '.08em' }}>Pace</span>
-                      <span className="mono" style={{ fontSize: 11, color: 'var(--inkSoft)' }}>
-                        {fmtPace(paceToDisplay(b.startPace, units))} → {fmtPace(paceToDisplay(b.endPace, units))}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10.5, color: 'var(--inkSoft)', fontFamily: 'var(--mono)' }}>
+                      <span>{kmToDisplay(b.startDist, units).toFixed(1)}</span>
+                      <span style={{ flex: 1, height: 2, background: 'var(--ruleSoft)', position: 'relative' }}>
+                        <span style={{
+                          position: 'absolute', left: 0, top: -1,
+                          width: `${Math.min(100, Math.max(5, Math.abs(b.distPct) * 8))}%`,
+                          height: 4,
+                          background: b.distDelta > 0 ? 'var(--positive)' : 'var(--type-tempo)',
+                          opacity: 0.7,
+                        }} />
                       </span>
-                      <span
-                        className="num"
-                        style={{
-                          fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
-                          color: b.paceDelta > 0.02 ? 'var(--positive)' : b.paceDelta < -0.02 ? 'var(--inkSoft)' : 'var(--inkMuted)',
-                        }}
-                      >
-                        {paceArrow} {Math.abs(b.paceDelta * 60 * paceK).toFixed(0)}s
-                      </span>
+                      <span>{kmToDisplay(b.endDist, units).toFixed(1)}</span>
                     </div>
-                    <div style={{ fontSize: 10, color: 'var(--inkMuted)', fontFamily: 'var(--mono)' }}>
+                    <div style={{ marginTop: 4, fontSize: 10, color: 'var(--inkMuted)', fontFamily: 'var(--mono)' }}>
                       {b.earlyN} earlier · {b.lateN} recent
                     </div>
                     <div style={{ marginTop: 2, fontSize: 9.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', opacity: 0.8 }}>
