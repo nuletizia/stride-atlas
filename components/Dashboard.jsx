@@ -5,7 +5,7 @@ import {
   DataProvider, TooltipProvider, LinkProvider, TweakProvider,
   HrMaxProvider, useHrMax,
   useTweaks, useFilteredRuns, useData, useTooltip,
-  fmtDistance, distUnit,
+  fmtDistance, distUnit, kmToDisplay, paceUnit, hasValidHr, MI_PER_KM,
 } from '@/lib/shared';
 import TimeRangeControl from './TimeRangeControl';
 import RunAtlas from './RunAtlas';
@@ -176,11 +176,88 @@ function HrMaxCard() {
   );
 }
 
+// One-sentence top-line summary: consistency + pace trend + HR efficiency
+// + distance growth, drawing on the same early/recent split logic the
+// scatter panels use. Returns null when nothing is meaningful enough.
+function buildStrideSummary(runs, units) {
+  if (runs.length < 4) return null;
+
+  const sorted = [...runs].sort((a, b) => a.date.localeCompare(b.date));
+  const first = new Date(sorted[0].date + 'T00:00:00').getTime();
+  const last = new Date(sorted[sorted.length - 1].date + 'T00:00:00').getTime();
+  const spanDays = Math.max(1, Math.round((last - first) / 86_400_000) + 1);
+
+  const parts = [];
+
+  // Consistency: weeks active vs total weeks in the window. Skip when the
+  // window is shorter than 3 weeks (signal gets noisy below that).
+  const totalWeeks = Math.max(1, Math.ceil(spanDays / 7));
+  if (totalWeeks >= 3) {
+    const weekKey = (iso) => {
+      const d = new Date(iso + 'T00:00:00');
+      d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+      return d.toISOString().slice(0, 10);
+    };
+    const activeWeeks = new Set(runs.map((r) => weekKey(r.date))).size;
+    parts.push(`active in ${activeWeeks} of ${totalWeeks} weeks`);
+  }
+
+  // Split-by-count for the trend signals — same convention the scatter
+  // panels use, so the summary agrees with the per-panel arrows.
+  const mid = Math.floor(sorted.length / 2);
+  const early = sorted.slice(0, mid);
+  const late = sorted.slice(mid);
+  const medianOf = (arr) => {
+    if (!arr.length) return null;
+    const s = [...arr].sort((a, b) => a - b);
+    return s[Math.floor(s.length / 2)];
+  };
+
+  // Pace trend (median, in min/km → display unit, expressed as seconds).
+  const earlyPace = medianOf(early.map((r) => r.pace));
+  const latePace = medianOf(late.map((r) => r.pace));
+  if (earlyPace != null && latePace != null) {
+    const sec = (earlyPace - latePace) * 60 * (units === 'mi' ? 1 / MI_PER_KM : 1);
+    if (Math.abs(sec) >= 3) {
+      parts.push(`pace ${sec > 0 ? 'down' : 'up'} ${Math.abs(sec).toFixed(0)}s${paceUnit(units)}`);
+    }
+  }
+
+  // HR efficiency (mean HR), only counts runs with valid HR; needs a
+  // sample on each side or we'd be reporting noise.
+  const earlyHr = early.filter(hasValidHr).map((r) => r.hr);
+  const lateHr = late.filter(hasValidHr).map((r) => r.hr);
+  if (earlyHr.length >= 3 && lateHr.length >= 3) {
+    const earlyAvg = earlyHr.reduce((a, b) => a + b, 0) / earlyHr.length;
+    const lateAvg = lateHr.reduce((a, b) => a + b, 0) / lateHr.length;
+    const hrDelta = earlyAvg - lateAvg;  // positive = HR fell (good)
+    if (Math.abs(hrDelta) >= 1.5) {
+      parts.push(`HR ${hrDelta > 0 ? 'down' : 'up'} ${Math.abs(hrDelta).toFixed(0)} bpm`);
+    }
+  }
+
+  // Distance growth (median run length).
+  const earlyDist = medianOf(early.map((r) => r.distance));
+  const lateDist = medianOf(late.map((r) => r.distance));
+  if (earlyDist != null && lateDist != null) {
+    const delta = kmToDisplay(lateDist - earlyDist, units);
+    if (Math.abs(delta) >= 0.5) {
+      parts.push(`median run ${Math.abs(delta).toFixed(1)} ${distUnit(units)} ${delta > 0 ? 'longer' : 'shorter'}`);
+    }
+  }
+
+  if (!parts.length) return null;
+  const lead = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+  return [lead, ...parts.slice(1)].join(', ') + '.';
+}
+
 // Body content is split out so it can read `viewMode` from TweakContext.
 // That context isn't available at the root Dashboard level because the
 // provider wraps this body.
 function DashboardBody({ effectiveMode, athleteName, runCount }) {
-  const { viewMode } = useTweaks();
+  const { viewMode, units } = useTweaks();
+  const filteredRuns = useFilteredRuns();
+  const summary = buildStrideSummary(filteredRuns, units);
   const [canCompact, setCanCompact] = useState(true);
 
   useEffect(() => {
@@ -203,14 +280,20 @@ function DashboardBody({ effectiveMode, athleteName, runCount }) {
           <div className="section-title" style={{ fontSize: 22, marginBottom: 2 }}>
             Progress, <i>in one page.</i>
           </div>
+          {summary && (
+            <div style={{
+              fontSize: 14.5, fontFamily: 'var(--serif)', fontStyle: 'italic',
+              color: 'var(--ink)', maxWidth: 720, lineHeight: 1.5, marginBottom: 6,
+            }}>
+              {summary}
+            </div>
+          )}
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 620, lineHeight: 1.5 }}>
             {isCompact ? (
               <>Every panel at a glance. Switch to <b>Full</b> in View to drill in.</>
             ) : (
-              <>Each panel below shows one slice of your training, from a season arc
-              down to single runs. Scroll through to read the arc, then click any
-              dot, bar, or calendar cell to open that run&rsquo;s card and see how
-              it compares against similar runs.</>
+              <>Each panel below shows one slice of your training. Click any
+              dot, bar, or calendar cell to open that run&rsquo;s card.</>
             )}
           </div>
         </div>

@@ -71,7 +71,7 @@ export default function TweakPanel() {
           </div>
 
           <div className="tweaks-row">
-            <label>View</label>
+            <label>Visualization</label>
             <div
               className="seg"
               title={canCompact ? undefined : 'Compact view is desktop-only.'}
