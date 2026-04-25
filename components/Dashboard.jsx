@@ -176,18 +176,29 @@ function HrMaxCard() {
   );
 }
 
-// Colored delta chip for the top-line summary. `ok` reflects whether the
-// shift is an improvement (green) or a regression (soft ink) — the
-// caller decides which direction maps to "ok" per metric.
-function DeltaChip({ ok, children }) {
+// Up arrow when the shift is an improvement (green), down when it isn't
+// (soft ink). Only the arrow carries color — the surrounding text stays
+// neutral, so the sentence reads as prose with a quality marker rather
+// than as a colored chip.
+function DeltaArrow({ ok }) {
   return (
     <span style={{
       color: ok ? 'var(--positive)' : 'var(--inkSoft)',
-      fontWeight: 600,
+      fontWeight: 700,
       fontStyle: 'normal',
       fontFamily: 'var(--mono)',
-      whiteSpace: 'nowrap',
-    }}>{children}</span>
+      marginRight: 2,
+    }}>{ok ? '↑' : '↓'}</span>
+  );
+}
+
+// Bold non-italic sans for the metric phrase, matching the existing
+// convention in body explainers (the italic-serif container would
+// otherwise render the bold as italic-bold-serif which reads as
+// decoration rather than data).
+function Strong({ children }) {
+  return (
+    <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>{children}</b>
   );
 }
 
@@ -235,7 +246,7 @@ function buildStrideSummary(runs, units) {
     if (Math.abs(sec) >= 3) {
       const ok = sec > 0;
       segments.push(
-        <span key="pace">pace <DeltaChip ok={ok}>{ok ? '↓' : '↑'} {Math.abs(sec).toFixed(0)}s{paceUnit(units)} {ok ? 'faster' : 'slower'}</DeltaChip></span>
+        <span key="pace"><DeltaArrow ok={ok} />running <Strong>{Math.abs(sec).toFixed(0)}s{paceUnit(units)} {ok ? 'faster' : 'slower'}</Strong></span>
       );
     }
   }
@@ -250,12 +261,13 @@ function buildStrideSummary(runs, units) {
     if (Math.abs(hrDelta) >= 1.5) {
       const ok = hrDelta > 0;
       segments.push(
-        <span key="hr">HR <DeltaChip ok={ok}>{ok ? '↓' : '↑'} {Math.abs(hrDelta).toFixed(0)} bpm {ok ? 'lower' : 'higher'}</DeltaChip></span>
+        <span key="hr"><DeltaArrow ok={ok} />heart rate <Strong>{Math.abs(hrDelta).toFixed(0)} bpm {ok ? 'lower' : 'higher'}</Strong></span>
       );
     }
   }
 
-  // Distance (median run length): longer = improvement.
+  // Distance (median run length): longer = improvement. "Typical run"
+  // reads as everyday English; "median" felt clinical.
   const earlyDist = medianOf(early.map((r) => r.distance));
   const lateDist = medianOf(late.map((r) => r.distance));
   if (earlyDist != null && lateDist != null) {
@@ -263,14 +275,14 @@ function buildStrideSummary(runs, units) {
     if (Math.abs(delta) >= 0.5) {
       const ok = delta > 0;
       segments.push(
-        <span key="dist">median run <DeltaChip ok={ok}>{ok ? '↑' : '↓'} {Math.abs(delta).toFixed(1)} {distUnit(units)} {ok ? 'longer' : 'shorter'}</DeltaChip></span>
+        <span key="dist"><DeltaArrow ok={ok} />typical run <Strong>{Math.abs(delta).toFixed(1)} {distUnit(units)} {ok ? 'longer' : 'shorter'}</Strong></span>
       );
     }
   }
 
   return (
     <>
-      Active in <b style={{ fontStyle: 'normal' }}>{activeWeeks}</b> of {totalWeeks} weeks
+      Active in <Strong>{activeWeeks}</Strong> of {totalWeeks} weeks
       {segments.length > 0 ? ': ' : ''}
       {segments.map((s, i) => (
         <Fragment key={`s-${i}`}>
