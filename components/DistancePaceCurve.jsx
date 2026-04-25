@@ -8,6 +8,7 @@ import {
   MI_PER_KM, distUnit, paceUnit, paceUnitLong,
   Highlight, HlNum,
 } from '@/lib/shared';
+import { useScatterZoom } from '@/lib/useScatterZoom';
 
 // Distance × Pace scatter. Shows every run as a dot; x = distance, y = pace.
 // Convention: standard math chart — fast pace (low value) at BOTTOM, slow at
@@ -48,8 +49,11 @@ export default function DistancePaceCurve() {
 
   const inView = useMemo(() => runs.filter((r) => r.type !== 'recovery'), [runs]);
 
-  const bounds = useMemo(() => {
-    if (!inView.length) return { distMin: 0, distMax: 20, paceMin: 3.5, paceMax: 7 };
+  // Outer bounds = full extent of the visible data, used as the un-zoomed
+  // frame and as the clamp for pan/zoom. Field naming matches the generic
+  // useScatterZoom contract (xMin/xMax/yMin/yMax).
+  const outerBounds = useMemo(() => {
+    if (!inView.length) return { xMin: 0, xMax: 20, yMin: 3.5, yMax: 7 };
     let distMin = Infinity, distMax = -Infinity, paceMin = Infinity, paceMax = -Infinity;
     inView.forEach((r) => {
       if (r.distance < distMin) distMin = r.distance;
@@ -60,16 +64,16 @@ export default function DistancePaceCurve() {
     const dP = (distMax - distMin) * 0.05 || 1;
     const pP = (paceMax - paceMin) * 0.08 || 0.3;
     return {
-      distMin: Math.max(0, distMin - dP),
-      distMax: distMax + dP,
-      paceMin: paceMin - pP,
-      paceMax: paceMax + pP,
+      xMin: Math.max(0, distMin - dP),
+      xMax: distMax + dP,
+      yMin: paceMin - pP,
+      yMax: paceMax + pP,
     };
   }, [inView]);
 
-  // Standard chart: x→right as distance grows, y→down as pace grows (slower).
-  const xFor = (d) => M.l + ((d - bounds.distMin) / (bounds.distMax - bounds.distMin)) * plotW;
-  const yFor = (p) => M.t + ((p - bounds.paceMin) / (bounds.paceMax - bounds.paceMin)) * plotH;
+  const { view, xFor, yFor, isZoomed, reset, svgEvents } = useScatterZoom({
+    outerBounds, plotW, plotH, M,
+  });
 
   const dateRange = useMemo(() => {
     if (!inView.length) return { start: 0, end: 1 };
@@ -117,7 +121,7 @@ export default function DistancePaceCurve() {
       earlyLabel: `${dateFmt(earlyDates[0])} → ${dateFmt(earlyDates[earlyDates.length - 1])}`,
       lateLabel: `${dateFmt(lateDates[0])} → ${dateFmt(lateDates[lateDates.length - 1])}`,
     };
-  }, [inView, activeTypes, isAllMode, bounds]);
+  }, [inView, activeTypes, isAllMode, view]);
 
   // Per-type (and "all") early/recent readouts for the endurance cards.
   // Same count-based split + median-of-both methodology as the chart
@@ -171,8 +175,8 @@ export default function DistancePaceCurve() {
   // Distance ticks live at clean *display* values (2/5/10 km or 1/2/5 mi)
   // and carry the km position used by xFor.
   const distTicks = useMemo(() => {
-    const dispMin = bounds.distMin * distK;
-    const dispMax = bounds.distMax * distK;
+    const dispMin = view.xMin * distK;
+    const dispMax = view.xMax * distK;
     const step = dispMax > 30 ? 10 : dispMax > 15 ? 5 : dispMax > 8 ? 2 : 1;
     const ticks = [];
     const first = Math.ceil(dispMin / step) * step;
@@ -180,11 +184,11 @@ export default function DistancePaceCurve() {
       ticks.push({ disp: d, km: d / distK });
     }
     return ticks;
-  }, [bounds, distK]);
+  }, [view, distK]);
 
   const paceTicks = useMemo(() => {
-    const dispMin = bounds.paceMin * paceK;
-    const dispMax = bounds.paceMax * paceK;
+    const dispMin = view.yMin * paceK;
+    const dispMax = view.yMax * paceK;
     const step = units === 'mi' ? 1 : 0.5;
     const ticks = [];
     const first = Math.ceil(dispMin / step) * step;
@@ -192,7 +196,7 @@ export default function DistancePaceCurve() {
       ticks.push({ disp: p, km: p / paceK });
     }
     return ticks;
-  }, [bounds, paceK, units]);
+  }, [view, paceK, units]);
 
   const showMetric = (r) => {
     const hour = Math.floor(r.duration / 60);
@@ -219,11 +223,14 @@ export default function DistancePaceCurve() {
     <div className="panel" style={{ padding: '22px 24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, marginBottom: 18, flexWrap: 'wrap' }}>
         <div style={{ maxWidth: 560 }}>
-          <div className="stat-label" style={{ marginBottom: 4 }}>Aerobic Endurance</div>
+          <div className="stat-label" style={{ marginBottom: 4 }}>Aerobic Durability</div>
+          <div style={{ fontSize: 11, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>
+            Compares the first half of your selected time range to the second half.
+          </div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', lineHeight: 1.5 }}>
             Every run plotted by <b>distance × pace</b>. Fast pace is at the top; longer runs sit to the
             right, and the cloud naturally slopes toward the lower-right (longer = slower).
-            Hollow dots are early runs, filled dots are recent. The bold
+            Hollow dots are earlier in the window, filled dots are more recent. The bold
             {' '}<b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half, and the
             arrow shows the direction of progress (up = faster, right = longer).
             Cards below break the story down by type; click one to drive the take-away.
@@ -257,7 +264,16 @@ export default function DistancePaceCurve() {
         </div>
       </div>
 
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        {...svgEvents}
+        style={{ width: '100%', height: 'auto', display: 'block', ...svgEvents.style }}
+      >
+        <defs>
+          <clipPath id="dpc-plot-clip">
+            <rect x={M.l} y={M.t} width={plotW} height={plotH} />
+          </clipPath>
+        </defs>
         {/* Grid — horizontal pace lines */}
         {paceTicks.map((p) => (
           <g key={`p-${p.disp}`}>
@@ -318,6 +334,7 @@ export default function DistancePaceCurve() {
           >improving</text>
         </g>
 
+        <g clipPath="url(#dpc-plot-clip)">
         {/* Dots — older first so newer sits on top */}
         {inView
           .slice()
@@ -389,8 +406,19 @@ export default function DistancePaceCurve() {
             <line x1={centroids.endX} y1={centroids.endY - 9} x2={centroids.endX} y2={centroids.endY + 9} stroke="var(--accent)" strokeWidth={3} />
           </g>
         )}
+        </g>
 
         <rect x={M.l} y={M.t} width={plotW} height={plotH} fill="none" stroke="var(--rule)" strokeWidth={1} />
+
+        {isZoomed && (
+          <g style={{ cursor: 'pointer' }} onClick={() => reset()}>
+            <text
+              x={W - M.r - 4} y={M.t + 12}
+              textAnchor="end"
+              style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '.08em' }}
+            >⟲ reset zoom</text>
+          </g>
+        )}
       </svg>
 
       <div style={{
@@ -407,7 +435,7 @@ export default function DistancePaceCurve() {
             <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
             <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
           </svg>
-          early {centroids && (
+          earlier in window {centroids && (
             <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--inkSoft)' }}>
               · {centroids.earlyLabel} · {centroids.earlyN} runs
             </span>
@@ -421,7 +449,7 @@ export default function DistancePaceCurve() {
             <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={3} />
             <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={3} />
           </svg>
-          recent {centroids && (
+          more recent {centroids && (
             <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>
               · {centroids.lateLabel} · {centroids.lateN} runs
             </span>
@@ -448,14 +476,14 @@ export default function DistancePaceCurve() {
           fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--inkMuted)',
           textTransform: 'uppercase', letterSpacing: '.12em', marginBottom: 4,
         }}>
-          <span>Distance × pace · early vs recent</span>
+          <span>Distance × pace · earlier vs more recent within window</span>
           <span style={{ fontStyle: 'normal', textTransform: 'none', letterSpacing: 0, fontSize: 10.5, color: 'var(--inkMuted)' }}>Click to drive the highlight →</span>
         </div>
         <div style={{
           fontSize: 11, color: 'var(--inkMuted)', marginBottom: 10,
           fontStyle: 'italic', fontFamily: 'var(--serif)',
         }}>
-          Each card splits that type&rsquo;s runs by date: first half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>early</b>, second half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>recent</b> (≥2 per half). We show both median distance and median pace; distance growth and pace shift can move independently, so both deltas are always shown.
+          Each card splits that type&rsquo;s runs by date inside the selected window: first half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>earlier</b>, second half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>more recent</b> (≥2 per half). We show both median distance and median pace; distance growth and pace shift can move independently, so both deltas are always shown.
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
@@ -528,7 +556,7 @@ export default function DistancePaceCurve() {
                       </span>
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--inkMuted)', fontFamily: 'var(--mono)' }}>
-                      {b.earlyN} early · {b.lateN} recent
+                      {b.earlyN} earlier · {b.lateN} more recent
                     </div>
                     <div style={{ marginTop: 2, fontSize: 9.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', opacity: 0.8 }}>
                       {b.earlyLabel} · {b.lateLabel}

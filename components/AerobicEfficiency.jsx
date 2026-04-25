@@ -8,6 +8,7 @@ import {
   MI_PER_KM, distUnit, paceUnit, paceUnitLong,
   Highlight, HlNum,
 } from '@/lib/shared';
+import { useScatterZoom } from '@/lib/useScatterZoom';
 
 export default function AerobicEfficiency() {
   const data = useData();
@@ -56,8 +57,13 @@ export default function AerobicEfficiency() {
     [runs]
   );
 
-  const bounds = useMemo(() => {
-    if (!inView.length) return { paceMin: 3.5, paceMax: 7, hrMin: 120, hrMax: 190 };
+  // Outer bounds = full extent of the visible data, used as the un-zoomed
+  // frame and as the clamp for pan/zoom. Field naming matches the generic
+  // useScatterZoom contract (xMin/xMax/yMin/yMax).
+  // X axis = HR (low→high, left-to-right). Y axis = Pace, with smaller
+  // min/km values rendered at the top (faster).
+  const outerBounds = useMemo(() => {
+    if (!inView.length) return { yMin: 3.5, yMax: 7, xMin: 120, xMax: 190 };
     let paceMin = Infinity, paceMax = -Infinity, hrMin = Infinity, hrMax = -Infinity;
     inView.forEach((r) => {
       if (r.pace < paceMin) paceMin = r.pace;
@@ -68,18 +74,16 @@ export default function AerobicEfficiency() {
     const paceP = (paceMax - paceMin) * 0.08 || 0.3;
     const hrP = (hrMax - hrMin) * 0.1 || 5;
     return {
-      paceMin: paceMin - paceP,
-      paceMax: paceMax + paceP,
-      hrMin: Math.floor((hrMin - hrP) / 5) * 5,
-      hrMax: Math.ceil((hrMax + hrP) / 5) * 5,
+      yMin: paceMin - paceP,
+      yMax: paceMax + paceP,
+      xMin: Math.floor((hrMin - hrP) / 5) * 5,
+      xMax: Math.ceil((hrMax + hrP) / 5) * 5,
     };
   }, [inView]);
 
-  // X: HR (low → high, left-to-right natural).
-  // Y: Pace, inverted so fastest pace (smallest min/km value) sits at the top
-  // — improvement reads as "up-left": faster pace at lower HR.
-  const xFor = (hr) => M.l + ((hr - bounds.hrMin) / (bounds.hrMax - bounds.hrMin)) * plotW;
-  const yFor = (pace) => M.t + ((pace - bounds.paceMin) / (bounds.paceMax - bounds.paceMin)) * plotH;
+  const { view, xFor, yFor, isZoomed, reset, svgEvents } = useScatterZoom({
+    outerBounds, plotW, plotH, M,
+  });
 
   const dateRange = useMemo(() => {
     if (!inView.length) return { start: 0, end: 1 };
@@ -96,8 +100,8 @@ export default function AerobicEfficiency() {
   // Pace ticks live at clean *display* values (e.g. 5:00, 5:30 min/km or
   // 8:00, 9:00 min/mi); each carries the km-denominated pace used by xFor.
   const paceTicks = useMemo(() => {
-    const dispMin = bounds.paceMin * paceK;
-    const dispMax = bounds.paceMax * paceK;
+    const dispMin = view.yMin * paceK;
+    const dispMax = view.yMax * paceK;
     const step = units === 'mi' ? 1 : 0.5;
     const ticks = [];
     const first = Math.ceil(dispMin / step) * step;
@@ -105,14 +109,14 @@ export default function AerobicEfficiency() {
       ticks.push({ disp: p, km: p / paceK });
     }
     return ticks;
-  }, [bounds, paceK, units]);
+  }, [view, paceK, units]);
 
   const hrTicks = useMemo(() => {
     const ticks = [];
-    const first = Math.ceil(bounds.hrMin / 10) * 10;
-    for (let hr = first; hr <= bounds.hrMax; hr += 10) ticks.push(hr);
+    const first = Math.ceil(view.xMin / 10) * 10;
+    for (let hr = first; hr <= view.xMax; hr += 10) ticks.push(hr);
     return ticks;
-  }, [bounds]);
+  }, [view]);
 
   const bandReadouts = useMemo(() => {
     // "All" leads the row as an aggregate reference across every type.
@@ -212,7 +216,7 @@ export default function AerobicEfficiency() {
       earlyLabel: `${dateFmt(earlyDates[0])} → ${dateFmt(earlyDates[earlyDates.length - 1])}`,
       lateLabel: `${dateFmt(lateDates[0])} → ${dateFmt(lateDates[lateDates.length - 1])}`,
     };
-  }, [inView, activeTypes, isAllMode, bounds]);
+  }, [inView, activeTypes, isAllMode, view]);
 
   const showMetric = (r) => {
     const hour = Math.floor(r.duration / 60);
@@ -241,9 +245,12 @@ export default function AerobicEfficiency() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, marginBottom: 18, flexWrap: 'wrap' }}>
         <div style={{ maxWidth: 560 }}>
           <div className="stat-label" style={{ marginBottom: 4 }}>Aerobic Efficiency</div>
+          <div style={{ fontSize: 11, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>
+            Compares the first half of your selected time range to the second half.
+          </div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', lineHeight: 1.5 }}>
             Every run plotted by <b>heart rate × pace</b>. As you get fitter, dots drift <b>up-left</b>: faster pace at a <i>lower</i> HR.
-            Hollow dots are early runs, filled dots are recent; darker = more recent within each half.
+            Hollow dots are earlier in the window, filled dots are more recent; darker = more recent within each half.
             The bold <b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half, and the arrow shows the direction of progress.
             Cards below break the story down by type; click one to drive the take-away.
           </div>
@@ -278,7 +285,16 @@ export default function AerobicEfficiency() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
         <div>
-          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            {...svgEvents}
+            style={{ width: '100%', height: 'auto', display: 'block', ...svgEvents.style }}
+          >
+            <defs>
+              <clipPath id="ae-plot-clip">
+                <rect x={M.l} y={M.t} width={plotW} height={plotH} />
+              </clipPath>
+            </defs>
             {hrTicks.map((hr, i) => (
               <g key={`hr-${hr}`}>
                 <line
@@ -330,6 +346,7 @@ export default function AerobicEfficiency() {
               <text x={M.l + 40} y={M.t + 32} style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 13, fill: 'var(--inkSoft)' }}>improving</text>
             </g>
 
+            <g clipPath="url(#ae-plot-clip)">
             {inView
               .slice()
               .sort((a, b) => a.date.localeCompare(b.date))
@@ -403,8 +420,19 @@ export default function AerobicEfficiency() {
                 <line x1={trend.endX} y1={trend.endY - 9} x2={trend.endX} y2={trend.endY + 9} stroke="var(--accent)" strokeWidth={3} />
               </g>
             )}
+            </g>
 
             <rect x={M.l} y={M.t} width={plotW} height={plotH} fill="none" stroke="var(--rule)" strokeWidth={1} />
+
+            {isZoomed && (
+              <g style={{ cursor: 'pointer' }} onClick={() => reset()}>
+                <text
+                  x={W - M.r - 4} y={M.t + 12}
+                  textAnchor="end"
+                  style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '.08em' }}
+                >⟲ reset zoom</text>
+              </g>
+            )}
           </svg>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 8, paddingLeft: M.l, fontSize: 10.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '.08em', flexWrap: 'wrap' }}>
@@ -416,7 +444,7 @@ export default function AerobicEfficiency() {
                 <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
                 <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
               </svg>
-              early {trend && (
+              earlier in window {trend && (
                 <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--inkSoft)' }}>
                   · {trend.earlyLabel} · {trend.earlyN} runs
                 </span>
@@ -430,7 +458,7 @@ export default function AerobicEfficiency() {
                 <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={3} />
                 <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={3} />
               </svg>
-              recent {trend && (
+              more recent {trend && (
                 <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>
                   · {trend.lateLabel} · {trend.lateN} runs
                 </span>
@@ -458,14 +486,14 @@ export default function AerobicEfficiency() {
             fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--inkMuted)',
             textTransform: 'uppercase', letterSpacing: '.12em', marginBottom: 4,
           }}>
-            <span>HR × pace · early vs recent</span>
+            <span>HR × pace · earlier vs more recent within window</span>
             <span style={{ fontStyle: 'normal', textTransform: 'none', letterSpacing: 0, fontSize: 10.5, color: 'var(--inkMuted)' }}>Click to drive the highlight →</span>
           </div>
           <div style={{
             fontSize: 11, color: 'var(--inkMuted)', marginBottom: 10,
             fontStyle: 'italic', fontFamily: 'var(--serif)',
           }}>
-            Each card splits that type&rsquo;s runs by date: first half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>early</b>, second half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>recent</b> (≥2 per half). We compare the mean HR and show each half&rsquo;s median pace. If pace drifted between halves, the HR delta may be pace-driven (not fitness) and gets flagged.
+            Each card splits that type&rsquo;s runs by date inside the selected window: first half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>earlier</b>, second half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>more recent</b> (≥2 per half). We compare the mean HR and show each half&rsquo;s median pace. If pace drifted between halves, the HR delta may be pace-driven (not fitness) and gets flagged.
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
@@ -539,7 +567,7 @@ export default function AerobicEfficiency() {
                         <span>{Math.round(b.lateHr)}</span>
                       </div>
                       <div style={{ marginTop: 4, fontSize: 10, color: 'var(--inkMuted)', fontFamily: 'var(--mono)' }}>
-                        {b.earlyN} early · {b.lateN} recent
+                        {b.earlyN} earlier · {b.lateN} more recent
                       </div>
                       <div style={{ marginTop: 2, fontSize: 9.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', opacity: 0.8 }}>
                         {b.earlyLabel} · {b.lateLabel}

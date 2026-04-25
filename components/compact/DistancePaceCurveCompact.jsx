@@ -66,7 +66,7 @@ export default function DistancePaceCurveCompact() {
 
   if (!view) {
     return (
-      <CompactTile label="Aerobic Endurance" headline="No runs in view.">
+      <CompactTile label="Aerobic Durability" headline="No runs in view.">
         <div />
       </CompactTile>
     );
@@ -147,7 +147,7 @@ export default function DistancePaceCurveCompact() {
   const TICK = 'var(--inkMuted)';
 
   return (
-    <CompactTile label="Aerobic Endurance" headline={headline}>
+    <CompactTile label="Aerobic Durability" headline={headline}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         style={{ width: '100%', height: '100%', display: 'block' }}
@@ -205,7 +205,7 @@ export default function DistancePaceCurveCompact() {
           <circle cx={M.l + 3} cy={0} r={3} fill="var(--bgRaised)" stroke="var(--ink)" strokeWidth={1} strokeOpacity={0.55} />
           <text x={M.l + 10} y={3}
             style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-            early
+            earlier
           </text>
           {trend && (
             <text x={M.l} y={13}
@@ -215,10 +215,10 @@ export default function DistancePaceCurveCompact() {
             </text>
           )}
 
-          <circle cx={M.l + plotW - 49} cy={0} r={3} fill="var(--ink)" fillOpacity={0.75} />
-          <text x={M.l + plotW - 42} y={3}
+          <circle cx={M.l + plotW - 56} cy={0} r={3} fill="var(--ink)" fillOpacity={0.75} />
+          <text x={M.l + plotW - 49} y={3}
             style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-            recent
+            more recent
           </text>
           {trend && (
             <text x={M.l + plotW} y={13}

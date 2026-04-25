@@ -254,7 +254,7 @@ export default function RunCards() {
           </div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 620 }}>
             Every run as a card. Click one to expand and see it compared against a cohort of <b>similar</b> runs.
-            Click any dot in <i>Aerobic Efficiency</i> or <i>Aerobic Endurance</i> to jump straight to that run here.
+            Click any dot in <i>Aerobic Efficiency</i> or <i>Aerobic Durability</i> to jump straight to that run here.
             Open <b>⚙</b> to change what counts as &ldquo;similar&rdquo;, how ranks are computed, and card density.
           </div>
         </div>
