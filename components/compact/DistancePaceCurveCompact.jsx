@@ -215,10 +215,10 @@ export default function DistancePaceCurveCompact() {
             </text>
           )}
 
-          <circle cx={M.l + plotW - 56} cy={0} r={3} fill="var(--ink)" fillOpacity={0.75} />
-          <text x={M.l + plotW - 49} y={3}
+          <circle cx={M.l + plotW - 36} cy={0} r={3} fill="var(--ink)" fillOpacity={0.75} />
+          <text x={M.l + plotW - 29} y={3}
             style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-            more recent
+            recent
           </text>
           {trend && (
             <text x={M.l + plotW} y={13}

@@ -224,13 +224,10 @@ export default function DistancePaceCurve() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, marginBottom: 18, flexWrap: 'wrap' }}>
         <div style={{ maxWidth: 560 }}>
           <div className="stat-label" style={{ marginBottom: 4 }}>Aerobic Durability</div>
-          <div style={{ fontSize: 11, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>
-            Compares the first half of your selected time range to the second half.
-          </div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', lineHeight: 1.5 }}>
             Every run plotted by <b>distance × pace</b>. Fast pace is at the top; longer runs sit to the
             right, and the cloud naturally slopes toward the lower-right (longer = slower).
-            Hollow dots are earlier in the window, filled dots are more recent. The bold
+            Sorted by date, your runs are split into an earlier half (hollow) and a more recent half (filled). The bold
             {' '}<b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half, and the
             arrow shows the direction of progress (up = faster, right = longer).
             Cards below break the story down by type; click one to drive the take-away.
@@ -435,7 +432,7 @@ export default function DistancePaceCurve() {
             <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
             <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
           </svg>
-          earlier in window {centroids && (
+          earlier {centroids && (
             <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--inkSoft)' }}>
               · {centroids.earlyLabel} · {centroids.earlyN} runs
             </span>
@@ -449,7 +446,7 @@ export default function DistancePaceCurve() {
             <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={3} />
             <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={3} />
           </svg>
-          more recent {centroids && (
+          recent {centroids && (
             <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>
               · {centroids.lateLabel} · {centroids.lateN} runs
             </span>
@@ -476,14 +473,14 @@ export default function DistancePaceCurve() {
           fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--inkMuted)',
           textTransform: 'uppercase', letterSpacing: '.12em', marginBottom: 4,
         }}>
-          <span>Distance × pace · earlier vs more recent within window</span>
+          <span>Distance × pace · per type</span>
           <span style={{ fontStyle: 'normal', textTransform: 'none', letterSpacing: 0, fontSize: 10.5, color: 'var(--inkMuted)' }}>Click to drive the highlight →</span>
         </div>
         <div style={{
           fontSize: 11, color: 'var(--inkMuted)', marginBottom: 10,
           fontStyle: 'italic', fontFamily: 'var(--serif)',
         }}>
-          Each card splits that type&rsquo;s runs by date inside the selected window: first half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>earlier</b>, second half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>more recent</b> (≥2 per half). We show both median distance and median pace; distance growth and pace shift can move independently, so both deltas are always shown.
+          Same split, applied per type: runs sorted by date, halved by count (≥2 per half). We compare median distance and median pace between the two halves; distance growth and pace shift can move independently, so both deltas are always shown.
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
@@ -556,7 +553,7 @@ export default function DistancePaceCurve() {
                       </span>
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--inkMuted)', fontFamily: 'var(--mono)' }}>
-                      {b.earlyN} earlier · {b.lateN} more recent
+                      {b.earlyN} earlier · {b.lateN} recent
                     </div>
                     <div style={{ marginTop: 2, fontSize: 9.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', opacity: 0.8 }}>
                       {b.earlyLabel} · {b.lateLabel}

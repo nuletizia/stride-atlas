@@ -245,12 +245,9 @@ export default function AerobicEfficiency() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, marginBottom: 18, flexWrap: 'wrap' }}>
         <div style={{ maxWidth: 560 }}>
           <div className="stat-label" style={{ marginBottom: 4 }}>Aerobic Efficiency</div>
-          <div style={{ fontSize: 11, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>
-            Compares the first half of your selected time range to the second half.
-          </div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', lineHeight: 1.5 }}>
             Every run plotted by <b>heart rate × pace</b>. As you get fitter, dots drift <b>up-left</b>: faster pace at a <i>lower</i> HR.
-            Hollow dots are earlier in the window, filled dots are more recent; darker = more recent within each half.
+            Sorted by date, your runs are split into an earlier half (hollow) and a more recent half (filled); darker = more recent within each half.
             The bold <b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half, and the arrow shows the direction of progress.
             Cards below break the story down by type; click one to drive the take-away.
           </div>
@@ -444,7 +441,7 @@ export default function AerobicEfficiency() {
                 <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
                 <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
               </svg>
-              earlier in window {trend && (
+              earlier {trend && (
                 <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--inkSoft)' }}>
                   · {trend.earlyLabel} · {trend.earlyN} runs
                 </span>
@@ -458,7 +455,7 @@ export default function AerobicEfficiency() {
                 <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={3} />
                 <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={3} />
               </svg>
-              more recent {trend && (
+              recent {trend && (
                 <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>
                   · {trend.lateLabel} · {trend.lateN} runs
                 </span>
@@ -486,14 +483,14 @@ export default function AerobicEfficiency() {
             fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--inkMuted)',
             textTransform: 'uppercase', letterSpacing: '.12em', marginBottom: 4,
           }}>
-            <span>HR × pace · earlier vs more recent within window</span>
+            <span>HR × pace · per type</span>
             <span style={{ fontStyle: 'normal', textTransform: 'none', letterSpacing: 0, fontSize: 10.5, color: 'var(--inkMuted)' }}>Click to drive the highlight →</span>
           </div>
           <div style={{
             fontSize: 11, color: 'var(--inkMuted)', marginBottom: 10,
             fontStyle: 'italic', fontFamily: 'var(--serif)',
           }}>
-            Each card splits that type&rsquo;s runs by date inside the selected window: first half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>earlier</b>, second half = <b style={{ fontStyle: 'normal', fontFamily: 'var(--sans)' }}>more recent</b> (≥2 per half). We compare the mean HR and show each half&rsquo;s median pace. If pace drifted between halves, the HR delta may be pace-driven (not fitness) and gets flagged.
+            Same split, applied per type: runs sorted by date, halved by count (≥2 per half). We compare the mean HR and show each half&rsquo;s median pace. If pace drifted between halves, the HR delta may be pace-driven (not fitness) and gets flagged.
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
@@ -567,7 +564,7 @@ export default function AerobicEfficiency() {
                         <span>{Math.round(b.lateHr)}</span>
                       </div>
                       <div style={{ marginTop: 4, fontSize: 10, color: 'var(--inkMuted)', fontFamily: 'var(--mono)' }}>
-                        {b.earlyN} earlier · {b.lateN} more recent
+                        {b.earlyN} earlier · {b.lateN} recent
                       </div>
                       <div style={{ marginTop: 2, fontSize: 9.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', opacity: 0.8 }}>
                         {b.earlyLabel} · {b.lateLabel}
