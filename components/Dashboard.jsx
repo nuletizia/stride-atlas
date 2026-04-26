@@ -1,10 +1,10 @@
 'use client';
 
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
   DataProvider, TooltipProvider, LinkProvider, TweakProvider,
   HrMaxProvider, useHrMax,
-  useTweaks, useFilteredRuns, useData, useTooltip,
+  useTweaks, useFilteredRuns, useData, useTooltip, useLink,
   fmtDistance, distUnit, kmToDisplay, paceUnit, hasValidHr, MI_PER_KM,
 } from '@/lib/shared';
 import TimeRangeControl from './TimeRangeControl';
@@ -340,10 +340,25 @@ function classifyTraining(s) {
 function DashboardBody({ effectiveMode, athleteName, runCount }) {
   const { viewMode, units } = useTweaks();
   const filteredRuns = useFilteredRuns();
+  const { setLatestRunId } = useLink();
   const signals = computeStrideSignals(filteredRuns, units);
   const summary = buildStrideSummary(filteredRuns, units);
   const pattern = classifyTraining(signals);
   const [canCompact, setCanCompact] = useState(true);
+
+  // Default ring target for cross-panel highlighting: the most recent
+  // run in the filtered window. RunCards (when mounted in full view)
+  // overrides this with the user's expanded card; in compact view, this
+  // is the only writer so the latest run is always pre-highlighted.
+  const latestRunId = useMemo(() => {
+    if (!filteredRuns.length) return null;
+    let best = filteredRuns[0];
+    for (const r of filteredRuns) if (r.date.localeCompare(best.date) > 0) best = r;
+    return best.id;
+  }, [filteredRuns]);
+  useEffect(() => {
+    setLatestRunId(latestRunId);
+  }, [latestRunId, setLatestRunId]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;

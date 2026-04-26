@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useFilteredRuns, hasValidHr, useTweaks,
+  useFilteredRuns, useLink, hasValidHr, useTweaks,
   fmtPace, paceToDisplay, paceUnitLong,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
@@ -14,6 +14,7 @@ import { zoomAround } from './zoomBounds';
 export default function AerobicEfficiencyCompact() {
   const runs = useFilteredRuns();
   const { units } = useTweaks();
+  const { selectedRunId } = useLink();
 
   const computed = useMemo(() => {
     const inView = runs.filter((r) => r.type !== 'recovery' && hasValidHr(r));
@@ -191,6 +192,14 @@ export default function AerobicEfficiencyCompact() {
             </text>
           )}
 
+          {/* Center: ringed = latest run (or whatever's open in Run Cards) */}
+          <circle cx={M.l + plotW / 2 - 24} cy={0} r={1.8} fill="var(--ink)" fillOpacity={0.6} />
+          <circle cx={M.l + plotW / 2 - 24} cy={0} r={4.2} fill="none" stroke="var(--accent)" strokeWidth={1.2} />
+          <text x={M.l + plotW / 2 - 17} y={3}
+            style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+            latest
+          </text>
+
           <circle cx={M.l + plotW - 36} cy={0} r={3} fill="var(--ink)" fillOpacity={0.75} />
           <text x={M.l + plotW - 29} y={3}
             style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
@@ -224,16 +233,21 @@ export default function AerobicEfficiencyCompact() {
             const cx = xFor(r.hr);
             const cy = yFor(r.pace);
             const isEarly = i < mid;
+            const isSelected = selectedRunId === r.id;
             return (
-              <circle
-                key={r.id}
-                cx={cx} cy={cy} r={2.6}
-                fill={isEarly ? 'var(--bgRaised)' : 'var(--ink)'}
-                stroke={isEarly ? 'var(--ink)' : 'none'}
-                strokeWidth={1}
-                fillOpacity={isEarly ? 1 : 0.75}
-                strokeOpacity={0.55}
-              />
+              <g key={r.id}>
+                <circle
+                  cx={cx} cy={cy} r={2.6}
+                  fill={isEarly ? 'var(--bgRaised)' : 'var(--ink)'}
+                  stroke={isEarly ? 'var(--ink)' : 'none'}
+                  strokeWidth={1}
+                  fillOpacity={isEarly ? 1 : 0.75}
+                  strokeOpacity={0.55}
+                />
+                {isSelected && (
+                  <circle cx={cx} cy={cy} r={5.2} fill="none" stroke="var(--accent)" strokeWidth={1.4} />
+                )}
+              </g>
             );
           })}
           {trend && (

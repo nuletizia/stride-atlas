@@ -19,7 +19,7 @@ const efOf = (r) =>
 export default function RunCards() {
   const data = useData();
   const runs = useFilteredRuns();
-  const { hovered, setHovered, focusRequest, setFocusRequest, setSelectedRunId } = useLink();
+  const { hovered, setHovered, focusRequest, setFocusRequest, setUserSelectedRunId } = useLink();
   const { units } = useTweaks();
   const meta = data.typeMeta;
 
@@ -238,21 +238,14 @@ export default function RunCards() {
   }, [expandedId]);
 
   // Mirror the expanded card into LinkContext so cross-panel views (Trend
-  // Ribbons + the two scatters) can ring the matching dot. When no card
-  // is expanded, fall back to the most recent run in the window so the
-  // ring is always present and the user starts with their latest run
-  // contextualised on every chart. Clears on unmount so a stale
-  // highlight doesn't survive a remount.
-  const mostRecentRunId = useMemo(() => {
-    if (!runs.length) return null;
-    let best = runs[0];
-    for (const r of runs) if (r.date.localeCompare(best.date) > 0) best = r;
-    return best.id;
-  }, [runs]);
+  // Ribbons + the two scatters) can ring the matching dot. The "default
+  // = latest run" fallback lives in Dashboard so it works in compact
+  // view too (where RunCards isn't mounted); here we only own the
+  // user's explicit override.
   useEffect(() => {
-    setSelectedRunId(expandedId ?? mostRecentRunId);
-    return () => setSelectedRunId(null);
-  }, [expandedId, mostRecentRunId, setSelectedRunId]);
+    setUserSelectedRunId(expandedId);
+    return () => setUserSelectedRunId(null);
+  }, [expandedId, setUserSelectedRunId]);
 
   const types = ['all', 'easy', 'tempo', 'intervals', 'recovery', 'long', 'race'];
   const minCol = density === 'compact' ? 150 : 220;

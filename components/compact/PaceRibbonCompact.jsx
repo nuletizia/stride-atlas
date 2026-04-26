@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useFilteredRuns, useTweaks,
+  useFilteredRuns, useLink, useTweaks,
   fmtPace, paceToDisplay, paceUnit, paceUnitLong,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
@@ -18,6 +18,7 @@ function fmtShortDate(ts) {
 export default function PaceRibbonCompact() {
   const runs = useFilteredRuns();
   const { units } = useTweaks();
+  const { selectedRunId } = useLink();
 
   const series = useMemo(() => {
     if (runs.length < 2) return null;
@@ -156,8 +157,9 @@ export default function PaceRibbonCompact() {
           {fmtShortDate(xMax)}
         </text>
 
-        {/* Legend: dot = run (type-colored), line = 5-run rolling avg */}
-        <g transform={`translate(${M.l + plotW / 2 - 60}, ${legendY})`}>
+        {/* Legend: dot = run (type-colored), line = 5-run rolling avg,
+             ringed = the latest run (or whatever's open in Run Cards). */}
+        <g transform={`translate(${M.l + plotW / 2 - 100}, ${legendY})`}>
           <circle cx={0} cy={0} r={2.2} fill="var(--type-easy)" opacity={0.8} />
           <text x={6} y={3} style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
             run
@@ -166,19 +168,31 @@ export default function PaceRibbonCompact() {
           <text x={58} y={3} style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
             5-run avg
           </text>
+          <circle cx={120} cy={0} r={1.8} fill="var(--type-easy)" opacity={0.8} />
+          <circle cx={120} cy={0} r={4.2} fill="none" stroke="var(--accent)" strokeWidth={1.2} />
+          <text x={127} y={3} style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+            latest
+          </text>
         </g>
 
         <g clipPath="url(#prc-clip)">
-          {sorted.map((r, i) => (
-            <circle
-              key={r.id}
-              cx={xFor(ts[i])}
-              cy={yFor(r.pace)}
-              r={1.8}
-              fill={`var(--type-${r.type})`}
-              opacity={0.6}
-            />
-          ))}
+          {sorted.map((r, i) => {
+            const cx = xFor(ts[i]);
+            const cy = yFor(r.pace);
+            const isSelected = selectedRunId === r.id;
+            return (
+              <g key={r.id}>
+                <circle
+                  cx={cx} cy={cy} r={1.8}
+                  fill={`var(--type-${r.type})`}
+                  opacity={0.6}
+                />
+                {isSelected && (
+                  <circle cx={cx} cy={cy} r={4.2} fill="none" stroke="var(--accent)" strokeWidth={1.2} />
+                )}
+              </g>
+            );
+          })}
           <path d={rollingPath} fill="none" stroke="var(--ink)" strokeWidth={1.4} opacity={0.85} />
         </g>
       </svg>

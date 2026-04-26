@@ -230,11 +230,16 @@ export function LinkProvider({ children }) {
   const [hovered, setHovered] = useState(null);
   const [focusRequest, setFocusRequest] = useState(null);
   const [pendingFocusId, setPendingFocusId] = useState(null);
-  // `selectedRunId` mirrors the run currently expanded in RunCards, so
-  // cross-panel views (Trend Ribbons + the two scatters) can ring the
-  // matching dot. Persistent until the card collapses, unlike `hovered`
-  // which clears on mouseleave.
-  const [selectedRunId, setSelectedRunId] = useState(null);
+  // `userSelectedRunId` is the run the user explicitly opened (RunCards
+  // expand). `latestRunId` is the most recent run in the filtered window,
+  // set by Dashboard and used as the default ring target so compact view
+  // (where RunCards isn't mounted) still shows "your latest run" pre-
+  // highlighted across the chart panels.
+  // Consumers read `selectedRunId` (derived) and don't need to know which
+  // source it came from.
+  const [userSelectedRunId, setUserSelectedRunId] = useState(null);
+  const [latestRunId, setLatestRunId] = useState(null);
+  const selectedRunId = userSelectedRunId ?? latestRunId;
   const [isTouch, setIsTouch] = useState(false);
 
   useEffect(() => {
@@ -260,7 +265,8 @@ export function LinkProvider({ children }) {
     <LinkContext.Provider value={{
       hovered, setHovered,
       focusRequest, setFocusRequest,
-      selectedRunId, setSelectedRunId,
+      selectedRunId,
+      setUserSelectedRunId, setLatestRunId,
       isTouch, pendingFocusId, setPendingFocusId, requestFocus,
     }}>
       {children}
