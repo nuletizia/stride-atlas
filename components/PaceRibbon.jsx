@@ -135,7 +135,7 @@ export default function PaceRibbon() {
               <circle cx={7} cy={7} r={2.4} fill="var(--ink)" />
               <circle cx={7} cy={7} r={5.5} fill="none" stroke="var(--accent)" strokeWidth={1.6} />
             </svg>
-            ringed dot = open in Run Cards
+            ringed dot = latest run, or open card
           </div>
         </div>
         <MetricToggle />

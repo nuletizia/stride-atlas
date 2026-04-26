@@ -19,7 +19,7 @@ const efOf = (r) =>
 export default function RunCards() {
   const data = useData();
   const runs = useFilteredRuns();
-  const { hovered, setHovered, focusRequest, setFocusRequest, setUserSelectedRunId } = useLink();
+  const { hovered, setHovered, focusRequest, setFocusRequest, setUserSelectedRunId, selectedRunId } = useLink();
   const { units } = useTweaks();
   const meta = data.typeMeta;
 
@@ -418,6 +418,10 @@ export default function RunCards() {
               const dim = focusId && !isFocus && !isPeer;
               const isExpanded = expandedId === r.id;
               const isFlashing = flashingRunId === r.id;
+              // The card matching the cross-panel ring, only when the
+              // user hasn't explicitly opened a different one. Gives the
+              // "latest run by default" state a visible anchor here.
+              const isLatestRing = !expandedId && selectedRunId === r.id;
               return (
                 <RunCard
                   key={r.id}
@@ -429,6 +433,7 @@ export default function RunCards() {
                   expanded={isExpanded}
                   pinned={pinnedId === r.id}
                   flashing={isFlashing}
+                  isLatestRing={isLatestRing}
                   meta={meta}
                   rankBy={effectiveRankBy}
                   units={units}
@@ -464,7 +469,7 @@ export default function RunCards() {
   );
 }
 
-function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashing, meta, rankBy, units, onHoverIn, onHoverOut, onClick, onPin, onPeerClick }) {
+function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashing, isLatestRing, meta, rankBy, units, onHoverIn, onHoverOut, onClick, onPin, onPeerClick }) {
   const color = `var(--type-${run.type})`;
   const hasPeers = run.peerCount > 0;
   const isHrMode = rankBy === 'hr';
@@ -538,9 +543,19 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
     borderRadius: 4,
     padding: compact ? '8px 10px' : '12px 14px',
     opacity: dim ? 0.28 : 1,
-    boxShadow: isFocus ? '0 2px 0 0 var(--ink)' : isPeer ? `0 0 0 1px ${color}` : 'none',
+    // Priority: focus (interactive) > peer (similar) > latest-ring
+    // (default cross-panel selection). Latest-ring uses an accent
+    // outline matching the chart-dot ring so the visual link reads
+    // immediately.
+    boxShadow: isFocus
+      ? '0 2px 0 0 var(--ink)'
+      : isPeer
+        ? `0 0 0 1px ${color}`
+        : isLatestRing
+          ? '0 0 0 1.5px var(--accent)'
+          : 'none',
     cursor: 'pointer',
-    transition: 'opacity 140ms, border-color 120ms',
+    transition: 'opacity 140ms, border-color 120ms, box-shadow 140ms',
     gridColumn: expanded ? '1 / -1' : 'auto',
   };
 

@@ -488,7 +488,7 @@ export default function AerobicEfficiency() {
                 <circle cx={7} cy={7} r={2.4} fill="var(--ink)" />
                 <circle cx={7} cy={7} r={5.5} fill="none" stroke="var(--accent)" strokeWidth={1.6} />
               </svg>
-              ringed = open in Run Cards
+              ringed = latest run, or open card
             </span>
           </div>
         </div>
