@@ -475,6 +475,13 @@ export default function DistancePaceCurve() {
           </svg>
           newer
         </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <svg width={14} height={14} style={{ display: 'block' }}>
+            <circle cx={7} cy={7} r={2.4} fill="var(--ink)" />
+            <circle cx={7} cy={7} r={5.5} fill="none" stroke="var(--accent)" strokeWidth={1.6} />
+          </svg>
+          ringed = open in Run Cards
+        </span>
       </div>
 
       <div style={{ borderTop: '1px solid var(--ruleSoft)', paddingTop: 16, marginTop: 16 }}>

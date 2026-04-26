@@ -130,6 +130,13 @@ export default function PaceRibbon() {
               </span>
             )} over time. Top ribbon is <b>All runs</b>; each row below is a single workout type. The line is a 5-run rolling average; watch it drift up as fitness climbs.
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 10.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '.08em' }}>
+            <svg width={14} height={14} style={{ display: 'block' }}>
+              <circle cx={7} cy={7} r={2.4} fill="var(--ink)" />
+              <circle cx={7} cy={7} r={5.5} fill="none" stroke="var(--accent)" strokeWidth={1.6} />
+            </svg>
+            ringed dot = open in Run Cards
+          </div>
         </div>
         <MetricToggle />
       </div>

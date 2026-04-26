@@ -238,13 +238,21 @@ export default function RunCards() {
   }, [expandedId]);
 
   // Mirror the expanded card into LinkContext so cross-panel views (Trend
-  // Ribbons + the two scatters) can ring the matching dot. Stays set
-  // until the card collapses; clears on unmount so a stale highlight
-  // doesn't survive a remount.
+  // Ribbons + the two scatters) can ring the matching dot. When no card
+  // is expanded, fall back to the most recent run in the window so the
+  // ring is always present and the user starts with their latest run
+  // contextualised on every chart. Clears on unmount so a stale
+  // highlight doesn't survive a remount.
+  const mostRecentRunId = useMemo(() => {
+    if (!runs.length) return null;
+    let best = runs[0];
+    for (const r of runs) if (r.date.localeCompare(best.date) > 0) best = r;
+    return best.id;
+  }, [runs]);
   useEffect(() => {
-    setSelectedRunId(expandedId);
+    setSelectedRunId(expandedId ?? mostRecentRunId);
     return () => setSelectedRunId(null);
-  }, [expandedId, setSelectedRunId]);
+  }, [expandedId, mostRecentRunId, setSelectedRunId]);
 
   const types = ['all', 'easy', 'tempo', 'intervals', 'recovery', 'long', 'race'];
   const minCol = density === 'compact' ? 150 : 220;
