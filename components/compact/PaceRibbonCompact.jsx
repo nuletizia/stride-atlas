@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useFilteredRuns, useLink, useTweaks,
+  useFilteredRuns, useTweaks,
   fmtPace, paceToDisplay, paceUnit, paceUnitLong,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
@@ -11,14 +11,12 @@ function fmtShortDate(ts) {
   return new Date(ts).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
 }
 
-// Simplified Trend Ribbons: overall pace only, single ribbon with rolling
-// average. Matches the AE / DPC compact treatment — axis labels for time
-// and pace, start/end extent values at the plot corners, and a tiny legend
-// explaining the dots and the rolling-average line.
+// Simplified Trend Ribbons: at compact size we drop the per-run dots and
+// keep only the 5-run rolling average. The line's slope is the story —
+// individual dots were noise at this scale.
 export default function PaceRibbonCompact() {
   const runs = useFilteredRuns();
   const { units } = useTweaks();
-  const { selectedRunId } = useLink();
 
   const series = useMemo(() => {
     if (runs.length < 2) return null;
@@ -56,8 +54,8 @@ export default function PaceRibbonCompact() {
   const W = 320;
   const H = 160;
   // Asymmetric margins: left for y-axis label + pace values; bottom for
-  // x-axis dates + axis label + legend row.
-  const M = { l: 36, r: 6, t: 8, b: 44 };
+  // x-axis dates + axis label only (no legend now that the dots are gone).
+  const M = { l: 36, r: 6, t: 8, b: 22 };
   const plotW = W - M.l - M.r;
   const plotH = H - M.t - M.b;
 
@@ -107,7 +105,6 @@ export default function PaceRibbonCompact() {
   // top/bottom of the plot match where the axis actually ends.
   const yTopLabel = fmtPace(paceToDisplay(yMin, units));
   const yBotLabel = fmtPace(paceToDisplay(yMax, units));
-  const legendY = M.t + plotH + 28;
   const TICK = 'var(--inkMuted)';
 
   return (
@@ -157,42 +154,7 @@ export default function PaceRibbonCompact() {
           {fmtShortDate(xMax)}
         </text>
 
-        {/* Legend: dot = run (type-colored), line = 5-run rolling avg,
-             ringed = the latest run (or whatever's open in Run Cards). */}
-        <g transform={`translate(${M.l + plotW / 2 - 100}, ${legendY})`}>
-          <circle cx={0} cy={0} r={2.2} fill="var(--type-easy)" opacity={0.8} />
-          <text x={6} y={3} style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-            run
-          </text>
-          <line x1={34} y1={0} x2={52} y2={0} stroke="var(--ink)" strokeWidth={1.4} opacity={0.85} />
-          <text x={58} y={3} style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-            5-run avg
-          </text>
-          <circle cx={120} cy={0} r={1.8} fill="var(--type-easy)" opacity={0.8} />
-          <circle cx={120} cy={0} r={4.2} fill="none" stroke="var(--accent)" strokeWidth={1.2} />
-          <text x={127} y={3} style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-            latest
-          </text>
-        </g>
-
         <g clipPath="url(#prc-clip)">
-          {sorted.map((r, i) => {
-            const cx = xFor(ts[i]);
-            const cy = yFor(r.pace);
-            const isSelected = selectedRunId === r.id;
-            return (
-              <g key={r.id}>
-                <circle
-                  cx={cx} cy={cy} r={1.8}
-                  fill={`var(--type-${r.type})`}
-                  opacity={0.6}
-                />
-                {isSelected && (
-                  <circle cx={cx} cy={cy} r={4.2} fill="none" stroke="var(--accent)" strokeWidth={1.2} />
-                )}
-              </g>
-            );
-          })}
           <path d={rollingPath} fill="none" stroke="var(--ink)" strokeWidth={1.4} opacity={0.85} />
         </g>
       </svg>

@@ -2,21 +2,20 @@
 
 import { useMemo } from 'react';
 import {
-  useFilteredRuns, useLink, useTweaks,
+  useFilteredRuns, useTweaks,
   fmtPace, paceToDisplay, paceUnit, paceUnitLong,
   kmToDisplay, distUnit,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
 import { zoomAround } from './zoomBounds';
 
-// Simplified Aerobic Endurance: distance × pace scatter with the same early
-// vs recent treatment as the efficiency tile — hollow dots for early runs,
-// filled for recent, and an accent arrow between the median centroids so
-// the progression direction reads at a glance.
+// Simplified Aerobic Durability: at compact size we strip the scatter and
+// keep only four labeled quadrants split at the early centroid plus a
+// single accent arrow. The arrow's tip lands in the quadrant that names
+// your change vs. baseline (top-right = durable: longer + faster).
 export default function DistancePaceCurveCompact() {
   const runs = useFilteredRuns();
   const { units } = useTweaks();
-  const { selectedRunId } = useLink();
 
   const view = useMemo(() => {
     const inView = runs.filter((r) => r.type !== 'recovery');
@@ -73,26 +72,28 @@ export default function DistancePaceCurveCompact() {
     );
   }
 
-  const { points, longest, fastest, bounds: fullBounds, trend, mid } = view;
+  const { longest, fastest, bounds: fullBounds, trend } = view;
   const W = 320;
   const H = 160;
   // Asymmetric margins make room for the rotated y-axis label + values on
-  // the left, and x-axis values + a two-line dot/date legend along the
-  // bottom.
-  const M = { l: 36, r: 6, t: 8, b: 56 };
+  // the left, and x-axis values + a one-row date-range legend along the
+  // bottom (no dot swatches now that the scatter is gone).
+  const M = { l: 36, r: 6, t: 8, b: 38 };
   const plotW = W - M.l - M.r;
   const plotH = H - M.t - M.b;
 
-  // Zoom around the centroids so the progress arrow dominates the frame.
-  // Minimum spans: 2 km on distance, 0.3 min/km on pace — prevents collapse
-  // when centroids cluster tightly. Multiplier 3 matches the AE tile.
+  // Zoom around the centroids so the progress arrow stays a consistent
+  // ~1/3 of the frame. Multiplier 3 matches the AE tile. The min floors
+  // only engage when centroids are essentially overlapping — they prevent
+  // collapse to a single pixel without inflating the frame for a small
+  // but meaningful arrow.
   const bounds = trend
     ? zoomAround({
         cx: (trend.earlyDist + trend.lateDist) / 2,
         cy: (trend.earlyPace + trend.latePace) / 2,
         spanX: Math.abs(trend.lateDist - trend.earlyDist),
         spanY: Math.abs(trend.latePace - trend.earlyPace),
-        minSpanX: 2, minSpanY: 0.3,
+        minSpanX: 1, minSpanY: 0.15,
         mult: 3,
         outer: { xMin: fullBounds.distMin, xMax: fullBounds.distMax, yMin: fullBounds.paceMin, yMax: fullBounds.paceMax },
       })
@@ -144,7 +145,7 @@ export default function DistancePaceCurveCompact() {
   const xMaxLabel = kmToDisplay(bounds.xMax, units).toFixed(1);
   const yTopLabel = fmtPace(paceToDisplay(bounds.yMin, units));
   const yBotLabel = fmtPace(paceToDisplay(bounds.yMax, units));
-  const legendY = M.t + plotH + 28;
+  const legendY = M.t + plotH + 22;
   const TICK = 'var(--inkMuted)';
 
   return (
@@ -200,95 +201,86 @@ export default function DistancePaceCurveCompact() {
           {xMaxLabel}
         </text>
 
-        {/* Legend: hollow = early on the left, filled = recent on the right.
-             Spatial positioning mirrors the time order (early left, recent
-             right). When a trend exists the date range for each half sits
-             directly beneath its label so readers know what window the
-             dots span. */}
-        <g transform={`translate(0, ${legendY})`}>
-          <circle cx={M.l + 3} cy={0} r={3} fill="var(--bgRaised)" stroke="var(--ink)" strokeWidth={1} strokeOpacity={0.55} />
-          <text x={M.l + 10} y={3}
-            style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-            earlier
-          </text>
-          {trend && (
-            <text x={M.l} y={13}
-              style={{ fontFamily: 'var(--mono)', fontSize: 8, fill: TICK, opacity: 0.85 }}
-              textAnchor="start">
+        {/* Legend: date ranges only — the arrow's tail is your baseline
+             window, the head is your recent window. */}
+        {trend && (
+          <g transform={`translate(0, ${legendY})`}>
+            <text x={M.l} y={0} textAnchor="start"
+              style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+              baseline
+            </text>
+            <text x={M.l} y={11} textAnchor="start"
+              style={{ fontFamily: 'var(--mono)', fontSize: 8, fill: TICK, opacity: 0.85 }}>
               {trend.earlyRange}
             </text>
-          )}
-
-          {/* Center: ringed = latest run (or whatever's open in Run Cards) */}
-          <circle cx={M.l + plotW / 2 - 24} cy={0} r={1.8} fill="var(--ink)" fillOpacity={0.6} />
-          <circle cx={M.l + plotW / 2 - 24} cy={0} r={4.2} fill="none" stroke="var(--accent)" strokeWidth={1.2} />
-          <text x={M.l + plotW / 2 - 17} y={3}
-            style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-            latest
-          </text>
-
-          <circle cx={M.l + plotW - 36} cy={0} r={3} fill="var(--ink)" fillOpacity={0.75} />
-          <text x={M.l + plotW - 29} y={3}
-            style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-            recent
-          </text>
-          {trend && (
-            <text x={M.l + plotW} y={13}
-              style={{ fontFamily: 'var(--mono)', fontSize: 8, fill: TICK, opacity: 0.85 }}
-              textAnchor="end">
+            <text x={M.l + plotW} y={0} textAnchor="end"
+              style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+              recent
+            </text>
+            <text x={M.l + plotW} y={11} textAnchor="end"
+              style={{ fontFamily: 'var(--mono)', fontSize: 8, fill: TICK, opacity: 0.85 }}>
               {trend.lateRange}
             </text>
-          )}
-        </g>
-        <g clipPath="url(#dpcc-clip)">
-          {/* Improvement reference: faster pace (up) + longer dist (right). */}
-          <g opacity={0.5}>
-            <line
-              x1={M.l + 8} y1={M.t + plotH - 6}
-              x2={M.l + plotW - 10} y2={M.t + 8}
-              stroke="var(--inkMuted)" strokeWidth={1}
-              strokeDasharray="1 4" strokeLinecap="round"
-              markerEnd="url(#dpcc-imp)"
-            />
-            <text
-              x={M.l + plotW - 14} y={M.t + 18}
-              textAnchor="end"
-              style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 9, fill: 'var(--inkSoft)' }}
-            >improving</text>
           </g>
-          {points.map((r, i) => {
-            const cx = xFor(r.distance);
-            const cy = yFor(r.pace);
-            const isEarly = i < mid;
-            const isSelected = selectedRunId === r.id;
-            return (
-              <g key={r.id}>
-                <circle
-                  cx={cx} cy={cy} r={2.6}
-                  fill={isEarly ? 'var(--bgRaised)' : 'var(--ink)'}
-                  stroke={isEarly ? 'var(--ink)' : 'none'}
-                  strokeWidth={1}
-                  fillOpacity={isEarly ? 1 : 0.75}
-                  strokeOpacity={0.55}
-                />
-                {isSelected && (
-                  <circle cx={cx} cy={cy} r={5.2} fill="none" stroke="var(--accent)" strokeWidth={1.4} />
-                )}
-              </g>
-            );
-          })}
+        )}
+        <g clipPath="url(#dpcc-clip)">
           {trend && (
             <>
+              {/* Subtle reference: dotted arrow toward the durable corner
+                  (longer + faster). Matches the full view's "improving"
+                  arrow at compact scale. */}
+              <line
+                x1={M.l + 14} y1={M.t + plotH - 18}
+                x2={M.l + plotW - 10} y2={M.t + 24}
+                stroke="var(--inkMuted)" strokeWidth={1}
+                strokeDasharray="1 4" strokeLinecap="round"
+                markerEnd="url(#dpcc-imp)"
+                opacity={0.45}
+              />
+              {/* Quadrant dividers at the early centroid. The cross IS the
+                  arrow's tail — the quadrant the arrow tip lands in names
+                  your change vs. baseline (top-right is the durable corner:
+                  longer + faster). */}
+              <line
+                x1={xFor(trend.earlyDist)} y1={M.t}
+                x2={xFor(trend.earlyDist)} y2={M.t + plotH}
+                stroke="var(--ruleSoft)" strokeWidth={1}
+                strokeDasharray="2 3" opacity={0.7}
+              />
+              <line
+                x1={M.l} y1={yFor(trend.earlyPace)}
+                x2={M.l + plotW} y2={yFor(trend.earlyPace)}
+                stroke="var(--ruleSoft)" strokeWidth={1}
+                strokeDasharray="2 3" opacity={0.7}
+              />
+
+              {/* Corner labels naming each quadrant's meaning. */}
+              <text x={M.l + 4} y={M.t + 11} textAnchor="start"
+                style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 9, fill: 'var(--inkSoft)', opacity: 0.7 }}>
+                short + fast
+              </text>
+              <text x={M.l + plotW - 4} y={M.t + 11} textAnchor="end"
+                style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 9, fill: 'var(--inkSoft)', opacity: 0.7 }}>
+                durable
+              </text>
+              <text x={M.l + 4} y={M.t + plotH - 4} textAnchor="start"
+                style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 9, fill: 'var(--inkSoft)', opacity: 0.7 }}>
+                recovery
+              </text>
+              <text x={M.l + plotW - 4} y={M.t + plotH - 4} textAnchor="end"
+                style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 9, fill: 'var(--inkSoft)', opacity: 0.7 }}>
+                long + slow
+              </text>
+
+              {/* Centroid arrow: baseline → recent. */}
               <line
                 x1={xFor(trend.earlyDist)} y1={yFor(trend.earlyPace)}
                 x2={xFor(trend.lateDist)} y2={yFor(trend.latePace)}
                 stroke="var(--accent)" strokeWidth={1.8}
                 markerEnd="url(#dpcc-arrow)"
               />
-              {/* Early centroid: thin plus */}
-              <line x1={xFor(trend.earlyDist) - 6} y1={yFor(trend.earlyPace)} x2={xFor(trend.earlyDist) + 6} y2={yFor(trend.earlyPace)} stroke="var(--accent)" strokeWidth={1.5} opacity={0.65} />
-              <line x1={xFor(trend.earlyDist)} y1={yFor(trend.earlyPace) - 6} x2={xFor(trend.earlyDist)} y2={yFor(trend.earlyPace) + 6} stroke="var(--accent)" strokeWidth={1.5} opacity={0.65} />
-              {/* Recent centroid: bolder plus */}
+              {/* Recent centroid plus mark — anchors the arrow tip. The
+                  early centroid is implicitly marked by the divider cross. */}
               <line x1={xFor(trend.lateDist) - 7} y1={yFor(trend.latePace)} x2={xFor(trend.lateDist) + 7} y2={yFor(trend.latePace)} stroke="var(--accent)" strokeWidth={2.2} />
               <line x1={xFor(trend.lateDist)} y1={yFor(trend.latePace) - 7} x2={xFor(trend.lateDist)} y2={yFor(trend.latePace) + 7} stroke="var(--accent)" strokeWidth={2.2} />
             </>
