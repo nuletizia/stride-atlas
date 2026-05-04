@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useFilteredRuns, useTweaks,
+  useFilteredRuns, useTweaks, mean,
   fmtPace, paceToDisplay, paceUnit, paceUnitLong,
   kmToDisplay, distUnit,
 } from '@/lib/shared';
@@ -43,19 +43,15 @@ export default function DistancePaceCurveCompact() {
     const late = sorted.slice(mid);
     let trend = null;
     if (early.length >= 2 && late.length >= 2) {
-      const medianOf = (arr) => {
-        const s = [...arr].sort((a, b) => a - b);
-        return s[Math.floor(s.length / 2)];
-      };
       // Date-range labels for the legend so "early / recent" lands as
       // concrete months instead of being abstract halves.
       const fmtRange = (iso) =>
         new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
       trend = {
-        earlyDist: medianOf(early.map((r) => r.distance)),
-        lateDist: medianOf(late.map((r) => r.distance)),
-        earlyPace: medianOf(early.map((r) => r.pace)),
-        latePace: medianOf(late.map((r) => r.pace)),
+        earlyDist: mean(early.map((r) => r.distance)),
+        lateDist: mean(late.map((r) => r.distance)),
+        earlyPace: mean(early.map((r) => r.pace)),
+        latePace: mean(late.map((r) => r.pace)),
         earlyRange: `${fmtRange(early[0].date)} → ${fmtRange(early[early.length - 1].date)}`,
         lateRange:  `${fmtRange(late[0].date)} → ${fmtRange(late[late.length - 1].date)}`,
       };

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import {
   useData, useLink, useTooltip, useTweaks, useFilteredRuns,
-  fmtDate, fmtPace, fmtHr, pad,
+  fmtDate, fmtPace, fmtHr, pad, mean,
   fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
   MI_PER_KM, distUnit, paceUnit, paceUnitLong,
   Highlight, HlNum,
@@ -87,12 +87,24 @@ export default function DistancePaceCurve() {
     return (t - dateRange.start) / (dateRange.end - dateRange.start);
   };
 
+  // Membership in the count-based early half of the visible subset, used to
+  // pick hollow vs. filled. Must match the centroid split exactly so the
+  // shape coding agrees with the legend's "earlier · X runs / recent · X runs".
+  const earlyIds = useMemo(() => {
+    const subset = inView.filter((r) => isAllMode || activeTypes.has(r.type));
+    if (subset.length < 2) return new Set();
+    const sorted = [...subset].sort((a, b) => a.date.localeCompare(b.date));
+    const mid = Math.floor(sorted.length / 2);
+    return new Set(sorted.slice(0, mid).map((r) => r.id));
+  }, [inView, activeTypes, isAllMode]);
+
   // (distance × pace) centroid for each half of the visible subset. Split
   // is count-based (sort by date, take halves) so a filter like "race" with
   // runs clustered near an event still gets a balanced early/recent split
-  // instead of producing an empty early half. Both axes use median so
-  // outlier long days don't drag the marker. Also carries n + date ranges
-  // for the legend so the chart's early/recent language agrees everywhere.
+  // instead of producing an empty early half. Both axes use mean so the
+  // marker is the cloud's center of mass and every new run shifts it
+  // proportionally. Also carries n + date ranges for the legend so the
+  // chart's early/recent language agrees everywhere.
   const centroids = useMemo(() => {
     const subset = inView.filter((r) => isAllMode || activeTypes.has(r.type));
     if (subset.length < 4) return null;
@@ -101,14 +113,10 @@ export default function DistancePaceCurve() {
     const early = sorted.slice(0, mid);
     const late = sorted.slice(mid);
     if (early.length < 2 || late.length < 2) return null;
-    const medianOf = (arr) => {
-      const s = [...arr].sort((a, b) => a - b);
-      return s[Math.floor(s.length / 2)];
-    };
-    const startDist = medianOf(early.map((r) => r.distance));
-    const endDist = medianOf(late.map((r) => r.distance));
-    const startPace = medianOf(early.map((r) => r.pace));
-    const endPace = medianOf(late.map((r) => r.pace));
+    const startDist = mean(early.map((r) => r.distance));
+    const endDist = mean(late.map((r) => r.distance));
+    const startPace = mean(early.map((r) => r.pace));
+    const endPace = mean(late.map((r) => r.pace));
     const dateFmt = (iso) =>
       new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
     const earlyDates = early.map((r) => r.date).sort();
@@ -124,14 +132,10 @@ export default function DistancePaceCurve() {
   }, [inView, activeTypes, isAllMode, view]);
 
   // Per-type (and "all") early/recent readouts for the endurance cards.
-  // Same count-based split + median-of-both methodology as the chart
+  // Same count-based split + mean-of-both methodology as the chart
   // centroids, so the cards and the "+" markers agree exactly.
   const bandReadouts = useMemo(() => {
     const types = ['all', 'easy', 'tempo', 'intervals', 'long'];
-    const medianOf = (arr) => {
-      const s = [...arr].sort((a, b) => a - b);
-      return s[Math.floor(s.length / 2)];
-    };
     return types.map((t) => {
       const typeRuns = t === 'all' ? inView : inView.filter((r) => r.type === t);
       if (typeRuns.length < 4) return { type: t, enough: false };
@@ -140,10 +144,10 @@ export default function DistancePaceCurve() {
       const early = sorted.slice(0, mid);
       const late = sorted.slice(mid);
       if (early.length < 2 || late.length < 2) return { type: t, enough: false };
-      const startDist = medianOf(early.map((r) => r.distance));
-      const endDist = medianOf(late.map((r) => r.distance));
-      const startPace = medianOf(early.map((r) => r.pace));
-      const endPace = medianOf(late.map((r) => r.pace));
+      const startDist = mean(early.map((r) => r.distance));
+      const endDist = mean(late.map((r) => r.distance));
+      const startPace = mean(early.map((r) => r.pace));
+      const endPace = mean(late.map((r) => r.pace));
       const distDelta = endDist - startDist;       // positive = longer now
       const distPct = startDist > 0 ? (distDelta / startDist) * 100 : 0;
       const paceDelta = startPace - endPace;        // positive = faster now (min/km drop)
@@ -229,7 +233,7 @@ export default function DistancePaceCurve() {
             Every run plotted by <b>distance × pace</b>. Fast pace is at the top; longer runs sit to the
             right, and the cloud naturally slopes toward the lower-right (longer = slower).
             Sorted by date, your runs are split into an earlier half (hollow) and a more recent half (filled). The bold
-            {' '}<b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half, and the
+            {' '}<b style={{ color: 'var(--accent)' }}>+</b> marks the <i>mean</i> of each half, and the
             arrow shows the direction of progress (up = faster, right = longer).
             Cards below break the story down by type; click one to drive the take-away.
           </div>
@@ -349,11 +353,12 @@ export default function DistancePaceCurve() {
             const size = 3.2 + Math.sqrt(r.distance) * 0.55;
             const fillOp = dim ? 0.1 : (0.25 + rec * 0.65);
             const fillBase = isAllMode ? 'var(--ink)' : `var(--type-${r.type})`;
-            // Shape always splits the cloud at the time-midpoint: early runs
+            // Shape splits the cloud at the count-midpoint of the visible
+            // subset (same split as the centroids and the legend): early runs
             // are hollow rings, recent runs are filled discs. Color is ink in
             // "All" mode, type-colored when a type filter is active — shape
             // is orthogonal to color.
-            const isHollow = rec < 0.5;
+            const isHollow = earlyIds.has(r.id);
 
             return (
               <g
@@ -497,7 +502,7 @@ export default function DistancePaceCurve() {
           fontSize: 11, color: 'var(--inkMuted)', marginBottom: 10,
           fontStyle: 'italic', fontFamily: 'var(--serif)',
         }}>
-          Same split, applied per type: runs sorted by date, halved by count (≥2 per half). We compare the median distance and show each half&rsquo;s median pace alongside.
+          Same split, applied per type: runs sorted by date, halved by count (≥2 per half). We compare the mean distance and show each half&rsquo;s mean pace alongside.
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>

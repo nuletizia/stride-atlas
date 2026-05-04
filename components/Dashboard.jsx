@@ -5,7 +5,7 @@ import {
   DataProvider, TooltipProvider, LinkProvider, TweakProvider,
   HrMaxProvider, useHrMax,
   useTweaks, useFilteredRuns, useData, useTooltip, useLink,
-  fmtDistance, distUnit, kmToDisplay, paceUnit, hasValidHr, MI_PER_KM,
+  fmtDistance, distUnit, kmToDisplay, paceUnit, hasValidHr, MI_PER_KM, mean,
 } from '@/lib/shared';
 import TimeRangeControl from './TimeRangeControl';
 import RunAtlas from './RunAtlas';
@@ -203,14 +203,9 @@ function computeStrideSignals(runs, units) {
   const mid = Math.floor(sorted.length / 2);
   const early = sorted.slice(0, mid);
   const late = sorted.slice(mid);
-  const medianOf = (arr) => {
-    if (!arr.length) return null;
-    const s = [...arr].sort((a, b) => a - b);
-    return s[Math.floor(s.length / 2)];
-  };
 
-  const earlyPace = medianOf(early.map((r) => r.pace));
-  const latePace = medianOf(late.map((r) => r.pace));
+  const earlyPace = early.length ? mean(early.map((r) => r.pace)) : null;
+  const latePace = late.length ? mean(late.map((r) => r.pace)) : null;
   // Convert km-pace delta to display-unit seconds (positive = faster).
   const paceSec = (earlyPace != null && latePace != null)
     ? (earlyPace - latePace) * 60 * (units === 'mi' ? 1 / MI_PER_KM : 1)
@@ -223,12 +218,11 @@ function computeStrideSignals(runs, units) {
   // distance archetypes.
   const hrPresent = earlyHr.length >= 3 && lateHr.length >= 3;
   const hrDelta = hrPresent
-    ? (earlyHr.reduce((a, b) => a + b, 0) / earlyHr.length)
-      - (lateHr.reduce((a, b) => a + b, 0) / lateHr.length)
+    ? mean(earlyHr) - mean(lateHr)
     : 0;
 
-  const earlyDist = medianOf(early.map((r) => r.distance));
-  const lateDist = medianOf(late.map((r) => r.distance));
+  const earlyDist = early.length ? mean(early.map((r) => r.distance)) : null;
+  const lateDist = late.length ? mean(late.map((r) => r.distance)) : null;
   const distDelta = (earlyDist != null && lateDist != null)
     ? kmToDisplay(lateDist - earlyDist, units)
     : 0;

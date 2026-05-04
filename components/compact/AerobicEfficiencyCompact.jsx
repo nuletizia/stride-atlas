@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useFilteredRuns, hasValidHr, useTweaks,
+  useFilteredRuns, hasValidHr, useTweaks, mean,
   fmtPace, paceToDisplay, paceUnitLong,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
@@ -39,14 +39,10 @@ export default function AerobicEfficiencyCompact() {
     if (early.length < 2 || late.length < 2) {
       return { points: sorted, trend: null, bounds: { paceMin, paceMax, hrMin, hrMax } };
     }
-    const medianOf = (arr) => {
-      const s = [...arr].sort((a, b) => a - b);
-      return s[Math.floor(s.length / 2)];
-    };
-    const earlyHr = early.reduce((a, r) => a + r.hr, 0) / early.length;
-    const lateHr = late.reduce((a, r) => a + r.hr, 0) / late.length;
-    const earlyPace = medianOf(early.map((r) => r.pace));
-    const latePace = medianOf(late.map((r) => r.pace));
+    const earlyHr = mean(early.map((r) => r.hr));
+    const lateHr = mean(late.map((r) => r.hr));
+    const earlyPace = mean(early.map((r) => r.pace));
+    const latePace = mean(late.map((r) => r.pace));
 
     // Date-range labels for the legend so "early / recent" lands as
     // "Jan '25 → Mar '25 / Apr '25 → Jun '25" instead of being abstract.

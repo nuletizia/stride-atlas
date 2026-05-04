@@ -33,6 +33,15 @@ export function fmtDate(iso, opts = {}) {
 export function hasValidHr(r) {
   return r && r.hr != null && r.hr >= 60 && r.hr <= 230;
 }
+
+// Arithmetic mean. Used for scatter-panel centroids ("+" markers) so the
+// marker is the cloud's center of mass and every new run shifts it
+// proportionally — important at small N (4–20 runs per half) where median
+// would snap discretely between specific runs.
+export function mean(arr) {
+  if (!arr || !arr.length) return 0;
+  return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
 export function fmtHr(r) {
   return hasValidHr(r) ? `${r.hr} bpm` : '—';
 }

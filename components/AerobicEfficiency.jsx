@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import {
   useData, useLink, useTooltip, useTweaks, useFilteredRuns,
-  fmtDate, fmtPace, fmtHr, hasValidHr, pad,
+  fmtDate, fmtPace, fmtHr, hasValidHr, pad, mean,
   fmtDistance, fmtPaceUnit, paceToDisplay,
   MI_PER_KM, distUnit, paceUnit, paceUnitLong,
   Highlight, HlNum,
@@ -30,7 +30,7 @@ export default function AerobicEfficiency() {
   // the most meaningful story without a click.
   const [trendType, setTrendType] = useState(null);
 
-  // If the median pace slowed between early and late halves by more than
+  // If the mean pace slowed between early and late halves by more than
   // this, the HR drop is likely pace-driven (easier effort), not fitness,
   // so we flag it. Pace drifting FASTER is a pure win on both axes and is
   // never flagged — a lower HR at a faster pace is unambiguously fitness.
@@ -97,6 +97,17 @@ export default function AerobicEfficiency() {
     return (t - dateRange.start) / (dateRange.end - dateRange.start);
   };
 
+  // Membership in the count-based early half of the visible subset, used to
+  // pick hollow vs. filled. Must match the trend's count split exactly so the
+  // shape coding agrees with the legend's "earlier · X runs / recent · X runs".
+  const earlyIds = useMemo(() => {
+    const subset = inView.filter((r) => isAllMode || activeTypes.has(r.type));
+    if (subset.length < 2) return new Set();
+    const sorted = [...subset].sort((a, b) => a.date.localeCompare(b.date));
+    const mid = Math.floor(sorted.length / 2);
+    return new Set(sorted.slice(0, mid).map((r) => r.id));
+  }, [inView, activeTypes, isAllMode]);
+
   // Pace ticks live at clean *display* values (e.g. 5:00, 5:30 min/km or
   // 8:00, 9:00 min/mi); each carries the km-denominated pace used by xFor.
   const paceTicks = useMemo(() => {
@@ -126,11 +137,6 @@ export default function AerobicEfficiency() {
     // "enough data" cliff.
     const types = ['all', 'easy', 'tempo', 'intervals', 'long'];
 
-    const medianOf = (arr) => {
-      const sorted = [...arr].sort((a, b) => a - b);
-      return sorted[Math.floor(sorted.length / 2)];
-    };
-
     return types.map((t) => {
       const typeRuns = t === 'all' ? inView : inView.filter((r) => r.type === t);
       if (typeRuns.length < 4) return { type: t, enough: false };
@@ -144,13 +150,13 @@ export default function AerobicEfficiency() {
       // single session. (Relaxed from 3; noisier but reaches more types.)
       if (early.length < 2 || late.length < 2) return { type: t, enough: false };
 
-      const earlyHr = early.reduce((a, r) => a + r.hr, 0) / early.length;
-      const lateHr = late.reduce((a, r) => a + r.hr, 0) / late.length;
+      const earlyHr = mean(early.map((r) => r.hr));
+      const lateHr = mean(late.map((r) => r.hr));
       const delta = lateHr - earlyHr;
       const pct = (delta / earlyHr) * 100;
 
-      const earlyPace = medianOf(early.map((r) => r.pace));
-      const latePace = medianOf(late.map((r) => r.pace));
+      const earlyPace = mean(early.map((r) => r.pace));
+      const latePace = mean(late.map((r) => r.pace));
       const paceDelta = latePace - earlyPace;
       // Positive paceDelta = late half slower. Only the "slower" direction
       // makes the HR drop ambiguous; drifting faster is strictly a win.
@@ -192,14 +198,10 @@ export default function AerobicEfficiency() {
     const early = sorted.slice(0, mid);
     const late = sorted.slice(mid);
     if (early.length < 2 || late.length < 2) return null;
-    const medianOf = (arr) => {
-      const s = [...arr].sort((a, b) => a - b);
-      return s[Math.floor(s.length / 2)];
-    };
-    const earlyHr = early.reduce((a, r) => a + r.hr, 0) / early.length;
-    const lateHr = late.reduce((a, r) => a + r.hr, 0) / late.length;
-    const earlyPace = medianOf(early.map((r) => r.pace));
-    const latePace = medianOf(late.map((r) => r.pace));
+    const earlyHr = mean(early.map((r) => r.hr));
+    const lateHr = mean(late.map((r) => r.hr));
+    const earlyPace = mean(early.map((r) => r.pace));
+    const latePace = mean(late.map((r) => r.pace));
     const paceDrifted = (latePace - earlyPace) >= PACE_DRIFT_WARN;
     const dateFmt = (iso) =>
       new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
@@ -248,7 +250,7 @@ export default function AerobicEfficiency() {
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', lineHeight: 1.5 }}>
             Every run plotted by <b>heart rate × pace</b>. As you get fitter, dots drift <b>up-left</b>: faster pace at a <i>lower</i> HR.
             Sorted by date, your runs are split into an earlier half (hollow) and a more recent half (filled); darker = more recent within each half.
-            The bold <b style={{ color: 'var(--accent)' }}>+</b> marks the <i>median</i> run of each half, and the arrow shows the direction of progress.
+            The bold <b style={{ color: 'var(--accent)' }}>+</b> marks the <i>mean</i> of each half, and the arrow shows the direction of progress.
             Cards below break the story down by type; click one to drive the take-away.
           </div>
         </div>
@@ -360,11 +362,12 @@ export default function AerobicEfficiency() {
                 const size = 3.5 + Math.sqrt(r.distance) * 0.7;
                 const fillOp = dim ? 0.1 : (0.25 + rec * 0.65);
                 const fillBase = isAllMode ? 'var(--ink)' : `var(--type-${r.type})`;
-                // Shape always splits the cloud at the time-midpoint: early
+                // Shape splits the cloud at the count-midpoint of the visible
+                // subset (same split as the centroids and the legend): early
                 // runs are hollow rings, recent runs are filled discs. Color
                 // is ink in "All" mode, type-colored when a type filter is
                 // active — shape is orthogonal to color.
-                const isHollow = rec < 0.5;
+                const isHollow = earlyIds.has(r.id);
 
                 return (
                   <g
@@ -506,7 +509,7 @@ export default function AerobicEfficiency() {
             fontSize: 11, color: 'var(--inkMuted)', marginBottom: 10,
             fontStyle: 'italic', fontFamily: 'var(--serif)',
           }}>
-            Same split, applied per type: runs sorted by date, halved by count (≥2 per half). We compare the mean HR and show each half&rsquo;s median pace. If pace drifted between halves, the HR delta may be pace-driven (not fitness) and gets flagged.
+            Same split, applied per type: runs sorted by date, halved by count (≥2 per half). We compare the mean HR and show each half&rsquo;s mean pace. If pace drifted between halves, the HR delta may be pace-driven (not fitness) and gets flagged.
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
