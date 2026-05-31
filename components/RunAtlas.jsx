@@ -35,7 +35,10 @@ export default function RunAtlas() {
       for (let i = 0; i < 7; i++) {
         const d = new Date(cur);
         d.setDate(cur.getDate() + i);
-        const iso = d.toISOString().slice(0, 10);
+        // Build the key from local Y-M-D, not toISOString() — the latter
+        // converts to UTC, which in positive-offset timezones rolls local
+        // midnight back to the previous day and shifts every run one column.
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         days.push({ iso, run: idx[iso], date: d });
       }
       weeks.push({ start: new Date(cur), days });
