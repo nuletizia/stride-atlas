@@ -313,14 +313,16 @@ export default function DistancePaceCurve() {
           style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkSoft)', letterSpacing: '.1em', textTransform: 'uppercase' }}
         >Distance ({distUnit(units)})</text>
 
-        {/* Improvement arrow — faster = up (pace axis inverts), longer = right. */}
+        {/* Direction-of-progress hint: dotted (not dashed, to stay distinct
+            from the "early" trend) arrow pointing up-right — faster pace
+            (higher Y) over longer distance (higher X). Text-free; the "durable"
+            corner label below names the destination. */}
         <g opacity="0.5">
           <defs>
             <marker id="dp-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
               <path d="M0,0 L10,5 L0,10 z" fill="var(--inkSoft)" />
             </marker>
           </defs>
-          {/* Dotted (not dashed) so it doesn't echo the dashed "early" trend. */}
           <line
             x1={M.l + 32} y1={H - M.b - 14}
             x2={W - M.r - 16} y2={M.t + 18}
@@ -329,11 +331,18 @@ export default function DistancePaceCurve() {
             strokeLinecap="round"
             markerEnd="url(#dp-arrow)"
           />
-          <text
-            x={W - M.r - 30} y={M.t + 32}
-            textAnchor="end"
-            style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 13, fill: 'var(--inkSoft)' }}
-          >improving</text>
+        </g>
+
+        {/* Corner labels naming each quadrant's meaning, mirroring the compact
+            tile. X = distance (short→long), Y = pace (faster up): so the
+            top-right corner (long + fast) is the "durable" corner, bottom-left
+            (short + slow) is "recovery". Drawn outside the plot clip so they
+            stay pinned to the frame through pan/zoom. */}
+        <g style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 11, fill: 'var(--inkSoft)', opacity: 0.7 }}>
+          <text x={M.l + 6} y={M.t + 14} textAnchor="start">short + fast</text>
+          <text x={M.l + plotW - 6} y={M.t + 14} textAnchor="end">durable</text>
+          <text x={M.l + 6} y={M.t + plotH - 6} textAnchor="start">recovery</text>
+          <text x={M.l + plotW - 6} y={M.t + plotH - 6} textAnchor="end">long + slow</text>
         </g>
 
         <g clipPath="url(#dpc-plot-clip)">

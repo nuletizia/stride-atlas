@@ -325,15 +325,16 @@ export default function AerobicEfficiency() {
               style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkSoft)', letterSpacing: '.1em', textTransform: 'uppercase' }}
             >Avg HR (bpm)</text>
 
+            {/* Direction-of-progress hint: dotted (not dashed, to stay distinct
+                from the "early" trend) arrow pointing up-left — faster pace
+                (higher Y) at lower HR (lower X). Text-free; the "improving"
+                corner label below names the destination. */}
             <g opacity="0.5">
               <defs>
                 <marker id="ae-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
                   <path d="M0,0 L10,5 L0,10 z" fill="var(--inkSoft)" />
                 </marker>
               </defs>
-              {/* Improvement points up-left: faster pace (higher Y position) at
-                   lower HR (lower X position). Dotted style (not dashed) to
-                   keep it visually distinct from the dashed "early" trend. */}
               <line
                 x1={W - M.r - 16} y1={H - M.b - 14}
                 x2={M.l + 32} y2={M.t + 18}
@@ -342,7 +343,18 @@ export default function AerobicEfficiency() {
                 strokeLinecap="round"
                 markerEnd="url(#ae-arrow)"
               />
-              <text x={M.l + 40} y={M.t + 32} style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 13, fill: 'var(--inkSoft)' }}>improving</text>
+            </g>
+
+            {/* Corner labels naming each quadrant's meaning, mirroring the
+                compact tile. X = HR (low→high), Y = pace (faster up): so the
+                top-left corner (fast pace, low HR) is "improving", bottom-right
+                (slow pace, high HR) is "declining". Drawn outside the plot clip
+                so they stay pinned to the frame through pan/zoom. */}
+            <g style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 11, fill: 'var(--inkSoft)', opacity: 0.7 }}>
+              <text x={M.l + 6} y={M.t + 14} textAnchor="start">improving</text>
+              <text x={M.l + plotW - 6} y={M.t + 14} textAnchor="end">more effort</text>
+              <text x={M.l + 6} y={M.t + plotH - 6} textAnchor="start">less effort</text>
+              <text x={M.l + plotW - 6} y={M.t + plotH - 6} textAnchor="end">declining</text>
             </g>
 
             <g clipPath="url(#ae-plot-clip)">
