@@ -1256,7 +1256,7 @@
         "21.0975": null,
         "42.195": null
       },
-      "pr": true,
+      "pr": false,
       "routePR": false,
       "note": "Morning Run"
     },
@@ -1767,7 +1767,7 @@
         "42.195": null
       },
       "pr": true,
-      "routePR": true,
+      "routePR": false,
       "note": "Lunch Run"
     },
     {
@@ -1916,7 +1916,7 @@
         "21.0975": null,
         "42.195": null
       },
-      "pr": true,
+      "pr": false,
       "routePR": false,
       "note": "Morning Run"
     },
@@ -2396,7 +2396,7 @@
         "21.0975": null,
         "42.195": null
       },
-      "pr": true,
+      "pr": false,
       "routePR": false,
       "note": "Lunch Run"
     },
@@ -3449,19 +3449,409 @@
       "pr": false,
       "routePR": false,
       "note": "Lunch Run"
+    },
+    {
+      "id": 118,
+      "date": "2026-04-23",
+      "dow": 4,
+      "type": "easy",
+      "routeId": "route-2",
+      "routeName": "Route 2",
+      "distance": 11,
+      "pace": 5.57,
+      "duration": 61.2,
+      "hr": 153,
+      "elev": 17,
+      "zones": [
+        1.9,
+        9.8,
+        88,
+        0.2,
+        0
+      ],
+      "bestSplits": {
+        "1": 5.358,
+        "5": 27.015,
+        "10": 56.311,
+        "21.0975": null,
+        "42.195": null
+      },
+      "pr": false,
+      "routePR": false,
+      "note": "Morning Run"
+    },
+    {
+      "id": 119,
+      "date": "2026-04-25",
+      "dow": 6,
+      "type": "intervals",
+      "routeId": "route-13",
+      "routeName": "Route 13",
+      "distance": 12.02,
+      "pace": 5.64,
+      "duration": 67.8,
+      "hr": 163,
+      "elev": 29,
+      "zones": [
+        0.7,
+        7.9,
+        42.7,
+        35.7,
+        13.1
+      ],
+      "bestSplits": {
+        "1": 4.4,
+        "5": 23.441,
+        "10": 54.69,
+        "21.0975": null,
+        "42.195": null
+      },
+      "pr": false,
+      "routePR": false,
+      "note": "Lunch Run"
+    },
+    {
+      "id": 120,
+      "date": "2026-04-28",
+      "dow": 2,
+      "type": "intervals",
+      "routeId": "route-2",
+      "routeName": "Route 2",
+      "distance": 9.06,
+      "pace": 5.62,
+      "duration": 50.9,
+      "hr": 153,
+      "elev": 10,
+      "zones": [
+        2.5,
+        26.6,
+        36.8,
+        34,
+        0
+      ],
+      "bestSplits": {
+        "1": 4.341,
+        "5": 26.269,
+        "10": null,
+        "21.0975": null,
+        "42.195": null
+      },
+      "pr": false,
+      "routePR": false,
+      "note": "Morning Run"
+    },
+    {
+      "id": 121,
+      "date": "2026-05-03",
+      "dow": 0,
+      "type": "long",
+      "routeId": "route-22",
+      "routeName": "Route 22",
+      "distance": 21.31,
+      "pace": 4.61,
+      "duration": 98.3,
+      "hr": 177,
+      "elev": 34,
+      "zones": [
+        0,
+        0,
+        0.6,
+        96.5,
+        2.9
+      ],
+      "bestSplits": {
+        "1": 4.448,
+        "5": 22.492,
+        "10": 45.182,
+        "21.0975": 97.203,
+        "42.195": null
+      },
+      "pr": true,
+      "routePR": true,
+      "note": "Stramilano 2026"
+    },
+    {
+      "id": 122,
+      "date": "2026-05-09",
+      "dow": 6,
+      "type": "easy",
+      "routeId": "route-1",
+      "routeName": "Route 1",
+      "distance": 6,
+      "pace": 5.74,
+      "duration": 34.5,
+      "hr": 153,
+      "elev": 9,
+      "zones": [
+        1.5,
+        4.7,
+        93.7,
+        0,
+        0
+      ],
+      "bestSplits": {
+        "1": 5.586,
+        "5": 28.491,
+        "10": null,
+        "21.0975": null,
+        "42.195": null
+      },
+      "pr": false,
+      "routePR": false,
+      "note": "Morning Run"
+    },
+    {
+      "id": 123,
+      "date": "2026-05-14",
+      "dow": 4,
+      "type": "intervals",
+      "routeId": "route-1",
+      "routeName": "Route 1",
+      "distance": 6.01,
+      "pace": 5.52,
+      "duration": 33.2,
+      "hr": 156,
+      "elev": 14,
+      "zones": [
+        1.8,
+        4.6,
+        75,
+        18.6,
+        0
+      ],
+      "bestSplits": {
+        "1": 5.2,
+        "5": 26.953,
+        "10": null,
+        "21.0975": null,
+        "42.195": null
+      },
+      "pr": true,
+      "routePR": false,
+      "note": "Morning Run"
+    },
+    {
+      "id": 124,
+      "date": "2026-05-16",
+      "dow": 6,
+      "type": "easy",
+      "routeId": "route-2",
+      "routeName": "Route 2",
+      "distance": 7.18,
+      "pace": 5.56,
+      "duration": 40,
+      "hr": 155,
+      "elev": 11,
+      "zones": [
+        1.4,
+        6.7,
+        91.3,
+        0.7,
+        0
+      ],
+      "bestSplits": {
+        "1": 5.425,
+        "5": 27.558,
+        "10": null,
+        "21.0975": null,
+        "42.195": null
+      },
+      "pr": false,
+      "routePR": false,
+      "note": "Lunch Run"
+    },
+    {
+      "id": 125,
+      "date": "2026-05-18",
+      "dow": 1,
+      "type": "intervals",
+      "routeId": "route-2",
+      "routeName": "Route 2",
+      "distance": 8.07,
+      "pace": 5.44,
+      "duration": 43.9,
+      "hr": 159,
+      "elev": 14,
+      "zones": [
+        3.5,
+        22,
+        28.8,
+        37.5,
+        8.2
+      ],
+      "bestSplits": {
+        "1": 3.961,
+        "5": 24.92,
+        "10": null,
+        "21.0975": null,
+        "42.195": null
+      },
+      "pr": false,
+      "routePR": false,
+      "note": "Morning Run"
+    },
+    {
+      "id": 126,
+      "date": "2026-05-22",
+      "dow": 5,
+      "type": "easy",
+      "routeId": "route-2",
+      "routeName": "Route 2",
+      "distance": 7,
+      "pace": 5.66,
+      "duration": 39.6,
+      "hr": 147,
+      "elev": 5,
+      "zones": [
+        3.1,
+        14.6,
+        82.2,
+        0,
+        0
+      ],
+      "bestSplits": {
+        "1": 5.483,
+        "5": 27.91,
+        "10": null,
+        "21.0975": null,
+        "42.195": null
+      },
+      "pr": false,
+      "routePR": false,
+      "note": "Morning Run"
+    },
+    {
+      "id": 127,
+      "date": "2026-05-23",
+      "dow": 6,
+      "type": "tempo",
+      "routeId": "route-13",
+      "routeName": "Route 13",
+      "distance": 12.01,
+      "pace": 4.96,
+      "duration": 59.6,
+      "hr": 171,
+      "elev": 29,
+      "zones": [
+        0.5,
+        2.5,
+        19,
+        71.4,
+        6.6
+      ],
+      "bestSplits": {
+        "1": 4.714,
+        "5": 23.899,
+        "10": 49.815,
+        "21.0975": null,
+        "42.195": null
+      },
+      "pr": true,
+      "routePR": true,
+      "note": "Lunch Run"
+    },
+    {
+      "id": 128,
+      "date": "2026-05-26",
+      "dow": 2,
+      "type": "easy",
+      "routeId": "route-2",
+      "routeName": "Route 2",
+      "distance": 6,
+      "pace": 5.69,
+      "duration": 34.2,
+      "hr": 148,
+      "elev": 10,
+      "zones": [
+        3,
+        12.8,
+        84.2,
+        0,
+        0
+      ],
+      "bestSplits": {
+        "1": 5.457,
+        "5": 28.326,
+        "10": null,
+        "21.0975": null,
+        "42.195": null
+      },
+      "pr": false,
+      "routePR": false,
+      "note": "Morning Run"
+    },
+    {
+      "id": 129,
+      "date": "2026-05-28",
+      "dow": 4,
+      "type": "intervals",
+      "routeId": "route-2",
+      "routeName": "Route 2",
+      "distance": 4.06,
+      "pace": 6.37,
+      "duration": 25.9,
+      "hr": 138,
+      "elev": 12,
+      "zones": [
+        19.2,
+        32.3,
+        45.9,
+        2.4,
+        0.2
+      ],
+      "bestSplits": {
+        "1": 5.552,
+        "5": null,
+        "10": null,
+        "21.0975": null,
+        "42.195": null
+      },
+      "pr": true,
+      "routePR": false,
+      "note": "Morning Run - Possible Injury"
+    },
+    {
+      "id": 130,
+      "date": "2026-05-30",
+      "dow": 6,
+      "type": "tempo",
+      "routeId": "route-1",
+      "routeName": "Route 1",
+      "distance": 10,
+      "pace": 5.1,
+      "duration": 51,
+      "hr": 164,
+      "elev": 19,
+      "zones": [
+        1.6,
+        2.5,
+        46.1,
+        42.6,
+        7.3
+      ],
+      "bestSplits": {
+        "1": 4.416,
+        "5": 23.306,
+        "10": 53.808,
+        "21.0975": null,
+        "42.195": null
+      },
+      "pr": false,
+      "routePR": false,
+      "note": "Morning Run"
     }
   ],
   "routes": [
     {
       "id": "route-1",
       "name": "Route 1",
-      "distance": 9.05,
+      "distance": 8.88,
       "elev": 4
     },
     {
       "id": "route-2",
       "name": "Route 2",
-      "distance": 8.18,
+      "distance": 8.08,
       "elev": 2
     },
     {
@@ -3527,7 +3917,7 @@
     {
       "id": "route-13",
       "name": "Route 13",
-      "distance": 13,
+      "distance": 12.72,
       "elev": 47
     },
     {
@@ -3577,6 +3967,12 @@
       "name": "Route 21",
       "distance": 5.95,
       "elev": 15
+    },
+    {
+      "id": "route-22",
+      "name": "Route 22",
+      "distance": 21.31,
+      "elev": 34
     },
     {
       "id": "indoor",
@@ -3877,7 +4273,7 @@
       "distance": 6.43,
       "duration": 35.8,
       "runs": 1,
-      "prs": 1,
+      "prs": 0,
       "byType": {
         "intervals": 6.43
       }
@@ -4012,7 +4408,7 @@
       "distance": 13.1,
       "duration": 83.9,
       "runs": 2,
-      "prs": 2,
+      "prs": 1,
       "byType": {
         "intervals": 5.59,
         "recovery": 7.51
@@ -4086,7 +4482,7 @@
       "distance": 31.990000000000002,
       "duration": 179.8,
       "runs": 3,
-      "prs": 1,
+      "prs": 0,
       "byType": {
         "intervals": 17.98,
         "tempo": 14.01
@@ -4239,6 +4635,73 @@
       "byType": {
         "intervals": 11.24,
         "long": 16
+      }
+    },
+    {
+      "week": "2026-W17",
+      "distance": 23.02,
+      "duration": 129,
+      "runs": 2,
+      "prs": 0,
+      "byType": {
+        "easy": 11,
+        "intervals": 12.02
+      }
+    },
+    {
+      "week": "2026-W18",
+      "distance": 30.369999999999997,
+      "duration": 149.2,
+      "runs": 2,
+      "prs": 1,
+      "byType": {
+        "intervals": 9.06,
+        "long": 21.31
+      }
+    },
+    {
+      "week": "2026-W19",
+      "distance": 6,
+      "duration": 34.5,
+      "runs": 1,
+      "prs": 0,
+      "byType": {
+        "easy": 6
+      }
+    },
+    {
+      "week": "2026-W20",
+      "distance": 13.19,
+      "duration": 73.2,
+      "runs": 2,
+      "prs": 1,
+      "byType": {
+        "intervals": 6.01,
+        "easy": 7.18
+      }
+    },
+    {
+      "week": "2026-W21",
+      "distance": 27.08,
+      "duration": 143.1,
+      "runs": 3,
+      "prs": 1,
+      "byType": {
+        "intervals": 8.07,
+        "easy": 7,
+        "tempo": 12.01
+      }
+    },
+    {
+      "week": "2026-W22",
+      "distance": 20.06,
+      "duration": 111.1,
+      "runs": 3,
+      "prs": 1,
+      "byType": {
+        "easy": 6,
+        "intervals": 4.06,
+        "tempo": 10
       }
     }
   ],
@@ -4417,7 +4880,7 @@
       ]
     },
     "route-13": {
-      "best": 65.5,
+      "best": 59.6,
       "entries": [
         {
           "id": 48,
@@ -4430,6 +4893,12 @@
           "date": "2025-11-08",
           "duration": 65.5,
           "pace": 5.46
+        },
+        {
+          "id": 127,
+          "date": "2026-05-23",
+          "duration": 59.6,
+          "pace": 4.96
         }
       ]
     },
@@ -4518,6 +4987,17 @@
           "date": "2026-03-29",
           "duration": 36.5,
           "pace": 6.13
+        }
+      ]
+    },
+    "route-22": {
+      "best": 98.3,
+      "entries": [
+        {
+          "id": 121,
+          "date": "2026-05-03",
+          "duration": 98.3,
+          "pace": 4.61
         }
       ]
     }
