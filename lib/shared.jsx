@@ -34,6 +34,17 @@ export function hasValidHr(r) {
   return r && r.hr != null && r.hr >= 60 && r.hr <= 230;
 }
 
+// Fraction of wall-clock (elapsed) time a run spent stopped: 1 - moving/elapsed.
+// Strava auto-pauses, so a run broken up by red lights or photo stops reports a
+// fast *moving* pace (stops excluded) while average HR sags during the stops.
+// We surface this number as neutral info in tooltips and run cards once it
+// passes the threshold below; we don't exclude or re-rank runs on it — the
+// reader weighs it themselves.
+export const STOPPED_RATIO_WARN = 0.05; // surface the stopped % at >=5%
+export function isInterrupted(r) {
+  return r != null && (r.stoppedRatio ?? 0) >= STOPPED_RATIO_WARN;
+}
+
 // Arithmetic mean. Used for scatter-panel centroids ("+" markers) so the
 // marker is the cloud's center of mass and every new run shifts it
 // proportionally — important at small N (4–20 runs per half) where median

@@ -315,11 +315,19 @@ function ingestStrava() {
   for (const r of runs) {
     const id = r['Activity ID'];
     const distKm = Number(r.Distance);
-    const durSec = Number(r['Moving Time']) || Number(r['Elapsed Time']);
+    const movingSec = Number(r['Moving Time']);
+    const elapsedSec = Number(r['Elapsed Time']);
+    const durSec = movingSec || elapsedSec;
     const durMin = durSec / 60;
     if (!isFinite(distKm) || distKm < 0.5 || !isFinite(durMin) || durMin < 3) continue;
 
     const pace = distKm > 0 ? durMin / distKm : 0;
+    // Stopped-time share = 1 - moving/elapsed. Flags stop-heavy runs (lights,
+    // photo stops) whose moving pace vs. sagging HR inflates efficiency.
+    const stoppedRatio =
+      isFinite(movingSec) && isFinite(elapsedSec) && elapsedSec > movingSec && elapsedSec > 0
+        ? +((elapsedSec - movingSec) / elapsedSec).toFixed(3)
+        : 0;
     const avgHrRaw = Number(r['Average Heart Rate']);
     const avgHr = isFinite(avgHrRaw) && avgHrRaw >= 40 ? Math.round(avgHrRaw) : null;
     const maxHrRaw = Number(r['Max Heart Rate']);
@@ -379,6 +387,7 @@ function ingestStrava() {
       distance: +distKm.toFixed(2),
       pace: +pace.toFixed(2),
       duration: +durMin.toFixed(1),
+      stoppedRatio,
       hr: avgHr,
       maxHr,
       elev,
@@ -447,6 +456,13 @@ function ingestLooseFits() {
     const distKm = (session.totalDistance || 0) / 1000;
     const durMin = (session.totalTimerTime || 0) / 60;
     const pace = durMin > 0 && distKm > 0 ? durMin / distKm : 0;
+    // FIT timer time = moving; elapsed includes auto-pauses. Same flag input.
+    const movingSec = session.totalTimerTime || 0;
+    const elapsedSec = session.totalElapsedTime || 0;
+    const stoppedRatio =
+      elapsedSec > movingSec && elapsedSec > 0
+        ? +((elapsedSec - movingSec) / elapsedSec).toFixed(3)
+        : 0;
     const dt = new Date(session.startTime);
     const iso = dt.toISOString().slice(0, 10);
 
@@ -470,6 +486,7 @@ function ingestLooseFits() {
       distance: +distKm.toFixed(2),
       pace: +pace.toFixed(2),
       duration: +durMin.toFixed(1),
+      stoppedRatio,
       hr: isFinite(hrRaw) && hrRaw >= 40 ? Math.round(hrRaw) : null,
       maxHr: isFinite(maxHrRaw) && maxHrRaw >= 40 ? Math.round(maxHrRaw) : null,
       elev: isFinite(elevRaw) ? Math.round(elevRaw) : null,
@@ -550,6 +567,7 @@ async function finalize(activities) {
     id: a.id, date: a.date, dow: a.dow, type: a.type,
     routeId: a.routeId, routeName: a.routeName,
     distance: a.distance, pace: a.pace, duration: a.duration,
+    stoppedRatio: a.stoppedRatio ?? 0,
     hr: a.hr, elev: a.elev, zones: a.zones,
     bestSplits: a.bestSplits || null,
     pr: a.pr, routePR: a.routePR, note: a.note,

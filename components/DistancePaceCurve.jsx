@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import {
   useData, useLink, useTooltip, useTweaks, useFilteredRuns,
-  fmtDate, fmtPace, fmtHr, pad, mean,
+  fmtDate, fmtPace, fmtHr, isInterrupted, pad, mean,
   fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
   MI_PER_KM, distUnit, paceUnit, paceUnitLong,
   Highlight, HlNum,
@@ -216,6 +216,7 @@ export default function DistancePaceCurve() {
         <div className="t-row"><span>Pace</span><span>{fmtPaceUnit(r.pace, units)}{paceUnit(units)}</span></div>
         <div className="t-row"><span>Duration</span><span>{hour ? `${hour}h ${pad(min)}m` : `${min}m`}</span></div>
         <div className="t-row"><span>Avg HR</span><span>{fmtHr(r)}</span></div>
+        {isInterrupted(r) && <div className="t-row"><span>Stopped</span><span>{Math.round(r.stoppedRatio * 100)}%</span></div>}
         {r.pr && <div className="t-pill" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>PR</div>}
       </>
     );

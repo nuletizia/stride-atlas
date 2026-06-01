@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import {
   useData, useLink, useTooltip, useTweaks, useFilteredRuns,
-  fmtDate, fmtPace, fmtHr, hasValidHr,
+  fmtDate, fmtPace, fmtHr, hasValidHr, isInterrupted,
   fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
   distUnit, paceUnit, paceUnitLong,
   Highlight, HlNum,
@@ -256,6 +256,7 @@ export default function PaceRibbon() {
                                 (efOf(r) != null ? efOf(r).toFixed(2) : '—')
                               }</span></div>
                               <div className="t-row"><span>Distance</span><span>{fmtDistance(r.distance, units, 2)} {distUnit(units)}</span></div>
+                              {isInterrupted(r) && <div className="t-row"><span>Stopped</span><span>{Math.round(r.stoppedRatio * 100)}%</span></div>}
                               {r.pr && <div className="t-pill" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>PR</div>}
                             </>,
                             e.clientX, e.clientY

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import {
   useData, useLink, useTooltip, useTweaks, useFilteredRuns,
-  fmtDate, fmtPace, fmtHr, hasValidHr, pad, mean,
+  fmtDate, fmtPace, fmtHr, hasValidHr, isInterrupted, pad, mean,
   fmtDistance, fmtPaceUnit, paceToDisplay,
   MI_PER_KM, distUnit, paceUnit, paceUnitLong,
   Highlight, HlNum,
@@ -233,6 +233,9 @@ export default function AerobicEfficiency() {
         <div className="t-row"><span>Avg HR</span><span>{fmtHr(r)}</span></div>
         <div className="t-row"><span>Distance</span><span>{fmtDistance(r.distance, units, 2)} {distUnit(units)}</span></div>
         <div className="t-row"><span>Duration</span><span>{hour ? `${hour}h ${pad(min)}m` : `${min}m`}</span></div>
+        {isInterrupted(r) && (
+          <div className="t-row"><span>Stopped</span><span>{Math.round(r.stoppedRatio * 100)}%</span></div>
+        )}
         {r.pr && <div className="t-row" style={{ marginTop: 4 }}><span style={{ color: 'var(--positive)' }}>● PR</span><span /></div>}
       </>
     );

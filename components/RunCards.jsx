@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   useData, useLink, useTweaks, useFilteredRuns,
-  fmtDate, fmtPace, fmtDuration, fmtHr, hasValidHr,
+  fmtDate, fmtPace, fmtDuration, fmtHr, hasValidHr, isInterrupted,
   fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
   elevToDisplay, distUnit, paceUnit, elevUnit,
   Highlight, HlNum, MI_PER_KM,
@@ -474,6 +474,13 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
   const hasPeers = run.peerCount > 0;
   const isHrMode = rankBy === 'hr';
   const isEfMode = rankBy === 'efficiency';
+  // Stopped time (red lights, pauses) = elapsed − moving. `run.duration` is
+  // moving minutes; elapsed is recovered from the stopped share. Shown only on
+  // the opened card, as a Moving / Elapsed pair next to the time — we don't
+  // exclude or re-rank on it.
+  const interrupted = isInterrupted(run);
+  const stoppedPct = Math.round((run.stoppedRatio ?? 0) * 100);
+  const elapsedMin = run.stoppedRatio ? run.duration / (1 - run.stoppedRatio) : run.duration;
   // min/km → min/display-unit; used to format per-unit pace deltas.
   const paceK = units === 'mi' ? 1 / MI_PER_KM : 1;
   // Local to the expanded card: grid view (numeric tiles) vs scatter
@@ -721,7 +728,15 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
           value={run.ef != null ? run.ef.toFixed(2) : '—'}
           title="Efficiency: speed (m/min) ÷ avg HR · higher is better"
         />
-        {expanded && <CardStat label="Time" value={fmtDuration(run.duration)} />}
+        {expanded && !interrupted && <CardStat label="Time" value={fmtDuration(run.duration)} />}
+        {expanded && interrupted && <CardStat label="Moving" value={fmtDuration(run.duration)} />}
+        {expanded && interrupted && (
+          <CardStat
+            label="Elapsed"
+            value={fmtDuration(elapsedMin)}
+            title={`${stoppedPct}% of elapsed time was stopped (red lights, pauses). Pace and EF use moving time.`}
+          />
+        )}
         {expanded && <CardStat label="Elev" value={run.elev != null ? `${Math.round(elevToDisplay(run.elev, units))}` : '—'} unit={run.elev != null ? elevUnit(units) : ''} />}
       </div>
 
