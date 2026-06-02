@@ -34,6 +34,19 @@ export function hasValidHr(r) {
   return r && r.hr != null && r.hr >= 60 && r.hr <= 230;
 }
 
+// Efficiency Factor: speed (m/min) ÷ avg HR. A compound "how much speed am I
+// producing per bpm" metric — higher = more efficient. Null without valid HR.
+export const efOf = (r) => (hasValidHr(r) && r.pace ? (1000 / r.pace) / r.hr : null);
+
+// Stamina: EF weighted by distance — rewards holding efficiency over longer
+// runs so a 1 km and a half-M at equal EF aren't read as equal. Uses raw km
+// (unit-independent index). Higher = better.
+export const STAMINA_EXP = 0.1;
+export const stamOf = (r) => {
+  const ef = efOf(r);
+  return ef != null && r.distance ? ef * Math.pow(r.distance, STAMINA_EXP) : null;
+};
+
 // Fraction of wall-clock (elapsed) time a run spent stopped: 1 - moving/elapsed.
 // Strava auto-pauses, so a run broken up by red lights or photo stops reports a
 // fast *moving* pace (stops excluded) while average HR sags during the stops.

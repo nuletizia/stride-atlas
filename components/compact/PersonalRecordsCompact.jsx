@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import {
   useData, useTweaks, fmtDuration, fmtPaceUnit, paceUnit,
+  fmtDate, hasValidHr, stamOf,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
 
@@ -75,7 +76,55 @@ export default function PersonalRecordsCompact() {
     return { prs: rows, biggestDrop: bd };
   }, [runs, data.streamsSynced, timeRange]);
 
+  // Stamina best-3 / worst-3, used as the fallback when rolling splits aren't
+  // synced yet (summary-mode Strava) — so the tile shows real content instead
+  // of an empty placeholder. Stamina-only: the compact tile has no room for the
+  // full panel's metric selector.
+  const board = useMemo(() => {
+    const pool = runs.filter(hasValidHr).filter((r) => stamOf(r) != null);
+    if (pool.length < 2) return null;
+    const sorted = [...pool].sort((a, b) => stamOf(b) - stamOf(a));
+    const best = sorted.slice(0, 3);
+    const ids = new Set(best.map((r) => r.id));
+    const worst = [...sorted].reverse().filter((r) => !ids.has(r.id)).slice(0, 3);
+    return { best, worst };
+  }, [runs]);
+
   if (!prs) {
+    // Not synced. Prefer the stamina leaderboard; fall back to the dashed
+    // distance stubs only if there isn't enough HR data to rank.
+    if (board) {
+      const col = (rows, label, color) => (
+        <div style={{ minWidth: 0 }}>
+          <div className="mono" style={{ fontSize: 8.5, letterSpacing: '.1em', textTransform: 'uppercase', color, marginBottom: 3 }}>{label}</div>
+          {rows.map((r) => (
+            <div
+              key={r.id}
+              style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6,
+                padding: '3px 0 3px 6px', borderTop: '1px solid var(--ruleSoft)',
+                borderLeft: `2px solid var(--type-${r.type})`,
+              }}
+            >
+              <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {fmtDate(r.date)}
+              </span>
+              <span className="mono" style={{ fontSize: 11, fontWeight: 500, fontVariantNumeric: 'tabular-nums', color: 'var(--ink)' }}>
+                {stamOf(r).toFixed(2)}
+              </span>
+            </div>
+          ))}
+        </div>
+      );
+      return (
+        <CompactTile label="Personal Records" headline="Stamina leaders. Splits await sync.">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {col(board.best, '△ Strongest', 'var(--positive)')}
+            {board.worst.length > 0 && col(board.worst, '▽ Weakest', 'var(--inkMuted)')}
+          </div>
+        </CompactTile>
+      );
+    }
     return (
       <CompactTile label="Personal Records" headline="Unlock when full history syncs.">
         <div

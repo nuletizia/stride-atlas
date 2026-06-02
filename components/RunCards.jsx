@@ -5,16 +5,9 @@ import {
   useData, useLink, useTweaks, useFilteredRuns,
   fmtDate, fmtPace, fmtDuration, fmtHr, hasValidHr, isInterrupted,
   fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
-  elevToDisplay, distUnit, paceUnit, elevUnit,
+  elevToDisplay, distUnit, paceUnit, elevUnit, efOf,
   Highlight, HlNum, MI_PER_KM,
 } from '@/lib/shared';
-
-// Efficiency factor: speed (m/min) ÷ avg HR. Same compound metric the
-// PaceRibbon exposes — higher means more speed per heartbeat, so the
-// "better" direction is up (opposite of pace and HR, where lower is
-// better). Null for runs without valid HR.
-const efOf = (r) =>
-  hasValidHr(r) && r.pace ? (1000 / r.pace) / r.hr : null;
 
 export default function RunCards() {
   const data = useData();

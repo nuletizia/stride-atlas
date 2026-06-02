@@ -5,7 +5,7 @@ import {
   useData, useLink, useTooltip, useTweaks, useFilteredRuns,
   fmtDate, fmtPace, fmtHr, hasValidHr, isInterrupted,
   fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
-  distUnit, paceUnit, paceUnitLong,
+  distUnit, paceUnit, paceUnitLong, efOf, stamOf,
   Highlight, HlNum,
 } from '@/lib/shared';
 
@@ -50,18 +50,8 @@ export default function PaceRibbon() {
   const RIGHT = 64;
   const PLOT_W = W - LEFT - RIGHT;
 
-  // Efficiency Factor: speed (m/min) / avg HR. A compound "how much speed am
-  // I producing per bpm" metric — higher = more efficient. Needs valid HR.
-  const efOf = (r) => (hasValidHr(r) && r.pace ? (1000 / r.pace) / r.hr : null);
-
-  // Stamina: EF weighted by distance — rewards holding efficiency over longer
-  // runs so a 1 km and a half-M at equal EF aren't read as equal. Uses raw km
-  // (unit-independent index). Higher = better.
-  const STAMINA_EXP = 0.1;
-  const stamOf = (r) => {
-    const ef = efOf(r);
-    return ef != null && r.distance ? ef * Math.pow(r.distance, STAMINA_EXP) : null;
-  };
+  // efOf (speed ÷ HR) and stamOf (EF × distance^0.1) are shared helpers in
+  // lib/shared.jsx — see imports above.
 
   const valueOf = (r) =>
     metric === 'pace' ? r.pace :
