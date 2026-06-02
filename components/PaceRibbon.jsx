@@ -54,19 +54,29 @@ export default function PaceRibbon() {
   // I producing per bpm" metric — higher = more efficient. Needs valid HR.
   const efOf = (r) => (hasValidHr(r) && r.pace ? (1000 / r.pace) / r.hr : null);
 
+  // Stamina: EF weighted by distance — rewards holding efficiency over longer
+  // runs so a 1 km and a half-M at equal EF aren't read as equal. Uses raw km
+  // (unit-independent index). Higher = better.
+  const STAMINA_EXP = 0.1;
+  const stamOf = (r) => {
+    const ef = efOf(r);
+    return ef != null && r.distance ? ef * Math.pow(r.distance, STAMINA_EXP) : null;
+  };
+
   const valueOf = (r) =>
     metric === 'pace' ? r.pace :
     metric === 'distance' ? r.distance :
     metric === 'hr' ? r.hr :
+    metric === 'stamina' ? stamOf(r) :
     efOf(r); // efficiency
 
   // Higher-is-better metrics invert the y axis so "drift up = improvement"
   // holds visually for every metric.
-  const higherIsBetter = metric === 'distance' || metric === 'efficiency';
+  const higherIsBetter = metric === 'distance' || metric === 'efficiency' || metric === 'stamina';
 
   // Metrics that require a valid HR reading. In these modes we drop runs
   // without HR so they don't poison the bounds.
-  const needsHr = metric === 'hr' || metric === 'efficiency';
+  const needsHr = metric === 'hr' || metric === 'efficiency' || metric === 'stamina';
 
   // Convention: "improvement drifts UP visually" across all metrics.
   function getY(r, bounds) {
@@ -98,14 +108,15 @@ export default function PaceRibbon() {
     metric === 'pace' ? fmtPace(paceToDisplay(v, units)) :
     metric === 'distance' ? kmToDisplay(v, units).toFixed(1) :
     metric === 'hr' ? `${Math.round(v)}` :
-    v.toFixed(2); // efficiency
+    v.toFixed(2); // efficiency / stamina
 
-  const metricLabel = { pace: 'Pace', distance: 'Distance', hr: 'Avg HR', efficiency: 'Efficiency' }[metric];
+  const metricLabel = { pace: 'Pace', distance: 'Distance', hr: 'Avg HR', efficiency: 'Efficiency', stamina: 'Stamina' }[metric];
   const metricUnit = {
     pace: paceUnitLong(units),
     distance: distUnit(units),
     hr: 'bpm',
     efficiency: '',
+    stamina: '',
   }[metric];
   // Descriptive unit shown once in the panel subtitle, so each row's value
   // labels stay clean (no repeated "/km" × 6 rows).
@@ -114,6 +125,7 @@ export default function PaceRibbon() {
     distance: distUnit(units),
     hr: 'bpm',
     efficiency: 'speed ÷ HR',
+    stamina: 'efficiency × distance',
   }[metric];
 
   if (!runs.length) return null;
@@ -253,6 +265,7 @@ export default function PaceRibbon() {
                                 metric === 'pace' ? `${fmtPaceUnit(r.pace, units)} ${metricUnit}` :
                                 metric === 'distance' ? `${fmtDistance(r.distance, units, 2)} ${metricUnit}` :
                                 metric === 'hr' ? fmtHr(r) :
+                                metric === 'stamina' ? (stamOf(r) != null ? stamOf(r).toFixed(2) : '—') :
                                 (efOf(r) != null ? efOf(r).toFixed(2) : '—')
                               }</span></div>
                               <div className="t-row"><span>Distance</span><span>{fmtDistance(r.distance, units, 2)} {distUnit(units)}</span></div>
@@ -329,6 +342,14 @@ export default function PaceRibbon() {
             </Highlight>
           );
         }
+        if (metric === 'stamina') {
+          return (
+            <Highlight>
+              <HlNum>{label}</HlNum> stamina is climbing: rolling avg{' '}
+              <HlNum>{best.firstMean.toFixed(2)} → {best.lastMean.toFixed(2)}</HlNum> (efficiency × distance) across this window.
+            </Highlight>
+          );
+        }
         return (
           <Highlight>
             Your <HlNum>{label}</HlNum> runs are getting longer: rolling avg{' '}
@@ -346,9 +367,10 @@ function MetricToggle() {
     { id: 'pace', label: 'Pace' },
     { id: 'distance', label: 'Distance' },
     { id: 'hr', label: 'Heart' },
-    // Efficiency is a compound metric (speed ÷ HR) — accent border flags it
+    // Efficiency and Stamina are compound metrics — accent border flags them
     // as visually distinct from the single-axis metrics above.
-    { id: 'efficiency', label: 'Efficiency', compound: true },
+    { id: 'efficiency', label: 'Efficiency', compound: true, title: 'Speed (m/min) ÷ avg HR; higher = more efficient' },
+    { id: 'stamina', label: 'Stamina', compound: true, title: 'Efficiency × distance^0.1; rewards holding efficiency over longer runs' },
   ];
   return (
     <div className="chip-row">
@@ -358,7 +380,7 @@ function MetricToggle() {
           className={`chip ${metric === o.id ? 'active' : ''}`}
           onClick={() => setMetric(o.id)}
           style={o.compound ? { borderLeft: '3px solid var(--accent)' } : undefined}
-          title={o.compound ? 'Speed (m/min) ÷ avg HR; higher = more efficient' : undefined}
+          title={o.title}
         >
           {o.label}
         </button>
