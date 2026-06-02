@@ -22,6 +22,7 @@ import ConnectBanner from './ConnectBanner';
 import TouchDismissHandler from './TouchDismissHandler';
 import PanelErrorBoundary from './PanelErrorBoundary';
 import CompactGrid from './CompactGrid';
+import CollapsibleSection from './CollapsibleSection';
 import RunAtlasCompact from './compact/RunAtlasCompact';
 import PersonalRecordsCompact from './compact/PersonalRecordsCompact';
 import PaceRibbonCompact from './compact/PaceRibbonCompact';
@@ -413,15 +414,15 @@ function DashboardBody({ effectiveMode, athleteName, runCount }) {
         </CompactGrid>
       ) : (
         <>
-          <div className="section"><PanelErrorBoundary name="Run Atlas"><RunAtlas /></PanelErrorBoundary></div>
-          <div className="section"><PanelErrorBoundary name="Run Cards"><RunCards /></PanelErrorBoundary></div>
-          <div className="section"><PanelErrorBoundary name="Personal Records"><PersonalRecords /></PanelErrorBoundary></div>
-          <div className="section"><PanelErrorBoundary name="Trend Ribbons"><PaceRibbon /></PanelErrorBoundary></div>
-          <div className="section"><PanelErrorBoundary name="Aerobic Efficiency"><AerobicEfficiency /></PanelErrorBoundary></div>
-          <div className="section"><PanelErrorBoundary name="Aerobic Durability"><DistancePaceCurve /></PanelErrorBoundary></div>
-          <div className="section"><PanelErrorBoundary name="Same-Route Duel"><SameRouteDuel /></PanelErrorBoundary></div>
-          <div className="section"><PanelErrorBoundary name="Week Comparator"><WeekComparator /></PanelErrorBoundary></div>
-          <div className="section"><PanelErrorBoundary name="Season Arc"><SeasonArc /></PanelErrorBoundary></div>
+          <CollapsibleSection name="Run Atlas"><PanelErrorBoundary name="Run Atlas"><RunAtlas /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection name="Run Cards"><PanelErrorBoundary name="Run Cards"><RunCards /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection name="Personal Records"><PanelErrorBoundary name="Personal Records"><PersonalRecords /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection name="Trend Ribbons"><PanelErrorBoundary name="Trend Ribbons"><PaceRibbon /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection name="Aerobic Efficiency"><PanelErrorBoundary name="Aerobic Efficiency"><AerobicEfficiency /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection name="Aerobic Durability"><PanelErrorBoundary name="Aerobic Durability"><DistancePaceCurve /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection name="Same-Route Duel"><PanelErrorBoundary name="Same-Route Duel"><SameRouteDuel /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection name="Week Comparator"><PanelErrorBoundary name="Week Comparator"><WeekComparator /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection name="Season Arc"><PanelErrorBoundary name="Season Arc"><SeasonArc /></PanelErrorBoundary></CollapsibleSection>
         </>
       )}
 
