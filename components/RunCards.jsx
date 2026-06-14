@@ -13,7 +13,7 @@ export default function RunCards() {
   const data = useData();
   const runs = useFilteredRuns();
   const { hovered, setHovered, focusRequest, setFocusRequest, setUserSelectedRunId, selectedRunId } = useLink();
-  const { units } = useTweaks();
+  const { units, stoppedThreshold } = useTweaks();
   const { isExcluded, toggle: toggleExclusion } = useExclusions();
   const meta = data.typeMeta;
 
@@ -432,6 +432,7 @@ export default function RunCards() {
                   meta={meta}
                   rankBy={effectiveRankBy}
                   units={units}
+                  stoppedThreshold={stoppedThreshold}
                   onHoverIn={() => setHoveredCardId(r.id)}
                   onHoverOut={() => setHoveredCardId(null)}
                   onClick={() => setExpandedId(isExpanded ? null : r.id)}
@@ -465,7 +466,7 @@ export default function RunCards() {
   );
 }
 
-function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinned, flashing, isLatestRing, meta, rankBy, units, onHoverIn, onHoverOut, onClick, onPin, onToggleExclude, onPeerClick }) {
+function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinned, flashing, isLatestRing, meta, rankBy, units, stoppedThreshold, onHoverIn, onHoverOut, onClick, onPin, onToggleExclude, onPeerClick }) {
   const color = `var(--type-${run.type})`;
   const hasPeers = run.peerCount > 0;
   const isHrMode = rankBy === 'hr';
@@ -474,7 +475,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinne
   // moving minutes; elapsed is recovered from the stopped share. Shown only on
   // the opened card, as a Moving / Elapsed pair next to the time — we don't
   // exclude or re-rank on it.
-  const interrupted = isInterrupted(run);
+  const interrupted = isInterrupted(run, stoppedThreshold);
   const stoppedPct = Math.round((run.stoppedRatio ?? 0) * 100);
   const elapsedMin = run.stoppedRatio ? run.duration / (1 - run.stoppedRatio) : run.duration;
   // min/km → min/display-unit; used to format per-unit pace deltas.

@@ -14,7 +14,7 @@ export default function PaceRibbon() {
   const runs = useAnalysisRuns();
   const { hovered, setHovered, isTouch, pendingFocusId, requestFocus, selectedRunId } = useLink();
   const { show, hide } = useTooltip();
-  const { metric, units } = useTweaks();
+  const { metric, units, stoppedThreshold } = useTweaks();
 
   const types = ['easy', 'tempo', 'intervals', 'recovery', 'long', 'race'];
   // Rendered rows — "all" sits at the top as a combined overview alongside
@@ -259,7 +259,7 @@ export default function PaceRibbon() {
                                 (efOf(r) != null ? efOf(r).toFixed(2) : '—')
                               }</span></div>
                               <div className="t-row"><span>Distance</span><span>{fmtDistance(r.distance, units, 2)} {distUnit(units)}</span></div>
-                              {isInterrupted(r) && <div className="t-row"><span>Stopped</span><span>{Math.round(r.stoppedRatio * 100)}%</span></div>}
+                              {isInterrupted(r, stoppedThreshold) && <div className="t-row"><span>Stopped</span><span>{Math.round(r.stoppedRatio * 100)}%</span></div>}
                               {r.pr && <div className="t-pill" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>PR</div>}
                             </>,
                             e.clientX, e.clientY

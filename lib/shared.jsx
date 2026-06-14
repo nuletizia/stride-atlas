@@ -53,9 +53,12 @@ export const stamOf = (r) => {
 // We surface this number as neutral info in tooltips and run cards once it
 // passes the threshold below; we don't exclude or re-rank runs on it — the
 // reader weighs it themselves.
-export const STOPPED_RATIO_WARN = 0.05; // surface the stopped % at >=5%
-export function isInterrupted(r) {
-  return r != null && (r.stoppedRatio ?? 0) >= STOPPED_RATIO_WARN;
+export const STOPPED_RATIO_WARN = 0.05; // default: surface the stopped % at >=5%
+// Guardrails for the user-tunable threshold (View panel). 1%–30% of elapsed.
+export const STOPPED_RATIO_MIN = 0.01;
+export const STOPPED_RATIO_MAX = 0.30;
+export function isInterrupted(r, threshold = STOPPED_RATIO_WARN) {
+  return r != null && (r.stoppedRatio ?? 0) >= threshold;
 }
 
 // Arithmetic mean. Used for scatter-panel centroids ("+" markers) so the
@@ -341,6 +344,10 @@ export function TweakProvider({ children }) {
   // forced back to 'full' by the consumer (Dashboard); the preference still
   // sticks for when the user comes back on desktop.
   const [viewMode, setViewMode] = useState('compact');
+  // Stored as a fraction of elapsed time (0.05 = 5%). A run counts as
+  // "stopped" once its stoppedRatio reaches this. Drives both the bulk
+  // "exclude stopped runs" action and the stopped-% rows in tooltips.
+  const [stoppedThreshold, setStoppedThreshold] = useState(STOPPED_RATIO_WARN);
   const [open, setOpen] = useState(false);
 
   // Load from localStorage after mount to avoid SSR hydration mismatch
@@ -355,6 +362,10 @@ export function TweakProvider({ children }) {
         setCustomRange({ from: s.customRange.from, to: s.customRange.to });
       }
       if (s.viewMode === 'compact' || s.viewMode === 'full') setViewMode(s.viewMode);
+      if (typeof s.stoppedThreshold === 'number'
+        && s.stoppedThreshold >= STOPPED_RATIO_MIN && s.stoppedThreshold <= STOPPED_RATIO_MAX) {
+        setStoppedThreshold(s.stoppedThreshold);
+      }
     }
   }, []);
 
@@ -377,15 +388,22 @@ export function TweakProvider({ children }) {
     const m = v === 'compact' ? 'compact' : 'full';
     setViewMode(m); persist({ viewMode: m });
   };
+  const setStoppedThresholdP = (v) => {
+    const n = Number(v);
+    if (!isFinite(n)) return;
+    const c = Math.min(STOPPED_RATIO_MAX, Math.max(STOPPED_RATIO_MIN, n));
+    setStoppedThreshold(c); persist({ stoppedThreshold: c });
+  };
 
   return (
     <TweakContext.Provider value={{
-      style, theme: style, timeRange, metric, units, customRange, viewMode,
+      style, theme: style, timeRange, metric, units, customRange, viewMode, stoppedThreshold,
       open, setOpen,
       setStyle: setStyleP, setTheme: setStyleP,
       setTimeRange: setRangeP, setMetric: setMetricP, setUnits: setUnitsP,
       setCustomRange: setCustomRangeP,
       setViewMode: setViewModeP,
+      setStoppedThreshold: setStoppedThresholdP,
     }}>
       {children}
     </TweakContext.Provider>
@@ -455,6 +473,22 @@ export function ExclusionProvider({ children }) {
     });
   }, [persist]);
 
+  // Add several IDs at once (e.g. "exclude all stopped runs"). No-op — and no
+  // re-render — when every id is already excluded.
+  const addMany = useCallback((ids) => {
+    setExcluded((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const id of ids) {
+        const k = String(id);
+        if (!next.has(k)) { next.add(k); changed = true; }
+      }
+      if (!changed) return prev;
+      persist(next);
+      return next;
+    });
+  }, [persist]);
+
   const clear = useCallback(() => {
     setExcluded((prev) => {
       if (!prev.size) return prev;
@@ -467,8 +501,8 @@ export function ExclusionProvider({ children }) {
   const isExcluded = useCallback((id) => excluded.has(String(id)), [excluded]);
 
   const value = useMemo(
-    () => ({ excluded, count: excluded.size, isExcluded, toggle, clear }),
-    [excluded, isExcluded, toggle, clear],
+    () => ({ excluded, count: excluded.size, isExcluded, toggle, addMany, clear }),
+    [excluded, isExcluded, toggle, addMany, clear],
   );
 
   return <ExclusionContext.Provider value={value}>{children}</ExclusionContext.Provider>;

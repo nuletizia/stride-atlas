@@ -5,7 +5,7 @@ import {
   DataProvider, TooltipProvider, LinkProvider, TweakProvider,
   HrMaxProvider, useHrMax, ExclusionProvider, useExclusions,
   useTweaks, useAnalysisRuns, useData, useTooltip, useLink,
-  fmtDistance, distUnit, kmToDisplay, paceUnit, hasValidHr, MI_PER_KM, mean,
+  fmtDistance, distUnit, kmToDisplay, paceUnit, hasValidHr, isInterrupted, MI_PER_KM, mean,
 } from '@/lib/shared';
 import TimeRangeControl from './TimeRangeControl';
 import RunAtlas from './RunAtlas';
@@ -37,9 +37,22 @@ function Header() {
   const data = useData();
   const p = data.profile;
   const runs = useAnalysisRuns();
-  const { units } = useTweaks();
-  const { count: excludedCount, clear: clearExclusions } = useExclusions();
+  const { units, stoppedThreshold } = useTweaks();
+  const { count: excludedCount, clear: clearExclusions, isExcluded, addMany } = useExclusions();
   const totalKm = runs.reduce((a, r) => a + r.distance, 0);
+  const stoppedPct = Math.round(stoppedThreshold * 100);
+
+  // Stopped runs (paused for >= the tunable threshold of elapsed time) that
+  // aren't already excluded — candidates for the one-shot bulk action.
+  const stoppedToExclude = useMemo(
+    () => (data.runs || []).filter((r) => isInterrupted(r, stoppedThreshold) && !isExcluded(r.id)),
+    [data.runs, isExcluded, stoppedThreshold],
+  );
+
+  const linkBtn = {
+    font: 'inherit', color: 'var(--accent)', background: 'none',
+    border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline',
+  };
 
   return (
     <div className="header">
@@ -52,20 +65,24 @@ function Header() {
           <b>{p.name}</b>{p.city ? ` · ${p.city}` : ''}<br />
           Goal · <b>{p.goalRace}</b><br />
           <span className="num">{fmtDistance(totalKm, units, 0)} {distUnit(units)}</span> logged in view
+          {stoppedToExclude.length > 0 && (
+            <>
+              <br />
+              <button
+                onClick={() => addMany(stoppedToExclude.map((r) => r.id))}
+                title={`Exclude every run that spent ${stoppedPct}% or more of its elapsed time stopped (red lights, pauses) from your stats. Adjust the threshold in View.`}
+                style={linkBtn}
+              >
+                Exclude {stoppedToExclude.length} stopped {stoppedToExclude.length === 1 ? 'run' : 'runs'} (≥{stoppedPct}%)
+              </button>
+            </>
+          )}
           {excludedCount > 0 && (
             <>
               <br />
               <span style={{ color: 'var(--inkMuted)' }}>
                 {excludedCount} {excludedCount === 1 ? 'run' : 'runs'} excluded from stats ·{' '}
-                <button
-                  onClick={clearExclusions}
-                  style={{
-                    font: 'inherit', color: 'var(--accent)', background: 'none',
-                    border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline',
-                  }}
-                >
-                  clear
-                </button>
+                <button onClick={clearExclusions} style={linkBtn}>clear</button>
               </span>
             </>
           )}

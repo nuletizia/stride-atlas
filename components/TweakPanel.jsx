@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useTweaks } from '@/lib/shared';
+import { useTweaks, STOPPED_RATIO_MIN, STOPPED_RATIO_MAX } from '@/lib/shared';
 import { palettes } from '@/lib/theme';
 import TimeRangeControl from './TimeRangeControl';
 
@@ -20,7 +20,7 @@ const familyOf = (s) => (s === 'editorial_dark' ? 'editorial' : s);
 const isEditorialDark = (s) => s === 'editorial_dark';
 
 export default function TweakPanel() {
-  const { style, setStyle, units, setUnits, viewMode, setViewMode } = useTweaks();
+  const { style, setStyle, units, setUnits, viewMode, setViewMode, stoppedThreshold, setStoppedThreshold } = useTweaks();
   const [open, setOpen] = useState(false);
   const [canCompact, setCanCompact] = useState(true);
 
@@ -179,6 +179,31 @@ export default function TweakPanel() {
               <button className={units === 'km' ? 'on' : ''} onClick={() => setUnits('km')}>KM</button>
               <button className={units === 'mi' ? 'on' : ''} onClick={() => setUnits('mi')}>MI</button>
             </div>
+          </div>
+
+          <div className="tweaks-row">
+            <label>Stopped runs</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="number"
+                min={Math.round(STOPPED_RATIO_MIN * 100)}
+                max={Math.round(STOPPED_RATIO_MAX * 100)}
+                step={1}
+                value={Math.round(stoppedThreshold * 100)}
+                onChange={(e) => setStoppedThreshold(Number(e.target.value) / 100)}
+                style={{
+                  width: 56, padding: '4px 6px', fontFamily: 'var(--mono)', fontSize: 13,
+                  color: 'var(--ink)', border: '1px solid var(--rule)', borderRadius: 3, background: 'var(--bg)',
+                }}
+              />
+              <span className="mono" style={{ fontSize: 12, color: 'var(--inkSoft)' }}>% stopped</span>
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--inkMuted)', lineHeight: 1.5, marginTop: 4 }}>
+            Strava auto-pauses when you stop, for red lights, photo stops, or water breaks. &ldquo;Stopped&rdquo; time
+            is elapsed minus moving time. Pace and efficiency use moving time, so a heavily-stopped run
+            can look faster than it felt. A run is flagged as stopped once it was paused for at least this
+            share of its elapsed time. The header&rsquo;s &ldquo;exclude stopped runs&rdquo; shortcut uses the same cutoff.
           </div>
 
           <div style={{ fontSize: 11, color: 'var(--inkMuted)', lineHeight: 1.5, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--ruleSoft)' }}>
