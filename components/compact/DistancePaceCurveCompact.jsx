@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useFilteredRuns, useTweaks, mean,
+  useAnalysisRuns, useTweaks, mean,
   fmtPace, paceToDisplay, paceUnit, paceUnitLong,
   kmToDisplay, distUnit,
 } from '@/lib/shared';
@@ -14,7 +14,7 @@ import { zoomAround } from './zoomBounds';
 // single accent arrow. The arrow's tip lands in the quadrant that names
 // your change vs. baseline (top-right = durable: longer + faster).
 export default function DistancePaceCurveCompact() {
-  const runs = useFilteredRuns();
+  const runs = useAnalysisRuns();
   const { units } = useTweaks();
 
   const view = useMemo(() => {

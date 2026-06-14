@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useData, useFilteredRuns, useTweaks,
+  useData, useAnalysisRuns, useTweaks,
   fmtDate, fmtDistance, fmtDuration, fmtPaceUnit,
   kmToDisplay, distUnit, paceUnit,
   hasValidHr,
@@ -25,7 +25,7 @@ const RANGE_LABEL = {
 };
 
 export default function WindowStatsCompact() {
-  const runs = useFilteredRuns();
+  const runs = useAnalysisRuns();
   const data = useData();
   const { units, timeRange } = useTweaks();
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  useData, useLink, useTweaks, useFilteredRuns,
+  useData, useLink, useTweaks, useFilteredRuns, useExclusions,
   fmtDate, fmtPace, fmtDuration, fmtHr, hasValidHr, isInterrupted,
   fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
   elevToDisplay, distUnit, paceUnit, elevUnit, efOf,
@@ -14,6 +14,7 @@ export default function RunCards() {
   const runs = useFilteredRuns();
   const { hovered, setHovered, focusRequest, setFocusRequest, setUserSelectedRunId, selectedRunId } = useLink();
   const { units } = useTweaks();
+  const { isExcluded, toggle: toggleExclusion } = useExclusions();
   const meta = data.typeMeta;
 
   const [typeFilter, setTypeFilter] = useState('all');
@@ -423,6 +424,7 @@ export default function RunCards() {
                   isFocus={isFocus}
                   isPeer={isPeer}
                   dim={dim}
+                  excluded={isExcluded(r.id)}
                   expanded={isExpanded}
                   pinned={pinnedId === r.id}
                   flashing={isFlashing}
@@ -434,6 +436,7 @@ export default function RunCards() {
                   onHoverOut={() => setHoveredCardId(null)}
                   onClick={() => setExpandedId(isExpanded ? null : r.id)}
                   onPin={(e) => { e.stopPropagation(); setPinnedId(pinnedId === r.id ? null : r.id); }}
+                  onToggleExclude={(e) => { e.stopPropagation(); toggleExclusion(r.id); }}
                   onPeerClick={jumpToRun}
                 />
               );
@@ -462,7 +465,7 @@ export default function RunCards() {
   );
 }
 
-function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashing, isLatestRing, meta, rankBy, units, onHoverIn, onHoverOut, onClick, onPin, onPeerClick }) {
+function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinned, flashing, isLatestRing, meta, rankBy, units, onHoverIn, onHoverOut, onClick, onPin, onToggleExclude, onPeerClick }) {
   const color = `var(--type-${run.type})`;
   const hasPeers = run.peerCount > 0;
   const isHrMode = rankBy === 'hr';
@@ -539,10 +542,13 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
     borderTop: `1px solid ${isFocus ? 'var(--ink)' : isPeer ? color : 'var(--rule)'}`,
     borderRight: `1px solid ${isFocus ? 'var(--ink)' : isPeer ? color : 'var(--rule)'}`,
     borderBottom: `1px solid ${isFocus ? 'var(--ink)' : isPeer ? color : 'var(--rule)'}`,
-    borderLeft: `3px solid ${color}`,
+    // Excluded runs get a dashed left rule + reduced opacity so it's obvious
+    // at a glance they're not feeding any stat. Peer-dim (0.28) still wins
+    // when this card isn't the current focus/peer.
+    borderLeft: `3px ${excluded ? 'dashed' : 'solid'} ${color}`,
     borderRadius: 4,
     padding: compact ? '8px 10px' : '12px 14px',
-    opacity: dim ? 0.28 : 1,
+    opacity: dim ? 0.28 : excluded ? 0.5 : 1,
     // Priority: focus (interactive) > peer (similar) > latest-ring
     // (default cross-panel selection). Latest-ring uses an accent
     // outline matching the chart-dot ring so the visual link reads
@@ -566,9 +572,12 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
           <span className="mono" style={{ fontSize: 9.5, color: 'var(--inkMuted)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
             {new Date(run.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
-          <span style={{ fontFamily: 'var(--sans)', fontSize: 10.5, color: 'var(--inkSoft)', fontWeight: 500 }}>
-            {meta[run.type].label}
-            {run.pr && <span style={{ marginLeft: 4, fontFamily: 'var(--mono)', fontSize: 8.5, background: 'var(--ink)', color: 'var(--bg)', padding: '1px 4px', borderRadius: 2 }}>PR</span>}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <span style={{ fontFamily: 'var(--sans)', fontSize: 10.5, color: 'var(--inkSoft)', fontWeight: 500 }}>
+              {meta[run.type].label}
+              {run.pr && <span style={{ marginLeft: 4, fontFamily: 'var(--mono)', fontSize: 8.5, background: 'var(--ink)', color: 'var(--bg)', padding: '1px 4px', borderRadius: 2 }}>PR</span>}
+            </span>
+            <ExcludeToggle excluded={excluded} onToggle={onToggleExclude} size={11} />
           </span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 8 }}>
@@ -629,12 +638,15 @@ function RunCard({ run, density, isFocus, isPeer, dim, expanded, pinned, flashin
             {run.pr && <span style={{ marginLeft: 6, fontStyle: 'normal', fontFamily: 'var(--mono)', fontSize: 9, background: 'var(--ink)', color: 'var(--bg)', padding: '1px 5px', borderRadius: 2, letterSpacing: '.1em', verticalAlign: 'middle' }}>PR</span>}
           </div>
         </div>
-        {expanded && (
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button className="chip" onClick={onPin}>{pinned ? 'Unpin' : 'Pin'}</button>
-            <button className="chip" onClick={(e) => { e.stopPropagation(); onClick(); }}>Close</button>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+          <ExcludeToggle excluded={excluded} onToggle={onToggleExclude} />
+          {expanded && (
+            <>
+              <button className="chip" onClick={onPin}>{pinned ? 'Unpin' : 'Pin'}</button>
+              <button className="chip" onClick={(e) => { e.stopPropagation(); onClick(); }}>Close</button>
+            </>
+          )}
+        </div>
       </div>
 
       {expanded && run.note && (
@@ -1194,4 +1206,33 @@ function ordinal(n) {
   const s = ['th', 'st', 'nd', 'rd'];
   const v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+// Per-card "exclude from stats" toggle. A ban (circle-slash) glyph: faint
+// when the run counts, filled accent when it's excluded. Stops propagation
+// (via the parent's onToggleExclude) so it doesn't also expand the card.
+function ExcludeToggle({ excluded, onToggle, size = 13 }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={excluded}
+      aria-label={excluded ? 'Include this run in stats' : 'Exclude this run from stats'}
+      title={excluded
+        ? 'Excluded from stats (records, ribbons, scatters). Click to include.'
+        : 'Exclude this run from stats (records, ribbons, scatters). Stays in your log.'}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: size + 7, height: size + 7, padding: 0, flexShrink: 0,
+        border: 'none', background: 'none', cursor: 'pointer',
+        color: excluded ? 'var(--accent)' : 'var(--inkMuted)',
+        opacity: excluded ? 1 : 0.5,
+      }}
+    >
+      <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2.4" />
+        <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" stroke="currentColor" strokeWidth="2.4" />
+      </svg>
+    </button>
+  );
 }

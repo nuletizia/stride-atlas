@@ -3,8 +3,8 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
   DataProvider, TooltipProvider, LinkProvider, TweakProvider,
-  HrMaxProvider, useHrMax,
-  useTweaks, useFilteredRuns, useData, useTooltip, useLink,
+  HrMaxProvider, useHrMax, ExclusionProvider, useExclusions,
+  useTweaks, useAnalysisRuns, useData, useTooltip, useLink,
   fmtDistance, distUnit, kmToDisplay, paceUnit, hasValidHr, MI_PER_KM, mean,
 } from '@/lib/shared';
 import TimeRangeControl from './TimeRangeControl';
@@ -36,8 +36,9 @@ import SeasonArcCompact from './compact/SeasonArcCompact';
 function Header() {
   const data = useData();
   const p = data.profile;
-  const runs = useFilteredRuns();
+  const runs = useAnalysisRuns();
   const { units } = useTweaks();
+  const { count: excludedCount, clear: clearExclusions } = useExclusions();
   const totalKm = runs.reduce((a, r) => a + r.distance, 0);
 
   return (
@@ -51,6 +52,23 @@ function Header() {
           <b>{p.name}</b>{p.city ? ` · ${p.city}` : ''}<br />
           Goal · <b>{p.goalRace}</b><br />
           <span className="num">{fmtDistance(totalKm, units, 0)} {distUnit(units)}</span> logged in view
+          {excludedCount > 0 && (
+            <>
+              <br />
+              <span style={{ color: 'var(--inkMuted)' }}>
+                {excludedCount} {excludedCount === 1 ? 'run' : 'runs'} excluded from stats ·{' '}
+                <button
+                  onClick={clearExclusions}
+                  style={{
+                    font: 'inherit', color: 'var(--accent)', background: 'none',
+                    border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline',
+                  }}
+                >
+                  clear
+                </button>
+              </span>
+            </>
+          )}
         </div>
         <HrMaxCard />
       </div>
@@ -334,7 +352,7 @@ function classifyTraining(s) {
 // provider wraps this body.
 function DashboardBody({ effectiveMode, athleteName, runCount }) {
   const { viewMode, units } = useTweaks();
-  const filteredRuns = useFilteredRuns();
+  const filteredRuns = useAnalysisRuns();
   const { setLatestRunId } = useLink();
   const signals = computeStrideSignals(filteredRuns, units);
   const summary = buildStrideSummary(filteredRuns, units);
@@ -461,17 +479,19 @@ export default function Dashboard({ data, mode = 'demo', athleteName = null }) {
     <HrMaxProvider baseHrMax={data?.hrMax ?? 190}>
     <DataProvider data={data}>
       <TweakProvider>
-        <TooltipProvider>
-          <LinkProvider>
-            <TouchDismissHandler />
-            <DashboardBody
-              effectiveMode={effectiveMode}
-              athleteName={athleteName}
-              runCount={runCount}
-            />
-            <TweakPanel />
-          </LinkProvider>
-        </TooltipProvider>
+        <ExclusionProvider>
+          <TooltipProvider>
+            <LinkProvider>
+              <TouchDismissHandler />
+              <DashboardBody
+                effectiveMode={effectiveMode}
+                athleteName={athleteName}
+                runCount={runCount}
+              />
+              <TweakPanel />
+            </LinkProvider>
+          </TooltipProvider>
+        </ExclusionProvider>
       </TweakProvider>
     </DataProvider>
     </HrMaxProvider>

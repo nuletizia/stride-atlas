@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useFilteredRuns, hasValidHr, useTweaks, mean,
+  useAnalysisRuns, hasValidHr, useTweaks, mean,
   fmtPace, paceToDisplay, paceUnitLong,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
@@ -13,7 +13,7 @@ import { zoomAround } from './zoomBounds';
 // early centroid, plus a single accent arrow whose tip lands in the
 // quadrant that names your change vs. baseline (top-left = improving).
 export default function AerobicEfficiencyCompact() {
-  const runs = useFilteredRuns();
+  const runs = useAnalysisRuns();
   const { units } = useTweaks();
 
   const computed = useMemo(() => {

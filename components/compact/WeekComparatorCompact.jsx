@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useFilteredRuns, useTweaks, fmtDuration,
+  useAnalysisRuns, useTweaks, fmtDuration,
   kmToDisplay, distUnit,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
@@ -20,7 +20,7 @@ function isoWeekKey(iso) {
 // week filled solid and the best week shown as an outlined ceiling. Both
 // numbers appear at the right so the gap is legible at a glance.
 export default function WeekComparatorCompact() {
-  const runs = useFilteredRuns();
+  const runs = useAnalysisRuns();
   const { units } = useTweaks();
 
   const { thisWeek, bestWeek, sameWeek, headline } = useMemo(() => {

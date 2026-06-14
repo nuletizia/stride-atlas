@@ -415,3 +415,74 @@ export function useFilteredRuns() {
     return all.filter((r) => new Date(r.date + 'T00:00:00') >= start);
   }, [all, timeRange, customRange]);
 }
+
+// ---------- Run exclusion (omit runs from computed stats) ----------
+// A user-curated set of run IDs that should NOT influence any aggregate or
+// trend stat — Personal Records, trend ribbons, the scatters, Same-Route
+// Duel, week/season totals, the headline summary. Excluded runs still show
+// in the Run Atlas and Run Cards: they stay in your log, they just stop
+// poisoning your analytics (bad GPS, a treadmill blip, a race you walked).
+// Toggled from RunCards (full view only); persisted per-browser. IDs are
+// normalized to strings because the two ingest paths emit number vs string.
+const ExclusionContext = createContext(null);
+const EXCLUDED_KEY = 'stride.excludedRuns';
+
+export function ExclusionProvider({ children }) {
+  const [excluded, setExcluded] = useState(() => new Set());
+
+  // Load after mount to avoid an SSR hydration mismatch.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(EXCLUDED_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(arr) && arr.length) setExcluded(new Set(arr.map(String)));
+    } catch {}
+  }, []);
+
+  const persist = useCallback((set) => {
+    if (typeof window === 'undefined') return;
+    try { window.localStorage.setItem(EXCLUDED_KEY, JSON.stringify([...set])); } catch {}
+  }, []);
+
+  const toggle = useCallback((id) => {
+    const key = String(id);
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      persist(next);
+      return next;
+    });
+  }, [persist]);
+
+  const clear = useCallback(() => {
+    setExcluded((prev) => {
+      if (!prev.size) return prev;
+      const next = new Set();
+      persist(next);
+      return next;
+    });
+  }, [persist]);
+
+  const isExcluded = useCallback((id) => excluded.has(String(id)), [excluded]);
+
+  const value = useMemo(
+    () => ({ excluded, count: excluded.size, isExcluded, toggle, clear }),
+    [excluded, isExcluded, toggle, clear],
+  );
+
+  return <ExclusionContext.Provider value={value}>{children}</ExclusionContext.Provider>;
+}
+export function useExclusions() { return useContext(ExclusionContext); }
+
+// Time-filtered runs MINUS user-excluded runs. The source every analytical
+// panel reads. Log views (Run Atlas, Run Cards) keep using useFilteredRuns()
+// so excluded runs remain visible there.
+export function useAnalysisRuns() {
+  const filtered = useFilteredRuns();
+  const { excluded } = useExclusions();
+  return useMemo(() => {
+    if (!excluded.size) return filtered;
+    return filtered.filter((r) => !excluded.has(String(r.id)));
+  }, [filtered, excluded]);
+}

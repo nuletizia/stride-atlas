@@ -2,12 +2,12 @@
 
 import { useMemo } from 'react';
 import {
-  useFilteredRuns, useTweaks, fmtDuration,
+  useAnalysisRuns, useTweaks, fmtDuration,
   kmToDisplay, elevToDisplay, distUnit, elevUnit,
 } from '@/lib/shared';
 
 export default function WeekComparator() {
-  const runs = useFilteredRuns();
+  const runs = useAnalysisRuns();
   const { units } = useTweaks();
 
   const { thisWeek, bestWeek, thisLabel, bestLabel } = useMemo(() => {

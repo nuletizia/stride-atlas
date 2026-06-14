@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useData, useTweaks, fmtDuration, fmtPaceUnit, paceUnit,
+  useData, useTweaks, useExclusions, fmtDuration, fmtPaceUnit, paceUnit,
   fmtDate, hasValidHr, stamOf,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
@@ -28,7 +28,11 @@ const RANGE_DAYS = { '1m': 30, '3m': 92, '6m': 183, '1y': 365, 'all': 99999 };
 export default function PersonalRecordsCompact() {
   const data = useData();
   const { units, timeRange } = useTweaks();
-  const runs = data.runs;
+  const { excluded } = useExclusions();
+  const runs = useMemo(
+    () => (excluded.size ? data.runs.filter((r) => !excluded.has(String(r.id))) : data.runs),
+    [data.runs, excluded],
+  );
 
   const { prs, biggestDrop } = useMemo(() => {
     if (data.streamsSynced === false) return { prs: null, biggestDrop: null };

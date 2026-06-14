@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import {
-  useLink, useData, useTweaks,
+  useLink, useData, useTweaks, useExclusions,
   fmtDate, fmtPace, fmtDuration,
   fmtPaceUnit, paceUnit, fmtDistance, distUnit, fmtHr,
   hasValidHr, efOf, stamOf,
@@ -60,7 +60,13 @@ function fmtRankValue(metric, r, units) {
 
 export default function PersonalRecords() {
   const data = useData();
-  const runs = data.runs; // all-time — PR values never change with the filter
+  const { excluded } = useExclusions();
+  // All-time (PR values never change with the time filter), minus the runs
+  // the user has excluded from stats.
+  const runs = useMemo(
+    () => (excluded.size ? data.runs.filter((r) => !excluded.has(String(r.id))) : data.runs),
+    [data.runs, excluded],
+  );
   const { hovered, setHovered, setFocusRequest, requestFocus } = useLink();
   const { timeRange, units } = useTweaks();
   const meta = data.typeMeta;

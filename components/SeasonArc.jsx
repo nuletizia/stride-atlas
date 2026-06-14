@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useData, useTweaks,
+  useData, useTweaks, useExclusions,
   fmtDistance, kmToDisplay, distUnit,
   Highlight, HlNum,
 } from '@/lib/shared';
@@ -10,7 +10,11 @@ import {
 export default function SeasonArc() {
   const data = useData();
   const { units } = useTweaks();
-  const all = data.runs;
+  const { excluded } = useExclusions();
+  const all = useMemo(
+    () => (excluded.size ? data.runs.filter((r) => !excluded.has(String(r.id))) : data.runs),
+    [data.runs, excluded],
+  );
 
   const years = useMemo(() => {
     const o = {};

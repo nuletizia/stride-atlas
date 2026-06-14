@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  useData, useLink, useTooltip, useTweaks, useFilteredRuns,
+  useData, useLink, useTooltip, useTweaks, useAnalysisRuns,
   fmtDate, fmtPace, fmtDuration,
   fmtPaceUnit, paceUnit,
 } from '@/lib/shared';
@@ -12,7 +12,7 @@ export default function SameRouteDuel() {
   const { hovered, setHovered, isTouch, pendingFocusId, requestFocus } = useLink();
   const { show, hide } = useTooltip();
   const { units } = useTweaks();
-  const runs = useFilteredRuns();
+  const runs = useAnalysisRuns();
   const routes = data.routes;
 
   const routeCounts = useMemo(() => {

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useData, useLink, useTooltip, useTweaks, useFilteredRuns,
+  useData, useLink, useTooltip, useTweaks, useAnalysisRuns,
   fmtDate, fmtPace, fmtHr, hasValidHr, isInterrupted,
   fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
   distUnit, paceUnit, paceUnitLong, efOf, stamOf,
@@ -11,7 +11,7 @@ import {
 
 export default function PaceRibbon() {
   const data = useData();
-  const runs = useFilteredRuns();
+  const runs = useAnalysisRuns();
   const { hovered, setHovered, isTouch, pendingFocusId, requestFocus, selectedRunId } = useLink();
   const { show, hide } = useTooltip();
   const { metric, units } = useTweaks();

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useFilteredRuns, useTweaks,
+  useAnalysisRuns, useTweaks,
   fmtPace, paceToDisplay, paceUnit, paceUnitLong,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
@@ -15,7 +15,7 @@ function fmtShortDate(ts) {
 // keep only the 5-run rolling average. The line's slope is the story —
 // individual dots were noise at this scale.
 export default function PaceRibbonCompact() {
-  const runs = useFilteredRuns();
+  const runs = useAnalysisRuns();
   const { units } = useTweaks();
 
   const series = useMemo(() => {

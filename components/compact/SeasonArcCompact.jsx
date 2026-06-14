@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useData, useTweaks,
+  useData, useTweaks, useExclusions,
   kmToDisplay, distUnit,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
@@ -14,7 +14,11 @@ import CompactTile from '../CompactTile';
 export default function SeasonArcCompact() {
   const data = useData();
   const { units } = useTweaks();
-  const all = data.runs;
+  const { excluded } = useExclusions();
+  const all = useMemo(
+    () => (excluded.size ? data.runs.filter((r) => !excluded.has(String(r.id))) : data.runs),
+    [data.runs, excluded],
+  );
 
   const { years, yearList, maxDist, totals } = useMemo(() => {
     const o = {};

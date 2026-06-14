@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useData, useLink, useTooltip, useTweaks, useFilteredRuns,
+  useData, useLink, useTooltip, useTweaks, useFilteredRuns, useExclusions,
   fmtDate, fmtPace, fmtDuration, fmtHr,
   fmtDistance, fmtPaceUnit, distUnit, paceUnit,
   Highlight, HlNum,
@@ -13,6 +13,7 @@ export default function RunAtlas() {
   const { hovered, setHovered, isTouch, pendingFocusId, requestFocus } = useLink();
   const { show, hide } = useTooltip();
   const { timeRange, units } = useTweaks();
+  const { isExcluded } = useExclusions();
   const runs = useFilteredRuns();
 
   const { weeks } = useMemo(() => {
@@ -124,6 +125,7 @@ export default function RunAtlas() {
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 520 }}>
             Every run in the window. Size = distance, fill = workout type, ring = personal record.
             Hover a run to light up its twins.
+            {runs.some((r) => isExcluded(r.id)) && ' Hollow dots are runs you excluded from stats.'}
           </div>
         </div>
         <Legend typeMeta={typeMeta} show={show} hide={hide} />
@@ -162,6 +164,9 @@ export default function RunAtlas() {
                 const isMatch = run && matchSet && matchSet.has(run.id);
                 const isSelf = run && hovered?.runId === run.id;
                 const dimmed = hovered && !isMatch && !isSelf;
+                // Excluded runs stay on the calendar (it's your log) but show
+                // as a hollow dot — filled = counted in stats, hollow = omitted.
+                const excl = run && isExcluded(run.id);
 
                 return (
                   <g key={di}>
@@ -195,7 +200,10 @@ export default function RunAtlas() {
                           cx={CELL / 2}
                           cy={y + CELL / 2}
                           r={sizeFor(run) / 2}
-                          fill={`var(--type-${run.type})`}
+                          fill={excl ? 'var(--bg)' : `var(--type-${run.type})`}
+                          stroke={excl ? `var(--type-${run.type})` : 'none'}
+                          strokeWidth={excl ? 1.2 : 0}
+                          strokeDasharray={excl ? '2 1.5' : undefined}
                           style={{ transition: 'r 140ms' }}
                         />
                         {run.pr && (

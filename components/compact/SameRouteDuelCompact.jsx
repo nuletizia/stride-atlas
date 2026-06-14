@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import {
-  useData, useFilteredRuns,
+  useData, useAnalysisRuns,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
 
@@ -10,7 +10,7 @@ import CompactTile from '../CompactTile';
 // as a big delta number with a mini bar row underneath.
 export default function SameRouteDuelCompact() {
   const data = useData();
-  const runs = useFilteredRuns();
+  const runs = useAnalysisRuns();
 
   const story = useMemo(() => {
     const c = {};
