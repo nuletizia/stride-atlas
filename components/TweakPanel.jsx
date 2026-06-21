@@ -20,7 +20,7 @@ const familyOf = (s) => (s === 'editorial_dark' ? 'editorial' : s);
 const isEditorialDark = (s) => s === 'editorial_dark';
 
 export default function TweakPanel() {
-  const { style, setStyle, units, setUnits, viewMode, setViewMode, stoppedThreshold, setStoppedThreshold } = useTweaks();
+  const { style, setStyle, units, setUnits, tempUnits, setTempUnits, viewMode, setViewMode, stoppedThreshold, setStoppedThreshold } = useTweaks();
   const [open, setOpen] = useState(false);
   const [canCompact, setCanCompact] = useState(true);
 
@@ -178,6 +178,14 @@ export default function TweakPanel() {
             <div className="seg">
               <button className={units === 'km' ? 'on' : ''} onClick={() => setUnits('km')}>KM</button>
               <button className={units === 'mi' ? 'on' : ''} onClick={() => setUnits('mi')}>MI</button>
+            </div>
+          </div>
+
+          <div className="tweaks-row">
+            <label>Temperature</label>
+            <div className="seg">
+              <button className={tempUnits === 'c' ? 'on' : ''} onClick={() => setTempUnits('c')}>°C</button>
+              <button className={tempUnits === 'f' ? 'on' : ''} onClick={() => setTempUnits('f')}>°F</button>
             </div>
           </div>
 

@@ -43,7 +43,7 @@ Personal Records that depend on rolling splits (`bestSplits`) are **gated** in s
 
 ```
 { id, date, dow, type, routeId, routeName,
-  distance, pace, duration, hr, maxHr, elev,
+  distance, pace, duration, hr, maxHr, elev, temp,
   zones, bestSplits, pr, routePR, note,
   isRace, isLong, isRecovery, sufferScore }
 ```
@@ -62,7 +62,7 @@ HrMaxProvider → DataProvider → TweakProvider → TooltipProvider → LinkPro
 
 - **HrMaxProvider** — base HR max from data + user override (localStorage `stride.hrMaxOverride`, 140–230 guardrail). `useHrMax()` returns `{ baseHrMax, override, effective, setOverride }`. `effective` is what the rest of the app reads.
 - **DataProvider** — takes raw `data`, re-runs `inferType` per run with the current `effective` HR max. Exposes `useData()`.
-- **TweakProvider** — style / timeRange / metric / units / customRange, persisted as a single JSON blob in localStorage `stride-atlas-tweaks-v1`. `useTweaks()`. Applies theme via `applyTheme(style)` which writes CSS vars to `<html>`.
+- **TweakProvider** — style / timeRange / metric / units / tempUnits / customRange, persisted as a single JSON blob in localStorage `stride-atlas-tweaks-v1`. `useTweaks()`. Applies theme via `applyTheme(style)` which writes CSS vars to `<html>`. `units` is `km`/`mi` (distance/pace/elev); `tempUnits` is `c`/`f` (temperature only, independent toggle).
 - **TooltipProvider** — one global floating tooltip. Panels call `show(content, x, y)` / `hide()`.
 - **LinkProvider** — cross-panel linking (see below). `useLink()`.
 

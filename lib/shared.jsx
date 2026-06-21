@@ -94,6 +94,18 @@ export function elevToDisplay(m, units) {
   if (m == null) return null;
   return units === 'mi' ? m * FT_PER_M : m;
 }
+// Temperature stays in Celsius in the data layer (Strava's native unit);
+// convert at display time. `tempUnits` is 'c' | 'f', separate from distance
+// units so a user can mix km + °F if they like.
+export function tempToDisplay(c, tempUnits) {
+  if (c == null) return null;
+  return tempUnits === 'f' ? c * 9 / 5 + 32 : c;
+}
+export function tempUnit(tempUnits) { return tempUnits === 'f' ? '°F' : '°C'; }
+export function fmtTemp(c, tempUnits) {
+  if (c == null || !isFinite(c)) return '—';
+  return `${Math.round(tempToDisplay(c, tempUnits))}`;
+}
 export function distUnit(units) { return units === 'mi' ? 'mi' : 'km'; }
 export function paceUnit(units) { return units === 'mi' ? '/mi' : '/km'; }
 export function paceUnitLong(units) { return units === 'mi' ? 'min/mi' : 'min/km'; }
@@ -334,6 +346,7 @@ export function TweakProvider({ children }) {
   const [timeRange, setTimeRange] = useState('all');
   const [metric, setMetric] = useState('pace');
   const [units, setUnits] = useState('km');
+  const [tempUnits, setTempUnits] = useState('c');
   // customRange: { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' } | null. Only used
   // when timeRange === 'custom'. Null = consumer falls back to [first, last]
   // activity dates from the data.
@@ -358,6 +371,7 @@ export function TweakProvider({ children }) {
       if (s.timeRange) setTimeRange(s.timeRange);
       if (s.metric) setMetric(s.metric);
       if (s.units === 'mi' || s.units === 'km') setUnits(s.units);
+      if (s.tempUnits === 'c' || s.tempUnits === 'f') setTempUnits(s.tempUnits);
       if (s.customRange && typeof s.customRange === 'object' && s.customRange.from && s.customRange.to) {
         setCustomRange({ from: s.customRange.from, to: s.customRange.to });
       }
@@ -383,6 +397,10 @@ export function TweakProvider({ children }) {
     const u = v === 'mi' ? 'mi' : 'km';
     setUnits(u); persist({ units: u });
   };
+  const setTempUnitsP = (v) => {
+    const u = v === 'f' ? 'f' : 'c';
+    setTempUnits(u); persist({ tempUnits: u });
+  };
   const setCustomRangeP = (v) => { setCustomRange(v); persist({ customRange: v }); };
   const setViewModeP = (v) => {
     const m = v === 'compact' ? 'compact' : 'full';
@@ -397,10 +415,10 @@ export function TweakProvider({ children }) {
 
   return (
     <TweakContext.Provider value={{
-      style, theme: style, timeRange, metric, units, customRange, viewMode, stoppedThreshold,
+      style, theme: style, timeRange, metric, units, tempUnits, customRange, viewMode, stoppedThreshold,
       open, setOpen,
       setStyle: setStyleP, setTheme: setStyleP,
-      setTimeRange: setRangeP, setMetric: setMetricP, setUnits: setUnitsP,
+      setTimeRange: setRangeP, setMetric: setMetricP, setUnits: setUnitsP, setTempUnits: setTempUnitsP,
       setCustomRange: setCustomRangeP,
       setViewMode: setViewModeP,
       setStoppedThreshold: setStoppedThresholdP,

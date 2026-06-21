@@ -190,6 +190,12 @@ body { min-height: 100vh; }
   padding: 16px;
   z-index: 1000;
   font-size: 12.5px;
+  /* Panel is bottom-anchored (inline bottom:72px); on short screens its
+     content grows past the top of the viewport. Cap the height and scroll
+     so every control stays reachable. */
+  max-height: calc(100vh - 88px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .tweaks-head {
   display: flex; justify-content: space-between; align-items: center;

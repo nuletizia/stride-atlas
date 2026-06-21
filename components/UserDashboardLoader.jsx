@@ -31,6 +31,24 @@ function Shell({ children }) {
   );
 }
 
+// Animated ellipsis so the loading screen visibly "breathes" — a static
+// "…" reads as frozen, which made people hit Disconnect a few seconds in.
+// We cycle 1→2→3 dots and pad the rest with hidden dots so the title never
+// shifts width as it animates.
+function LoadingDots() {
+  const [n, setN] = useState(1);
+  useEffect(() => {
+    const id = setInterval(() => setN((v) => (v % 3) + 1), 400);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span aria-hidden="true">
+      {'.'.repeat(n)}
+      <span style={{ visibility: 'hidden' }}>{'.'.repeat(3 - n)}</span>
+    </span>
+  );
+}
+
 function Notice({ title, body, showDemo = false }) {
   return (
     <Shell>
@@ -101,8 +119,8 @@ export default function UserDashboardLoader({ athleteName = null }) {
   if (state === STATES.LOADING) {
     return (
       <Notice
-        title="Loading your runs from Strava…"
-        body="One moment while we pull your latest activities."
+        title={<>Loading your runs from Strava<LoadingDots /></>}
+        body="This can take a few seconds while we pull your latest activities. Hang tight."
       />
     );
   }

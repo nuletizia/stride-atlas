@@ -13,6 +13,7 @@
       "stoppedRatio": 0.064,
       "hr": 130,
       "elev": 4,
+      "temp": 16,
       "zones": [
         47.4,
         14.1,
@@ -44,6 +45,7 @@
       "stoppedRatio": 0.03,
       "hr": 155,
       "elev": 4,
+      "temp": 13,
       "zones": [
         14.1,
         12.5,
@@ -75,6 +77,7 @@
       "stoppedRatio": 0.005,
       "hr": 143,
       "elev": 8,
+      "temp": 7,
       "zones": [
         17.9,
         11.1,
@@ -106,6 +109,7 @@
       "stoppedRatio": 0.094,
       "hr": 136,
       "elev": 31,
+      "temp": 7,
       "zones": [
         18.4,
         48.6,
@@ -137,6 +141,7 @@
       "stoppedRatio": 0.017,
       "hr": 164,
       "elev": 2,
+      "temp": 13,
       "zones": [
         0.5,
         2.8,
@@ -168,6 +173,7 @@
       "stoppedRatio": 0.03,
       "hr": 146,
       "elev": 0,
+      "temp": 14,
       "zones": [
         5.8,
         30.6,
@@ -199,6 +205,7 @@
       "stoppedRatio": 0.014,
       "hr": 172,
       "elev": 8,
+      "temp": 19,
       "zones": [
         1.6,
         8,
@@ -230,6 +237,7 @@
       "stoppedRatio": 0.011,
       "hr": 157,
       "elev": 4,
+      "temp": 7,
       "zones": [
         0.7,
         15.9,
@@ -261,6 +269,7 @@
       "stoppedRatio": 0.003,
       "hr": 170,
       "elev": 3,
+      "temp": 17,
       "zones": [
         0,
         4.4,
@@ -292,6 +301,7 @@
       "stoppedRatio": 0.002,
       "hr": 144,
       "elev": 2,
+      "temp": 17,
       "zones": [
         3.9,
         34.8,
@@ -323,6 +333,7 @@
       "stoppedRatio": 0.003,
       "hr": 156,
       "elev": 108,
+      "temp": 14,
       "zones": [
         0.3,
         6,
@@ -354,6 +365,7 @@
       "stoppedRatio": 0.035,
       "hr": 167,
       "elev": 6,
+      "temp": 12,
       "zones": [
         0.9,
         5,
@@ -385,6 +397,7 @@
       "stoppedRatio": 0.003,
       "hr": 166,
       "elev": 14,
+      "temp": 18,
       "zones": [
         0.3,
         2.1,
@@ -416,6 +429,7 @@
       "stoppedRatio": 0.082,
       "hr": 150,
       "elev": 238,
+      "temp": 16,
       "zones": [
         0.4,
         18.3,
@@ -447,6 +461,7 @@
       "stoppedRatio": 0,
       "hr": 169,
       "elev": 44,
+      "temp": 24,
       "zones": [
         0.4,
         2.2,
@@ -478,6 +493,7 @@
       "stoppedRatio": 0.009,
       "hr": 164,
       "elev": 0,
+      "temp": 17,
       "zones": [
         0,
         0,
@@ -509,6 +525,7 @@
       "stoppedRatio": 0.017,
       "hr": 163,
       "elev": 5,
+      "temp": 17,
       "zones": [
         0,
         7.1,
@@ -540,6 +557,7 @@
       "stoppedRatio": 0.045,
       "hr": 150,
       "elev": 2,
+      "temp": 14,
       "zones": [
         0,
         23.5,
@@ -571,6 +589,7 @@
       "stoppedRatio": 0,
       "hr": null,
       "elev": 2,
+      "temp": null,
       "zones": null,
       "bestSplits": {
         "1": 5.02,
@@ -596,6 +615,7 @@
       "stoppedRatio": 0.02,
       "hr": null,
       "elev": 3,
+      "temp": null,
       "zones": null,
       "bestSplits": {
         "1": 5.951,
@@ -621,6 +641,7 @@
       "stoppedRatio": 0,
       "hr": null,
       "elev": 41,
+      "temp": null,
       "zones": null,
       "bestSplits": {
         "1": 5.122,
@@ -646,6 +667,7 @@
       "stoppedRatio": 0.046,
       "hr": null,
       "elev": 2,
+      "temp": null,
       "zones": null,
       "bestSplits": {
         "1": 5.23,
@@ -671,6 +693,7 @@
       "stoppedRatio": 0.015,
       "hr": null,
       "elev": 2,
+      "temp": null,
       "zones": null,
       "bestSplits": {
         "1": 4.836,
@@ -696,6 +719,7 @@
       "stoppedRatio": 0.025,
       "hr": null,
       "elev": 0,
+      "temp": null,
       "zones": null,
       "bestSplits": {
         "1": 4.669,
@@ -721,6 +745,7 @@
       "stoppedRatio": 0.011,
       "hr": null,
       "elev": 12,
+      "temp": null,
       "zones": null,
       "bestSplits": {
         "1": null,
@@ -746,6 +771,7 @@
       "stoppedRatio": 0.006,
       "hr": null,
       "elev": 10,
+      "temp": null,
       "zones": null,
       "bestSplits": {
         "1": null,
@@ -771,6 +797,7 @@
       "stoppedRatio": 0.006,
       "hr": null,
       "elev": 14,
+      "temp": null,
       "zones": null,
       "bestSplits": {
         "1": null,
@@ -796,6 +823,7 @@
       "stoppedRatio": 0.001,
       "hr": null,
       "elev": 0,
+      "temp": null,
       "zones": null,
       "bestSplits": {
         "1": null,
@@ -821,6 +849,7 @@
       "stoppedRatio": 0.025,
       "hr": 150,
       "elev": 5,
+      "temp": 26,
       "zones": [
         1.3,
         16.2,
@@ -852,6 +881,7 @@
       "stoppedRatio": 0.044,
       "hr": 164,
       "elev": 0,
+      "temp": 22,
       "zones": [
         0.7,
         6.2,
@@ -883,6 +913,7 @@
       "stoppedRatio": 0.016,
       "hr": 161,
       "elev": 14,
+      "temp": 19,
       "zones": [
         0.3,
         5.2,
@@ -914,6 +945,7 @@
       "stoppedRatio": 0.002,
       "hr": 163,
       "elev": 6,
+      "temp": 22,
       "zones": [
         1,
         7.5,
@@ -945,6 +977,7 @@
       "stoppedRatio": 0.14,
       "hr": 166,
       "elev": 56,
+      "temp": 25,
       "zones": [
         0.4,
         5,
@@ -976,6 +1009,7 @@
       "stoppedRatio": 0.015,
       "hr": 168,
       "elev": 0,
+      "temp": 18,
       "zones": [
         0,
         5.8,
@@ -1007,6 +1041,7 @@
       "stoppedRatio": 0,
       "hr": 139,
       "elev": 0,
+      "temp": null,
       "zones": [
         0,
         63.5,
@@ -1038,6 +1073,7 @@
       "stoppedRatio": 0.015,
       "hr": 163,
       "elev": 5,
+      "temp": 24,
       "zones": [
         0.5,
         1.6,
@@ -1069,6 +1105,7 @@
       "stoppedRatio": 0.029,
       "hr": 161,
       "elev": 0,
+      "temp": 22,
       "zones": [
         1.7,
         18.5,
@@ -1100,6 +1137,7 @@
       "stoppedRatio": 0.025,
       "hr": 142,
       "elev": 5,
+      "temp": 22,
       "zones": [
         12.4,
         20.5,
@@ -1131,6 +1169,7 @@
       "stoppedRatio": 0.034,
       "hr": 151,
       "elev": 0,
+      "temp": null,
       "zones": [
         2.4,
         24,
@@ -1162,6 +1201,7 @@
       "stoppedRatio": 0,
       "hr": 181,
       "elev": 6,
+      "temp": null,
       "zones": [
         0,
         0.5,
@@ -1193,6 +1233,7 @@
       "stoppedRatio": 0.01,
       "hr": 143,
       "elev": 4,
+      "temp": null,
       "zones": [
         3.2,
         30.4,
@@ -1224,6 +1265,7 @@
       "stoppedRatio": 0.058,
       "hr": 130,
       "elev": 305,
+      "temp": null,
       "zones": [
         44.4,
         27.5,
@@ -1255,6 +1297,7 @@
       "stoppedRatio": 0.001,
       "hr": 171,
       "elev": 7,
+      "temp": null,
       "zones": [
         2.8,
         1.4,
@@ -1286,6 +1329,7 @@
       "stoppedRatio": 0.004,
       "hr": 162,
       "elev": 8,
+      "temp": null,
       "zones": [
         1.8,
         9.6,
@@ -1317,6 +1361,7 @@
       "stoppedRatio": 0.028,
       "hr": 165,
       "elev": 3,
+      "temp": null,
       "zones": [
         1,
         1.2,
@@ -1348,6 +1393,7 @@
       "stoppedRatio": 0.001,
       "hr": 172,
       "elev": 15,
+      "temp": null,
       "zones": [
         0.8,
         0.9,
@@ -1379,6 +1425,7 @@
       "stoppedRatio": 0.01,
       "hr": 167,
       "elev": 13,
+      "temp": null,
       "zones": [
         1.9,
         6.8,
@@ -1410,6 +1457,7 @@
       "stoppedRatio": 0.002,
       "hr": 136,
       "elev": 47,
+      "temp": null,
       "zones": [
         16.4,
         63.4,
@@ -1441,6 +1489,7 @@
       "stoppedRatio": 0.037,
       "hr": 160,
       "elev": 10,
+      "temp": null,
       "zones": [
         1.2,
         20.4,
@@ -1472,6 +1521,7 @@
       "stoppedRatio": 0.016,
       "hr": 177,
       "elev": 24,
+      "temp": null,
       "zones": [
         0.5,
         0.8,
@@ -1503,6 +1553,7 @@
       "stoppedRatio": 0.015,
       "hr": 159,
       "elev": 1,
+      "temp": null,
       "zones": [
         0.8,
         5.1,
@@ -1534,6 +1585,7 @@
       "stoppedRatio": 0.082,
       "hr": 144,
       "elev": 20,
+      "temp": null,
       "zones": [
         5,
         47.1,
@@ -1565,6 +1617,7 @@
       "stoppedRatio": 0.053,
       "hr": 163,
       "elev": 22,
+      "temp": null,
       "zones": [
         1.4,
         5.2,
@@ -1596,6 +1649,7 @@
       "stoppedRatio": 0,
       "hr": 185,
       "elev": 5,
+      "temp": null,
       "zones": [
         0,
         1.2,
@@ -1627,6 +1681,7 @@
       "stoppedRatio": 0.027,
       "hr": 144,
       "elev": 5,
+      "temp": null,
       "zones": [
         2.1,
         28.2,
@@ -1658,6 +1713,7 @@
       "stoppedRatio": 0,
       "hr": 164,
       "elev": 11,
+      "temp": null,
       "zones": [
         2.2,
         2.2,
@@ -1689,6 +1745,7 @@
       "stoppedRatio": 0.011,
       "hr": 164,
       "elev": 10,
+      "temp": null,
       "zones": [
         1.3,
         3.2,
@@ -1720,6 +1777,7 @@
       "stoppedRatio": 0,
       "hr": 163,
       "elev": 9,
+      "temp": null,
       "zones": [
         1.8,
         2.6,
@@ -1751,6 +1809,7 @@
       "stoppedRatio": 0,
       "hr": 172,
       "elev": 4,
+      "temp": null,
       "zones": [
         0,
         2.2,
@@ -1782,6 +1841,7 @@
       "stoppedRatio": 0.01,
       "hr": 144,
       "elev": 19,
+      "temp": null,
       "zones": [
         1.4,
         28,
@@ -1813,6 +1873,7 @@
       "stoppedRatio": 0.001,
       "hr": 162,
       "elev": 24,
+      "temp": null,
       "zones": [
         0.9,
         20.9,
@@ -1844,6 +1905,7 @@
       "stoppedRatio": 0.004,
       "hr": 159,
       "elev": 4,
+      "temp": null,
       "zones": [
         2.9,
         16.7,
@@ -1875,6 +1937,7 @@
       "stoppedRatio": 0,
       "hr": 157,
       "elev": 12,
+      "temp": null,
       "zones": [
         1,
         1.1,
@@ -1906,6 +1969,7 @@
       "stoppedRatio": 0.007,
       "hr": 158,
       "elev": 10,
+      "temp": null,
       "zones": [
         1.7,
         10.2,
@@ -1937,6 +2001,7 @@
       "stoppedRatio": 0.042,
       "hr": 150,
       "elev": 9,
+      "temp": null,
       "zones": [
         2.1,
         35.2,
@@ -1968,6 +2033,7 @@
       "stoppedRatio": 0.004,
       "hr": 164,
       "elev": 5,
+      "temp": null,
       "zones": [
         0,
         14.1,
@@ -1999,6 +2065,7 @@
       "stoppedRatio": 0.107,
       "hr": 127,
       "elev": 65,
+      "temp": null,
       "zones": [
         26.7,
         67.7,
@@ -2030,6 +2097,7 @@
       "stoppedRatio": 0.024,
       "hr": 158,
       "elev": 6,
+      "temp": null,
       "zones": [
         0.8,
         7.9,
@@ -2061,6 +2129,7 @@
       "stoppedRatio": 0.001,
       "hr": 165,
       "elev": 25,
+      "temp": null,
       "zones": [
         1.5,
         1,
@@ -2092,6 +2161,7 @@
       "stoppedRatio": 0.021,
       "hr": 159,
       "elev": 6,
+      "temp": null,
       "zones": [
         1.6,
         18,
@@ -2123,6 +2193,7 @@
       "stoppedRatio": 0.005,
       "hr": 142,
       "elev": 26,
+      "temp": null,
       "zones": [
         0.5,
         48.5,
@@ -2154,6 +2225,7 @@
       "stoppedRatio": 0.04,
       "hr": 160,
       "elev": 11,
+      "temp": 2,
       "zones": [
         3.2,
         16.3,
@@ -2185,6 +2257,7 @@
       "stoppedRatio": 0,
       "hr": 165,
       "elev": 18,
+      "temp": 6,
       "zones": [
         0.7,
         1,
@@ -2216,6 +2289,7 @@
       "stoppedRatio": 0,
       "hr": 165,
       "elev": 10,
+      "temp": 7,
       "zones": [
         0.4,
         7.3,
@@ -2247,6 +2321,7 @@
       "stoppedRatio": 0,
       "hr": 130,
       "elev": 13,
+      "temp": 9,
       "zones": [
         2.4,
         95.5,
@@ -2278,6 +2353,7 @@
       "stoppedRatio": 0.002,
       "hr": 160,
       "elev": 19,
+      "temp": 3,
       "zones": [
         1.6,
         22.9,
@@ -2309,6 +2385,7 @@
       "stoppedRatio": 0.062,
       "hr": 130,
       "elev": 32,
+      "temp": 4,
       "zones": [
         28.6,
         49.4,
@@ -2340,6 +2417,7 @@
       "stoppedRatio": 0.013,
       "hr": 163,
       "elev": 5,
+      "temp": 4,
       "zones": [
         1.2,
         9.8,
@@ -2371,6 +2449,7 @@
       "stoppedRatio": 0.008,
       "hr": 166,
       "elev": 48,
+      "temp": 3,
       "zones": [
         0.8,
         12.7,
@@ -2402,6 +2481,7 @@
       "stoppedRatio": 0.026,
       "hr": 158,
       "elev": 12,
+      "temp": 2,
       "zones": [
         3.5,
         20.7,
@@ -2433,6 +2513,7 @@
       "stoppedRatio": 0.026,
       "hr": 148,
       "elev": 7,
+      "temp": null,
       "zones": [
         1.8,
         15.1,
@@ -2464,6 +2545,7 @@
       "stoppedRatio": 0.001,
       "hr": 165,
       "elev": 29,
+      "temp": 8,
       "zones": [
         1.1,
         3.4,
@@ -2495,6 +2577,7 @@
       "stoppedRatio": 0.024,
       "hr": 146,
       "elev": 7,
+      "temp": 1,
       "zones": [
         13.6,
         47.7,
@@ -2526,6 +2609,7 @@
       "stoppedRatio": 0.031,
       "hr": 147,
       "elev": 8,
+      "temp": -1,
       "zones": [
         2,
         21,
@@ -2557,6 +2641,7 @@
       "stoppedRatio": 0.017,
       "hr": 151,
       "elev": 9,
+      "temp": 4,
       "zones": [
         1.5,
         6.6,
@@ -2588,6 +2673,7 @@
       "stoppedRatio": 0.023,
       "hr": 157,
       "elev": 5,
+      "temp": -1,
       "zones": [
         1.8,
         6.8,
@@ -2619,6 +2705,7 @@
       "stoppedRatio": 0.011,
       "hr": 152,
       "elev": 8,
+      "temp": 4,
       "zones": [
         1.2,
         8.1,
@@ -2650,6 +2737,7 @@
       "stoppedRatio": 0.001,
       "hr": 165,
       "elev": 29,
+      "temp": 6,
       "zones": [
         0.6,
         5.2,
@@ -2681,6 +2769,7 @@
       "stoppedRatio": 0.017,
       "hr": 151,
       "elev": 6,
+      "temp": 3,
       "zones": [
         1.6,
         7,
@@ -2712,6 +2801,7 @@
       "stoppedRatio": 0.05,
       "hr": 155,
       "elev": 13,
+      "temp": 3,
       "zones": [
         2.6,
         25.6,
@@ -2743,6 +2833,7 @@
       "stoppedRatio": 0,
       "hr": 154,
       "elev": 20,
+      "temp": 11,
       "zones": [
         0.9,
         3.3,
@@ -2774,6 +2865,7 @@
       "stoppedRatio": 0.001,
       "hr": 152,
       "elev": 15,
+      "temp": 8,
       "zones": [
         1.6,
         4.1,
@@ -2805,6 +2897,7 @@
       "stoppedRatio": 0.003,
       "hr": 165,
       "elev": 33,
+      "temp": 14,
       "zones": [
         0.8,
         6,
@@ -2836,6 +2929,7 @@
       "stoppedRatio": 0.019,
       "hr": 147,
       "elev": 7,
+      "temp": 5,
       "zones": [
         1.8,
         19.2,
@@ -2867,6 +2961,7 @@
       "stoppedRatio": 0.03,
       "hr": 155,
       "elev": 9,
+      "temp": 7,
       "zones": [
         6.6,
         24.4,
@@ -2898,6 +2993,7 @@
       "stoppedRatio": 0.009,
       "hr": 147,
       "elev": 20,
+      "temp": 11,
       "zones": [
         0.8,
         12.9,
@@ -2929,6 +3025,7 @@
       "stoppedRatio": 0.031,
       "hr": 153,
       "elev": 12,
+      "temp": 8,
       "zones": [
         3,
         34.7,
@@ -2960,6 +3057,7 @@
       "stoppedRatio": 0.038,
       "hr": 146,
       "elev": 6,
+      "temp": 5,
       "zones": [
         2.1,
         15.5,
@@ -2991,6 +3089,7 @@
       "stoppedRatio": 0.007,
       "hr": 156,
       "elev": 34,
+      "temp": 11,
       "zones": [
         0.5,
         4.7,
@@ -3022,6 +3121,7 @@
       "stoppedRatio": 0.03,
       "hr": 160,
       "elev": 11,
+      "temp": 2,
       "zones": [
         1.2,
         7.2,
@@ -3053,6 +3153,7 @@
       "stoppedRatio": 0.008,
       "hr": 142,
       "elev": 21,
+      "temp": 2,
       "zones": [
         2.6,
         49.1,
@@ -3084,6 +3185,7 @@
       "stoppedRatio": 0,
       "hr": 151,
       "elev": 20,
+      "temp": 13,
       "zones": [
         0.7,
         2.8,
@@ -3115,6 +3217,7 @@
       "stoppedRatio": 0,
       "hr": 164,
       "elev": 10,
+      "temp": 6,
       "zones": [
         1,
         9.2,
@@ -3146,6 +3249,7 @@
       "stoppedRatio": 0,
       "hr": 150,
       "elev": 17,
+      "temp": 8,
       "zones": [
         1.4,
         4.2,
@@ -3177,6 +3281,7 @@
       "stoppedRatio": 0.121,
       "hr": 148,
       "elev": 90,
+      "temp": 2,
       "zones": [
         3.3,
         25.3,
@@ -3208,6 +3313,7 @@
       "stoppedRatio": 0,
       "hr": 150,
       "elev": 0,
+      "temp": null,
       "zones": [
         2.4,
         7.3,
@@ -3239,6 +3345,7 @@
       "stoppedRatio": 0.002,
       "hr": 166,
       "elev": 48,
+      "temp": 12,
       "zones": [
         0.4,
         0.4,
@@ -3270,6 +3377,7 @@
       "stoppedRatio": 0.012,
       "hr": 151,
       "elev": 12,
+      "temp": 7,
       "zones": [
         1.1,
         8,
@@ -3301,6 +3409,7 @@
       "stoppedRatio": 0.014,
       "hr": 152,
       "elev": 53,
+      "temp": 8,
       "zones": [
         1.9,
         9.1,
@@ -3332,6 +3441,7 @@
       "stoppedRatio": 0.084,
       "hr": 144,
       "elev": 15,
+      "temp": 11,
       "zones": [
         18.9,
         43.6,
@@ -3363,6 +3473,7 @@
       "stoppedRatio": 0,
       "hr": 159,
       "elev": 33,
+      "temp": 0,
       "zones": [
         1,
         9.2,
@@ -3394,6 +3505,7 @@
       "stoppedRatio": 0,
       "hr": 145,
       "elev": 27,
+      "temp": 3,
       "zones": [
         1.3,
         33.2,
@@ -3425,6 +3537,7 @@
       "stoppedRatio": 0,
       "hr": 153,
       "elev": 110,
+      "temp": 15,
       "zones": [
         0.6,
         3.3,
@@ -3456,6 +3569,7 @@
       "stoppedRatio": 0.023,
       "hr": 149,
       "elev": 9,
+      "temp": 12,
       "zones": [
         2.2,
         11.2,
@@ -3487,6 +3601,7 @@
       "stoppedRatio": 0.001,
       "hr": 166,
       "elev": 36,
+      "temp": 13,
       "zones": [
         0.7,
         1.5,
@@ -3518,6 +3633,7 @@
       "stoppedRatio": 0.023,
       "hr": 160,
       "elev": 13,
+      "temp": 12,
       "zones": [
         0.9,
         9.7,
@@ -3549,6 +3665,7 @@
       "stoppedRatio": 0.004,
       "hr": 161,
       "elev": 39,
+      "temp": 21,
       "zones": [
         0.5,
         3.2,
@@ -3580,6 +3697,7 @@
       "stoppedRatio": 0.044,
       "hr": 153,
       "elev": 17,
+      "temp": 11,
       "zones": [
         1.9,
         9.8,
@@ -3611,6 +3729,7 @@
       "stoppedRatio": 0.024,
       "hr": 163,
       "elev": 29,
+      "temp": 19,
       "zones": [
         0.7,
         7.9,
@@ -3642,6 +3761,7 @@
       "stoppedRatio": 0.03,
       "hr": 153,
       "elev": 10,
+      "temp": 15,
       "zones": [
         2.5,
         26.6,
@@ -3673,6 +3793,7 @@
       "stoppedRatio": 0,
       "hr": 177,
       "elev": 34,
+      "temp": 14,
       "zones": [
         0,
         0,
@@ -3704,6 +3825,7 @@
       "stoppedRatio": 0.001,
       "hr": 153,
       "elev": 9,
+      "temp": 19,
       "zones": [
         1.5,
         4.7,
@@ -3735,6 +3857,7 @@
       "stoppedRatio": 0,
       "hr": 156,
       "elev": 14,
+      "temp": 11,
       "zones": [
         1.8,
         4.6,
@@ -3766,6 +3889,7 @@
       "stoppedRatio": 0.037,
       "hr": 155,
       "elev": 11,
+      "temp": 18,
       "zones": [
         1.4,
         6.7,
@@ -3797,6 +3921,7 @@
       "stoppedRatio": 0.061,
       "hr": 159,
       "elev": 14,
+      "temp": 12,
       "zones": [
         3.5,
         22,
@@ -3828,6 +3953,7 @@
       "stoppedRatio": 0.036,
       "hr": 147,
       "elev": 5,
+      "temp": 17,
       "zones": [
         3.1,
         14.6,
@@ -3859,6 +3985,7 @@
       "stoppedRatio": 0.05,
       "hr": 171,
       "elev": 29,
+      "temp": 26,
       "zones": [
         0.5,
         2.5,
@@ -3890,6 +4017,7 @@
       "stoppedRatio": 0.046,
       "hr": 148,
       "elev": 10,
+      "temp": 22,
       "zones": [
         3,
         12.8,
@@ -3921,6 +4049,7 @@
       "stoppedRatio": 0.162,
       "hr": 138,
       "elev": 12,
+      "temp": 22,
       "zones": [
         19.2,
         32.3,
@@ -3952,6 +4081,7 @@
       "stoppedRatio": 0.054,
       "hr": 164,
       "elev": 19,
+      "temp": 24,
       "zones": [
         1.6,
         2.5,

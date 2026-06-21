@@ -6,6 +6,7 @@ import {
   fmtDate, fmtPace, fmtHr, isInterrupted, pad, mean,
   fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
   MI_PER_KM, distUnit, paceUnit, paceUnitLong,
+  fmtTemp, tempUnit,
   Highlight, HlNum,
 } from '@/lib/shared';
 import { useScatterZoom } from '@/lib/useScatterZoom';
@@ -20,7 +21,7 @@ export default function DistancePaceCurve() {
   const runs = useAnalysisRuns();
   const { hovered, setHovered, isTouch, pendingFocusId, requestFocus, selectedRunId } = useLink();
   const { show, hide } = useTooltip();
-  const { units, stoppedThreshold } = useTweaks();
+  const { units, tempUnits, stoppedThreshold } = useTweaks();
   const typeMeta = data.typeMeta;
   // Distance conversion factor in display units per km.
   const distK = units === 'mi' ? MI_PER_KM : 1;
@@ -216,6 +217,7 @@ export default function DistancePaceCurve() {
         <div className="t-row"><span>Pace</span><span>{fmtPaceUnit(r.pace, units)}{paceUnit(units)}</span></div>
         <div className="t-row"><span>Duration</span><span>{hour ? `${hour}h ${pad(min)}m` : `${min}m`}</span></div>
         <div className="t-row"><span>Avg HR</span><span>{fmtHr(r)}</span></div>
+        {r.temp != null && <div className="t-row"><span>Temp</span><span>{fmtTemp(r.temp, tempUnits)}{tempUnit(tempUnits)}</span></div>}
         {isInterrupted(r, stoppedThreshold) && <div className="t-row"><span>Stopped</span><span>{Math.round(r.stoppedRatio * 100)}%</span></div>}
         {r.pr && <div className="t-pill" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>PR</div>}
       </>

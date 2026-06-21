@@ -6,6 +6,7 @@ import {
   fmtDate, fmtPace, fmtDuration, fmtHr, hasValidHr, isInterrupted,
   fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
   elevToDisplay, distUnit, paceUnit, elevUnit, efOf,
+  fmtTemp, tempUnit,
   Highlight, HlNum, MI_PER_KM,
 } from '@/lib/shared';
 
@@ -13,7 +14,7 @@ export default function RunCards() {
   const data = useData();
   const runs = useFilteredRuns();
   const { hovered, setHovered, focusRequest, setFocusRequest, setUserSelectedRunId, selectedRunId } = useLink();
-  const { units, stoppedThreshold } = useTweaks();
+  const { units, tempUnits, stoppedThreshold } = useTweaks();
   const { isExcluded, toggle: toggleExclusion } = useExclusions();
   const meta = data.typeMeta;
 
@@ -432,6 +433,7 @@ export default function RunCards() {
                   meta={meta}
                   rankBy={effectiveRankBy}
                   units={units}
+                  tempUnits={tempUnits}
                   stoppedThreshold={stoppedThreshold}
                   onHoverIn={() => setHoveredCardId(r.id)}
                   onHoverOut={() => setHoveredCardId(null)}
@@ -466,7 +468,7 @@ export default function RunCards() {
   );
 }
 
-function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinned, flashing, isLatestRing, meta, rankBy, units, stoppedThreshold, onHoverIn, onHoverOut, onClick, onPin, onToggleExclude, onPeerClick }) {
+function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinned, flashing, isLatestRing, meta, rankBy, units, tempUnits, stoppedThreshold, onHoverIn, onHoverOut, onClick, onPin, onToggleExclude, onPeerClick }) {
   const color = `var(--type-${run.type})`;
   const hasPeers = run.peerCount > 0;
   const isHrMode = rankBy === 'hr';
@@ -744,6 +746,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinne
           />
         )}
         {expanded && <CardStat label="Elev" value={run.elev != null ? `${Math.round(elevToDisplay(run.elev, units))}` : '—'} unit={run.elev != null ? elevUnit(units) : ''} />}
+        {expanded && run.temp != null && <CardStat label="Temp" value={fmtTemp(run.temp, tempUnits)} unit={tempUnit(tempUnits)} />}
       </div>
 
       {hasPeers && run.rank != null ? (

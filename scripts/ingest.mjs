@@ -299,6 +299,14 @@ function applyManualOverrides(routes, activities) {
 
 // ---------- main ingest (Strava CSV path) ----------
 
+// Parse a Celsius temperature cell from the Strava CSV. Empty/non-numeric
+// → null so the caller can fall back to the next column.
+function parseTemp(v) {
+  if (v === '' || v == null) return null;
+  const n = Number(v);
+  return isFinite(n) ? Math.round(n) : null;
+}
+
 function ingestStrava() {
   console.log('Strava mode: reading', path.relative(ROOT, STRAVA_CSV));
   const csv = fs.readFileSync(STRAVA_CSV, 'utf8');
@@ -334,6 +342,11 @@ function ingestStrava() {
     const maxHr = isFinite(maxHrRaw) && maxHrRaw >= 40 ? Math.round(maxHrRaw) : null;
     const elevRaw = Number(r['Elevation Gain']);
     const elev = isFinite(elevRaw) && r['Elevation Gain'] !== '' ? Math.round(elevRaw) : null;
+    // Temperature (Celsius) from the full Strava CSV export. Prefer the
+    // device-recorded "Average Temperature"; most phones/watches don't log
+    // it, so fall back to "Weather Temperature" (Strava's weather
+    // enrichment — the air temp for the run). Empty/absent → null.
+    const temp = parseTemp(r['Average Temperature']) ?? parseTemp(r['Weather Temperature']);
     // Strava CSV exposes suffer_score as "Relative Effort".
     const sufferRaw = Number(r['Relative Effort']);
     const sufferScore = isFinite(sufferRaw) && sufferRaw > 0 ? sufferRaw : null;
@@ -391,6 +404,7 @@ function ingestStrava() {
       hr: avgHr,
       maxHr,
       elev,
+      temp,
       zones,
       bestSplits,
       startLat, startLng,
@@ -469,6 +483,9 @@ function ingestLooseFits() {
     const hrRaw = Number(session.avgHeartRate);
     const maxHrRaw = Number(session.maxHeartRate);
     const elevRaw = Number(session.totalAscent);
+    // FIT session may carry avg temperature (Celsius) when the device logged it.
+    const tempRaw = Number(session.avgTemperature);
+    const temp = isFinite(tempRaw) ? Math.round(tempRaw) : null;
     activities.push({
       stravaId: null,
       date: iso,
@@ -490,6 +507,7 @@ function ingestLooseFits() {
       hr: isFinite(hrRaw) && hrRaw >= 40 ? Math.round(hrRaw) : null,
       maxHr: isFinite(maxHrRaw) && maxHrRaw >= 40 ? Math.round(maxHrRaw) : null,
       elev: isFinite(elevRaw) ? Math.round(elevRaw) : null,
+      temp,
       zones: zonesFromStream(stream.samples, HR_MAX),
       bestSplits: bestSplitsFromStream(stream.samples, SPLIT_TARGETS_KM),
       startLat: stream.startLat,
@@ -568,7 +586,7 @@ async function finalize(activities) {
     routeId: a.routeId, routeName: a.routeName,
     distance: a.distance, pace: a.pace, duration: a.duration,
     stoppedRatio: a.stoppedRatio ?? 0,
-    hr: a.hr, elev: a.elev, zones: a.zones,
+    hr: a.hr, elev: a.elev, temp: a.temp ?? null, zones: a.zones,
     bestSplits: a.bestSplits || null,
     pr: a.pr, routePR: a.routePR, note: a.note,
   }));

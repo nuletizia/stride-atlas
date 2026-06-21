@@ -6,6 +6,7 @@ import {
   fmtDate, fmtPace, fmtHr, hasValidHr, isInterrupted, pad, mean,
   fmtDistance, fmtPaceUnit, paceToDisplay,
   MI_PER_KM, distUnit, paceUnit, paceUnitLong,
+  fmtTemp, tempUnit,
   Highlight, HlNum,
 } from '@/lib/shared';
 import { useScatterZoom } from '@/lib/useScatterZoom';
@@ -15,7 +16,7 @@ export default function AerobicEfficiency() {
   const runs = useAnalysisRuns();
   const { hovered, setHovered, isTouch, pendingFocusId, requestFocus, selectedRunId } = useLink();
   const { show, hide } = useTooltip();
-  const { units, stoppedThreshold } = useTweaks();
+  const { units, tempUnits, stoppedThreshold } = useTweaks();
   const typeMeta = data.typeMeta;
   // min/km → min/display-unit (1 for km; 1/MI_PER_KM for miles).
   const paceK = units === 'mi' ? 1 / MI_PER_KM : 1;
@@ -233,6 +234,7 @@ export default function AerobicEfficiency() {
         <div className="t-row"><span>Avg HR</span><span>{fmtHr(r)}</span></div>
         <div className="t-row"><span>Distance</span><span>{fmtDistance(r.distance, units, 2)} {distUnit(units)}</span></div>
         <div className="t-row"><span>Duration</span><span>{hour ? `${hour}h ${pad(min)}m` : `${min}m`}</span></div>
+        {r.temp != null && <div className="t-row"><span>Temp</span><span>{fmtTemp(r.temp, tempUnits)}{tempUnit(tempUnits)}</span></div>}
         {isInterrupted(r, stoppedThreshold) && (
           <div className="t-row"><span>Stopped</span><span>{Math.round(r.stoppedRatio * 100)}%</span></div>
         )}
