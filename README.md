@@ -185,5 +185,6 @@ For an architectural deep-dive, see [`CLAUDE.md`](./CLAUDE.md).
 
 ## Credits
 
-Powered by the [Strava API](https://developers.strava.com). Design originated as a handoff from
-Claude Design; data pipeline and Strava integration built on top.
+Built by [Nunzio Alexandro Letizia](https://letizia.tech). Powered by the
+[Strava API](https://developers.strava.com). Design originated as a handoff from Claude Design;
+data pipeline and Strava integration built on top.
