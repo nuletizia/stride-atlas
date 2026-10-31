@@ -1,12 +1,13 @@
 // GET /api/runs — fetch the logged-in athlete's activities from Strava,
 // transform them into the STRIDE_DATA shape, cache in-memory for 1 h.
 //
-// For the summary-mode MVP we only hit /athlete/activities (one page, 200
-// activities). `bestSplits` + `zones` stay null until streams are added.
+// For the summary-mode MVP we only hit /athlete/activities (every page, all
+// activity types; runs are filtered out below). `bestSplits` + `zones`
+// stay null until streams are added.
 
 import { NextResponse } from 'next/server';
 import { getSession, isLoggedIn } from '@/lib/session';
-import { withFreshToken, fetchActivities, fetchAthlete } from '@/lib/strava';
+import { withFreshToken, fetchAllActivities, fetchAthlete } from '@/lib/strava';
 import { summaryToRun, buildStrideData, estimateHrMax } from '@/lib/ingest-runtime';
 
 export const runtime = 'nodejs';
@@ -43,10 +44,10 @@ export async function GET(request) {
     // Persist refreshed tokens if withFreshToken rotated them.
     await session.save();
 
-    // Fetch athlete (profile) + activities (first page of 200).
+    // Fetch athlete (profile) + full activity history.
     const [athlete, activities] = await Promise.all([
       fetchAthlete(accessToken),
-      fetchActivities(accessToken, { page: 1, perPage: 200 }),
+      fetchAllActivities(accessToken),
     ]);
 
     const runActivities = (activities || [])
