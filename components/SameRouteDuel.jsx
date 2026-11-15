@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   useData, useLink, useTooltip, useTweaks, useAnalysisRuns,
   fmtDate, fmtPace, fmtDuration,
-  fmtPaceUnit, paceUnit,
+  fmtPaceUnit, paceUnit, fmtDistance, distUnit, routeLoops, MI_PER_KM,
 } from '@/lib/shared';
 
 export default function SameRouteDuel() {
@@ -15,25 +15,21 @@ export default function SameRouteDuel() {
   const runs = useAnalysisRuns();
   const routes = data.routes;
 
-  const routeCounts = useMemo(() => {
-    const c = {};
-    runs.forEach((r) => { c[r.routeId] = (c[r.routeId] || 0) + 1; });
-    return routes
-      .map((r) => ({ ...r, count: c[r.id] || 0 }))
-      .filter((r) => r.count >= 2)
-      .sort((a, b) => b.count - a.count);
-  }, [runs, routes]);
+  // Comparable attempts only: runs on the same route within 15% of each
+  // other's distance (see routeLoops). Ranked by pace, not total time.
+  const loops = useMemo(() => routeLoops(runs, routes), [runs, routes]);
 
   const [selectedId, setSelectedId] = useState(null);
+  // Fall back to the busiest loop whenever the selection disappears (e.g.
+  // after a time-range change).
   useEffect(() => {
-    if (!selectedId && routeCounts.length) setSelectedId(routeCounts[0].id);
-  }, [routeCounts, selectedId]);
+    if (!loops.length) return;
+    if (!selectedId || !loops.some((l) => l.id === selectedId)) setSelectedId(loops[0].id);
+  }, [loops, selectedId]);
 
-  const route = routes.find((r) => r.id === selectedId);
-  const routeRuns = useMemo(
-    () => runs.filter((r) => r.routeId === selectedId).sort((a, b) => a.date.localeCompare(b.date)),
-    [runs, selectedId]
-  );
+  const loop = loops.find((l) => l.id === selectedId) || loops[0];
+  const route = loop ? { name: loop.name } : null;
+  const routeRuns = loop ? loop.runs : [];
 
   const matchIds = useMemo(() => {
     if (!hovered) return null;
@@ -49,15 +45,25 @@ export default function SameRouteDuel() {
       <div className="panel" style={{ padding: '20px 22px' }}>
         <div className="stat-label" style={{ marginBottom: 6 }}>Same-Route Duel</div>
         <div style={{ fontSize: 13, color: 'var(--inkSoft)', fontStyle: 'italic', fontFamily: 'var(--serif)' }}>
-          Needs at least two runs on the same route to duel. Drop more activities into <code>activities/</code> and re-run <code>npm run ingest</code>.
+          Needs at least two runs of similar length on the same route to duel. Drop more activities into <code>activities/</code> and re-run <code>npm run ingest</code>.
         </div>
       </div>
     );
   }
 
-  const durations = routeRuns.map((r) => r.duration);
-  const best = Math.min(...durations);
-  const worst = Math.max(...durations);
+  const paces = routeRuns.map((r) => r.pace);
+  const best = Math.min(...paces);
+  const worst = Math.max(...paces);
+  // s per display unit from a min/km pace delta.
+  const paceK = units === 'mi' ? 1 / MI_PER_KM : 1;
+  const secPer = (dMinKm) => Math.round(dMinKm * 60 * paceK);
+  const meta = (r) => `${fmtDate(r.date, { year: true })} · ${fmtDistance(r.distance, units, 1)} ${distUnit(units)} · ${fmtDuration(r.duration)}`;
+
+  // Month labels are sampled by bar index; skip one whose month repeats the
+  // previous label so the axis never reads "Jan, Jan".
+  const labelStep = Math.max(1, Math.floor(routeRuns.length / 6));
+  const monthKey = (r) => r.date.slice(0, 7);
+  const monthLabelShown = (i) => i < labelStep || monthKey(routeRuns[i]) !== monthKey(routeRuns[i - labelStep]);
 
   const W = 620;
   const H = 220;
@@ -66,13 +72,13 @@ export default function SameRouteDuel() {
 
   const first = routeRuns[0];
   const latest = routeRuns[routeRuns.length - 1];
-  const bestRun = routeRuns.find((r) => r.duration === best);
+  const bestRun = routeRuns.find((r) => r.pace === best);
   // Compare against the best attempt rather than the most recent one.
   // "Most recent" is a single point that can swing on any bad day; the
-  // route PR is the honest measure of how far you've come. Most recent
-  // stays visible as a smaller progress check.
-  const gapSec = (first.duration - bestRun.duration) * 60;
-  const gapPct = ((first.duration - bestRun.duration) / first.duration) * 100;
+  // loop's best pace is the honest measure of how far you've come. Most
+  // recent stays visible as a smaller progress check.
+  const gapSec = secPer(first.pace - bestRun.pace);
+  const gapPct = ((first.pace - bestRun.pace) / first.pace) * 100;
   const firstIsBest = bestRun.id === first.id;
   const recentIsBest = bestRun.id === latest.id;
 
@@ -82,15 +88,15 @@ export default function SameRouteDuel() {
         <div>
           <div className="stat-label" style={{ marginBottom: 4 }}>Same-Route Duel</div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 420 }}>
-            Your personal grudge match on <b>{route.name}</b>. Each bar is one attempt; taller is faster. The ringed bar is your PR on this route.
+            Your personal grudge match on <b>{route.name}</b>, attempts of about {fmtDistance(loop.km, units, 1)} {distUnit(units)}. Each bar is one attempt; taller is a faster pace. The ringed bar is your best pace on this loop.
           </div>
         </div>
       </div>
 
       <div className="chip-row" style={{ marginBottom: 18 }}>
-        {routeCounts.slice(0, 6).map((r) => (
-          <button key={r.id} className={`chip ${selectedId === r.id ? 'active' : ''}`} onClick={() => setSelectedId(r.id)}>
-            {r.name} · {r.count}
+        {loops.slice(0, 6).map((l) => (
+          <button key={l.id} className={`chip ${loop.id === l.id ? 'active' : ''}`} onClick={() => setSelectedId(l.id)}>
+            {l.name} · {fmtDistance(l.km, units, 1)} {distUnit(units)} · {l.runs.length}
           </button>
         ))}
       </div>
@@ -100,7 +106,7 @@ export default function SameRouteDuel() {
           <svg viewBox={`0 0 ${W} ${H + 40}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
             <line x1={20} x2={W - 20} y1={H} y2={H} stroke="var(--ruleSoft)" />
             {routeRuns.map((r, i) => {
-              const speedScore = (worst - r.duration) / (worst - best || 1);
+              const speedScore = (worst - r.pace) / (worst - best || 1);
               const barH = 30 + speedScore * (H - 50);
               const x = 20 + i * (BAR_W + BAR_GAP);
               const y = H - barH;
@@ -119,10 +125,11 @@ export default function SameRouteDuel() {
                     show(
                       <>
                         <span className="t-title">{fmtDate(r.date, { year: true })}</span>
-                        <div className="t-row"><span>Duration</span><span>{fmtDuration(r.duration)}</span></div>
+                        <div className="t-row"><span>Distance</span><span>{fmtDistance(r.distance, units, 2)} {distUnit(units)}</span></div>
                         <div className="t-row"><span>Pace</span><span>{fmtPaceUnit(r.pace, units)}{paceUnit(units)}</span></div>
-                        <div className="t-row"><span>Δ vs best</span><span>+{((r.duration - best) * 60).toFixed(0)}s</span></div>
-                        {isBest && <div className="t-pill" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>Route best</div>}
+                        <div className="t-row"><span>Duration</span><span>{fmtDuration(r.duration)}</span></div>
+                        <div className="t-row"><span>Δ vs best</span><span>+{secPer(r.pace - best)}s{paceUnit(units)}</span></div>
+                        {isBest && <div className="t-pill" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>Best pace on this loop</div>}
                       </>,
                       e.clientX, e.clientY
                     );
@@ -136,7 +143,7 @@ export default function SameRouteDuel() {
                   <rect x={x} y={y} width={BAR_W} height={barH} fill={`var(--type-${r.type})`} opacity={isBest ? 1 : 0.75} />
                   {isBest && <rect x={x - 1.5} y={y - 1.5} width={BAR_W + 3} height={barH + 3} fill="none" stroke="var(--ink)" strokeWidth={1.2} />}
                   {isHover && <rect x={x - 3} y={y - 3} width={BAR_W + 6} height={barH + 6} fill="none" stroke="var(--ink)" strokeDasharray="2 2" opacity={0.6} />}
-                  {i % Math.max(1, Math.floor(routeRuns.length / 6)) === 0 && (
+                  {i % Math.max(1, Math.floor(routeRuns.length / 6)) === 0 && monthLabelShown(i) && (
                     <text x={x + BAR_W / 2} y={H + 14} textAnchor="middle" style={{ fontFamily: 'var(--mono)', fontSize: 9, fill: 'var(--inkMuted)' }}>
                       {new Date(r.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short' })}
                     </text>
@@ -150,10 +157,8 @@ export default function SameRouteDuel() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="stat">
             <div className="stat-label">First attempt</div>
-            <div className="stat-value" style={{ fontSize: 20 }}>{fmtDuration(first.duration)}</div>
-            <div className="mono muted" style={{ fontSize: 10.5, marginTop: 2 }}>
-              {fmtDate(first.date, { year: true })} · {fmtPaceUnit(first.pace, units)}{paceUnit(units)}
-            </div>
+            <div className="stat-value" style={{ fontSize: 20 }}>{fmtPaceUnit(first.pace, units)}<span className="mono muted" style={{ fontSize: 11 }}>{paceUnit(units)}</span></div>
+            <div className="mono muted" style={{ fontSize: 10.5, marginTop: 2 }}>{meta(first)}</div>
           </div>
           <div
             className="stat"
@@ -163,19 +168,17 @@ export default function SameRouteDuel() {
             }}
           >
             <div className="stat-label" style={{ color: 'var(--accent)' }}>
-              Route best {firstIsBest && '(first attempt)'}
+              Best pace {firstIsBest && '(first attempt)'}
               {recentIsBest && !firstIsBest && '(most recent)'}
             </div>
-            <div className="stat-value" style={{ fontSize: 22 }}>{fmtDuration(bestRun.duration)}</div>
-            <div className="mono muted" style={{ fontSize: 10.5, marginTop: 2 }}>
-              {fmtDate(bestRun.date, { year: true })} · {fmtPaceUnit(bestRun.pace, units)}{paceUnit(units)}
-            </div>
+            <div className="stat-value" style={{ fontSize: 22 }}>{fmtPaceUnit(bestRun.pace, units)}<span className="mono muted" style={{ fontSize: 11 }}>{paceUnit(units)}</span></div>
+            <div className="mono muted" style={{ fontSize: 10.5, marginTop: 2 }}>{meta(bestRun)}</div>
           </div>
           {!recentIsBest && (
             <div className="mono muted" style={{ fontSize: 10.5, lineHeight: 1.5 }}>
               <span style={{ textTransform: 'uppercase', letterSpacing: '.1em', fontSize: 9.5, color: 'var(--inkMuted)' }}>Most recent</span>
               <br />
-              {fmtDate(latest.date, { year: true })} · {fmtDuration(latest.duration)} · {fmtPaceUnit(latest.pace, units)}{paceUnit(units)}
+              {fmtPaceUnit(latest.pace, units)}{paceUnit(units)} · {meta(latest)}
             </div>
           )}
           <div style={{ borderTop: '1px solid var(--ruleSoft)', paddingTop: 12 }}>
@@ -193,7 +196,7 @@ export default function SameRouteDuel() {
               <>
                 <div className="stat-label" style={{ marginBottom: 4 }}>PR beats first by</div>
                 <div style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 34, lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--positive)' }}>
-                  −{gapSec.toFixed(0)}s
+                  −{gapSec}s<span style={{ fontSize: 18 }}>{paceUnit(units)}</span>
                 </div>
                 <div className="mono muted" style={{ fontSize: 11, marginTop: 4 }}>
                   {gapPct.toFixed(1)}% faster · {routeRuns.length} attempts

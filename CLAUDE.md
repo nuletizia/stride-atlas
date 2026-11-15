@@ -96,7 +96,7 @@ If you add a new interactive element that should be "tap to focus a run," follow
 | `AerobicEfficiency` | Pace ÷ HR over time. |
 | `DistancePaceCurve` | Scatter: distance × pace, with per-type fit lines. |
 | `RunCards` | Per-run cohort comparison (same type, similar distance). The destination of every `focusRequest`. |
-| `SameRouteDuel` | First-vs-best attempt on a chosen route. Ringed bar = PR. Needs ≥2 runs on a route. |
+| `SameRouteDuel` | First-vs-best **pace** on a loop: runs on the same route within 15% of each other's distance (`routeLoops` in `lib/shared.jsx`), since a `routeId` alone mixes very different distances. Ringed bar = best pace. Needs ≥2 runs on a loop. |
 | `WeekComparator` | Week-over-week mix + totals. |
 | `SeasonArc` | Year-over-year season comparison. |
 

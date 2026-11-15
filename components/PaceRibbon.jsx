@@ -244,11 +244,15 @@ export default function PaceRibbon() {
     lo -= pad; hi += pad;
     const ts = sets.flatMap((s) => s.arr.map((r) => new Date(r.date + 'T00:00:00').getTime()));
     const t0 = Math.min(...ts), t1 = Math.max(...ts);
-    const fx = (r) => M.l + ((new Date(r.date + 'T00:00:00').getTime() - t0) / ((t1 - t0) || 1)) * PW;
+    // Scales are inset from the frame (IX / IY) so a dot at either end of
+    // the data still sits fully inside the clip, which is the exact frame.
+    const IX = 8, IY = 6;
+    const xAt = (ms) => M.l + IX + ((ms - t0) / ((t1 - t0) || 1)) * (PW - 2 * IX);
+    const fx = (r) => xAt(new Date(r.date + 'T00:00:00').getTime());
     // Improvement reads as up for every metric.
     const fy = (v) => {
       const t = (v - lo) / ((hi - lo) || 1);
-      return M.t + (higherIsBetter ? 1 - t : t) * PH;
+      return M.t + IY + (higherIsBetter ? 1 - t : t) * (PH - 2 * IY);
     };
 
     // Y ticks at clean values in display units, converted back to km units.
@@ -293,7 +297,7 @@ export default function PaceRibbon() {
         <div className="mobile-scroll-fade" style={{ overflowX: 'auto' }}>
           <svg width={FW} height={FH} style={{ display: 'block' }} role="img" aria-label={`${metricLabel} over time for selected workout types`}>
             <defs>
-              <clipPath id="ribbon-focus-clip"><rect x={M.l - 9} y={M.t - 9} width={PW + 18} height={PH + 18} /></clipPath>
+              <clipPath id="ribbon-focus-clip"><rect x={M.l} y={M.t} width={PW} height={PH} /></clipPath>
             </defs>
             {yTicks.map((d) => (
               <g key={`y-${d}`}>
@@ -302,7 +306,7 @@ export default function PaceRibbon() {
               </g>
             ))}
             {xTicks.map((d) => {
-              const x = M.l + ((d.getTime() - t0) / ((t1 - t0) || 1)) * PW;
+              const x = xAt(d.getTime());
               return (
                 <g key={`x-${d.getTime()}`}>
                   <line x1={x} x2={x} y1={M.t} y2={M.t + PH} stroke="var(--ruleSoft)" strokeDasharray="2 3" />

@@ -2,38 +2,33 @@
 
 import { useMemo } from 'react';
 import {
-  useData, useAnalysisRuns,
+  useData, useAnalysisRuns, useTweaks, routeLoops, paceUnit, MI_PER_KM,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
 
-// Simplified Same-Route Duel: pick the most-run route, show first-vs-best
-// as a big delta number with a mini bar row underneath.
+// Simplified Same-Route Duel: pick the most-run loop (same route, similar
+// distance; see routeLoops), show first-vs-best pace as a big delta number
+// with a mini bar row underneath.
 export default function SameRouteDuelCompact() {
   const data = useData();
   const runs = useAnalysisRuns();
+  const { units } = useTweaks();
 
   const story = useMemo(() => {
-    const c = {};
-    runs.forEach((r) => { c[r.routeId] = (c[r.routeId] || 0) + 1; });
-    const rankedId = Object.entries(c)
-      .filter(([, n]) => n >= 2)
-      .sort((a, b) => b[1] - a[1])[0]?.[0];
-    if (!rankedId) return null;
-    const routeRuns = runs
-      .filter((r) => r.routeId === rankedId)
-      .sort((a, b) => a.date.localeCompare(b.date));
+    const loop = routeLoops(runs, data.routes)[0];
+    if (!loop) return null;
+    const routeRuns = loop.runs;
     const first = routeRuns[0];
-    const bestRun = routeRuns.reduce((a, r) => (r.duration < a.duration ? r : a), routeRuns[0]);
-    const gapSec = (first.duration - bestRun.duration) * 60;
-    const durations = routeRuns.map((r) => r.duration);
-    const best = Math.min(...durations);
-    const worst = Math.max(...durations);
+    const bestRun = routeRuns.reduce((a, r) => (r.pace < a.pace ? r : a), routeRuns[0]);
+    const paces = routeRuns.map((r) => r.pace);
     return {
-      routeRuns, first, bestRun, gapSec,
-      best, worst,
+      routeRuns, first, bestRun,
+      gapMinKm: first.pace - bestRun.pace,
+      best: Math.min(...paces),
+      worst: Math.max(...paces),
       firstIsBest: bestRun.id === first.id,
     };
-  }, [runs]);
+  }, [runs, data.routes]);
 
   if (!story) {
     return (
@@ -43,7 +38,8 @@ export default function SameRouteDuelCompact() {
     );
   }
 
-  const { routeRuns, gapSec, best, worst, firstIsBest, bestRun } = story;
+  const { routeRuns, gapMinKm, best, worst, firstIsBest, bestRun } = story;
+  const gapSec = Math.round(gapMinKm * 60 * (units === 'mi' ? 1 / MI_PER_KM : 1));
   const W = 320;
   const H = 90;
   const BAR_GAP = 2;
@@ -51,7 +47,7 @@ export default function SameRouteDuelCompact() {
 
   const headline = firstIsBest
     ? `First attempt still holds the record.`
-    : `${routeRuns.length} attempts on your most-run route.`;
+    : `${routeRuns.length} attempts on your most-run loop.`;
 
   return (
     <CompactTile label="Same-Route Duel" headline={headline}>
@@ -64,7 +60,8 @@ export default function SameRouteDuelCompact() {
               color: firstIsBest ? 'var(--inkSoft)' : 'var(--positive)',
             }}
           >
-            {firstIsBest ? '±0s' : `−${gapSec.toFixed(0)}s`}
+            {firstIsBest ? '±0s' : `−${gapSec}s`}
+            {!firstIsBest && <span style={{ fontSize: 16 }}>{paceUnit(units)}</span>}
           </span>
           <span className="mono muted" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.08em' }}>
             first → best
@@ -74,7 +71,7 @@ export default function SameRouteDuelCompact() {
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }} preserveAspectRatio="none">
           <line x1={4} x2={W - 4} y1={H - 1} y2={H - 1} stroke="var(--ruleSoft)" />
           {routeRuns.map((r, i) => {
-            const speedScore = (worst - r.duration) / (worst - best || 1);
+            const speedScore = (worst - r.pace) / (worst - best || 1);
             const barH = 8 + speedScore * (H - 12);
             const x = 4 + i * (BAR_W + BAR_GAP);
             const y = H - barH;
