@@ -2,61 +2,42 @@
 
 import { useMemo } from 'react';
 import {
-  useAnalysisRuns, hasValidHr, useTweaks, mean,
+  useComparisonWindow, pickComparison, hasValidHr, useTweaks, mean,
   fmtPace, paceToDisplay, paceUnitLong,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
-import { zoomAround } from './zoomBounds';
+import { coreRegion, robustBounds } from '@/lib/coreRegion';
 
-// Simplified Aerobic Efficiency: at compact size we strip the scatter and
-// keep only the structural signal — four labeled quadrants split at the
-// early centroid, plus a single accent arrow whose tip lands in the
-// quadrant that names your change vs. baseline (top-left = improving).
+// Simplified Aerobic Efficiency: at compact size we drop the dots and keep
+// only the two core regions (earlier set dashed, recent set accent) and an
+// arrow between their means. Earlier = previous same-length window, or the
+// first half of the selected window when there is no usable previous one.
 export default function AerobicEfficiencyCompact() {
-  const runs = useAnalysisRuns();
+  const { current: runs, prior: priorRuns, rangeName } = useComparisonWindow();
   const { units } = useTweaks();
 
   const computed = useMemo(() => {
-    const inView = runs.filter((r) => r.type !== 'recovery' && hasValidHr(r));
+    const keep = (r) => r.type !== 'recovery' && hasValidHr(r);
+    const inView = runs.filter(keep);
     if (inView.length < 4) return null;
+    const cmp = pickComparison(inView, priorRuns.filter(keep));
 
-    let paceMin = Infinity, paceMax = -Infinity, hrMin = Infinity, hrMax = -Infinity;
-    inView.forEach((r) => {
-      if (r.pace < paceMin) paceMin = r.pace;
-      if (r.pace > paceMax) paceMax = r.pace;
-      if (r.hr < hrMin) hrMin = r.hr;
-      if (r.hr > hrMax) hrMax = r.hr;
-    });
-    const paceP = (paceMax - paceMin) * 0.08 || 0.3;
-    const hrP = (hrMax - hrMin) * 0.1 || 5;
-    paceMin -= paceP; paceMax += paceP;
-    hrMin -= hrP; hrMax += hrP;
+    const bounds = robustBounds(cmp.plotted.map((r) => r.hr), cmp.plotted.map((r) => r.pace));
+    if (!cmp.enough) return { trend: null, bounds };
 
-    const sorted = [...inView].sort((a, b) => a.date.localeCompare(b.date));
-    const mid = Math.floor(sorted.length / 2);
-    const early = sorted.slice(0, mid);
-    const late = sorted.slice(mid);
-    if (early.length < 2 || late.length < 2) {
-      return { points: sorted, trend: null, bounds: { paceMin, paceMax, hrMin, hrMax } };
-    }
-    const earlyHr = mean(early.map((r) => r.hr));
-    const lateHr = mean(late.map((r) => r.hr));
-    const earlyPace = mean(early.map((r) => r.pace));
-    const latePace = mean(late.map((r) => r.pace));
-
-    // Date-range labels for the legend so "early / recent" lands as
-    // "Jan '25 → Mar '25 / Apr '25 → Jun '25" instead of being abstract.
-    const fmtRange = (iso) =>
-      new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-    const earlyRange = `${fmtRange(early[0].date)} → ${fmtRange(early[early.length - 1].date)}`;
-    const lateRange  = `${fmtRange(late[0].date)} → ${fmtRange(late[late.length - 1].date)}`;
-
+    const earlyHr = mean(cmp.earlier.map((r) => r.hr));
+    const lateHr = mean(cmp.recent.map((r) => r.hr));
+    const earlyPace = mean(cmp.earlier.map((r) => r.pace));
+    const latePace = mean(cmp.recent.map((r) => r.pace));
     return {
-      points: sorted,
-      trend: { earlyHr, lateHr, earlyPace, latePace, delta: lateHr - earlyHr, earlyRange, lateRange },
-      bounds: { paceMin, paceMax, hrMin, hrMax },
+      trend: {
+        early: cmp.earlier, late: cmp.recent, mode: cmp.mode,
+        earlyHr, lateHr, earlyPace, latePace, delta: lateHr - earlyHr,
+        earlyRange: cmp.earlyLabel, lateRange: cmp.lateLabel,
+      },
+      bounds,
     };
-  }, [runs]);
+  }, [runs, priorRuns]);
 
   if (!computed) {
     return (
@@ -66,34 +47,26 @@ export default function AerobicEfficiencyCompact() {
     );
   }
 
-  const { trend, bounds: fullBounds } = computed;
+  const { trend, bounds } = computed;
   const W = 320;
   const H = 160;
   // Asymmetric margins make room for the rotated y-axis label + values on
   // the left, and x-axis values + a one-row date-range legend along the
-  // bottom (no dot swatches now that the scatter is gone).
+  // bottom.
   const M = { l: 36, r: 6, t: 8, b: 38 };
   const plotW = W - M.l - M.r;
   const plotH = H - M.t - M.b;
 
-  // Zoom the plot around the two centroids so the arrow stays a consistent
-  // ~1/3 of the frame regardless of how big the actual change is. Multiplier
-  // 3 gives roughly that ratio; the min floors only kick in when the span
-  // itself is near-zero (centroids essentially on top of each other).
-  const bounds = trend
-    ? zoomAround({
-        cx: (trend.earlyHr + trend.lateHr) / 2,
-        cy: (trend.earlyPace + trend.latePace) / 2,
-        spanX: Math.abs(trend.lateHr - trend.earlyHr),
-        spanY: Math.abs(trend.latePace - trend.earlyPace),
-        minSpanX: 8, minSpanY: 0.2,
-        mult: 3,
-        outer: { xMin: fullBounds.hrMin, xMax: fullBounds.hrMax, yMin: fullBounds.paceMin, yMax: fullBounds.paceMax },
-      })
-    : { xMin: fullBounds.hrMin, xMax: fullBounds.hrMax, yMin: fullBounds.paceMin, yMax: fullBounds.paceMax };
-
   const xFor = (hr) => M.l + ((hr - bounds.xMin) / (bounds.xMax - bounds.xMin || 1)) * plotW;
   const yFor = (p) => M.t + ((p - bounds.yMin) / (bounds.yMax - bounds.yMin || 1)) * plotH;
+
+  // Core regions in screen coordinates, centered on each set's mean.
+  const regions = trend ? {
+    early: coreRegion(trend.early.map((r) => ({ x: xFor(r.hr), y: yFor(r.pace) })), xFor(trend.earlyHr), yFor(trend.earlyPace)),
+    late: coreRegion(trend.late.map((r) => ({ x: xFor(r.hr), y: yFor(r.pace) })), xFor(trend.lateHr), yFor(trend.latePace)),
+  } : null;
+  const earlyName = trend && trend.mode === 'prior' ? `previous ${rangeName}` : 'earlier half';
+  const lateName = trend && trend.mode === 'prior' ? `last ${rangeName}` : 'recent half';
 
   const headline = trend && trend.delta < -0.5
     ? `HR down ${Math.abs(trend.delta).toFixed(1)} bpm at similar pace.`
@@ -103,8 +76,7 @@ export default function AerobicEfficiencyCompact() {
         ? `HR holding steady. Keep pushing.`
         : `Early-vs-recent story building.`;
 
-  // Axis extents — always from the visible (zoomed) bounds, not the full-data
-  // bounds, so the labels describe what's actually on screen.
+  // Axis extents from the plotted bounds.
   const xMinLabel = Math.round(bounds.xMin);
   const xMaxLabel = Math.round(bounds.xMax);
   const yTopLabel = fmtPace(paceToDisplay(bounds.yMin, units));
@@ -172,7 +144,7 @@ export default function AerobicEfficiencyCompact() {
           <g transform={`translate(0, ${legendY})`}>
             <text x={M.l} y={0} textAnchor="start"
               style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-              baseline
+              {earlyName}
             </text>
             <text x={M.l} y={11} textAnchor="start"
               style={{ fontFamily: 'var(--mono)', fontSize: 8, fill: TICK, opacity: 0.85 }}>
@@ -180,7 +152,7 @@ export default function AerobicEfficiencyCompact() {
             </text>
             <text x={M.l + plotW} y={0} textAnchor="end"
               style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-              recent
+              {lateName}
             </text>
             <text x={M.l + plotW} y={11} textAnchor="end"
               style={{ fontFamily: 'var(--mono)', fontSize: 8, fill: TICK, opacity: 0.85 }}>
@@ -202,22 +174,6 @@ export default function AerobicEfficiencyCompact() {
                 markerEnd="url(#aec-imp)"
                 opacity={0.45}
               />
-              {/* Quadrant dividers at the early centroid. The cross IS the
-                  arrow's tail anchor — the quadrant the arrow tip lands in
-                  names your change vs. baseline. */}
-              <line
-                x1={xFor(trend.earlyHr)} y1={M.t}
-                x2={xFor(trend.earlyHr)} y2={M.t + plotH}
-                stroke="var(--ruleSoft)" strokeWidth={1}
-                strokeDasharray="2 3" opacity={0.7}
-              />
-              <line
-                x1={M.l} y1={yFor(trend.earlyPace)}
-                x2={M.l + plotW} y2={yFor(trend.earlyPace)}
-                stroke="var(--ruleSoft)" strokeWidth={1}
-                strokeDasharray="2 3" opacity={0.7}
-              />
-
               {/* Corner labels naming each quadrant's meaning. */}
               <text x={M.l + 4} y={M.t + 11} textAnchor="start"
                 style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 9, fill: 'var(--inkSoft)', opacity: 0.7 }}>
@@ -236,17 +192,21 @@ export default function AerobicEfficiencyCompact() {
                 declining
               </text>
 
-              {/* Centroid arrow: baseline → recent. */}
+              {/* Core regions: middle half of each set, earlier dashed,
+                  recent in accent, plus the arrow between set means. */}
+              {regions.early && (
+                <path d={regions.early} fill="var(--inkMuted)" fillOpacity={0.16} stroke="var(--inkSoft)" strokeWidth={1.2} strokeDasharray="3 2.5" />
+              )}
+              {regions.late && (
+                <path d={regions.late} fill="var(--accent)" fillOpacity={0.14} stroke="var(--accent)" strokeWidth={1.6} />
+              )}
               <line
                 x1={xFor(trend.earlyHr)} y1={yFor(trend.earlyPace)}
                 x2={xFor(trend.lateHr)} y2={yFor(trend.latePace)}
                 stroke="var(--accent)" strokeWidth={1.8}
                 markerEnd="url(#aec-arrow)"
               />
-              {/* Recent centroid plus mark — anchors the arrow tip. The
-                  early centroid is implicitly marked by the divider cross. */}
-              <line x1={xFor(trend.lateHr) - 7} y1={yFor(trend.latePace)} x2={xFor(trend.lateHr) + 7} y2={yFor(trend.latePace)} stroke="var(--accent)" strokeWidth={2.2} />
-              <line x1={xFor(trend.lateHr)} y1={yFor(trend.latePace) - 7} x2={xFor(trend.lateHr)} y2={yFor(trend.latePace) + 7} stroke="var(--accent)" strokeWidth={2.2} />
+              <circle cx={xFor(trend.earlyHr)} cy={yFor(trend.earlyPace)} r={2.5} fill="var(--inkSoft)" />
             </>
           )}
         </g>

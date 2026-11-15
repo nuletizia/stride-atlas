@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import {
-  useData, useLink, useTooltip, useTweaks, useAnalysisRuns,
+  useData, useLink, useTooltip, useTweaks,
+  useComparisonWindow, pickComparison, comparisonCaption,
   fmtDate, fmtPace, fmtHr, hasValidHr, isInterrupted, pad, mean,
   fmtDistance, fmtPaceUnit, paceToDisplay,
   MI_PER_KM, distUnit, paceUnit, paceUnitLong,
@@ -10,10 +11,12 @@ import {
   Highlight, HlNum,
 } from '@/lib/shared';
 import { useScatterZoom } from '@/lib/useScatterZoom';
+import { coreRegion } from '@/lib/coreRegion';
+import ComparisonLegend from './ComparisonLegend';
 
 export default function AerobicEfficiency() {
   const data = useData();
-  const runs = useAnalysisRuns();
+  const { current: runs, prior: priorRuns, rangeName, rangeKey } = useComparisonWindow();
   const { hovered, setHovered, isTouch, pendingFocusId, requestFocus, selectedRunId } = useLink();
   const { show, hide } = useTooltip();
   const { units, tempUnits, stoppedThreshold } = useTweaks();
@@ -23,7 +26,7 @@ export default function AerobicEfficiency() {
 
   // Empty set = "All" mode: every type visible, dots rendered in a neutral
   // ink color so the cloud reads as one population. Clicking a type chip
-  // drops into colored-by-type mode.
+  // filters both compared sets and colors the recent dots by type.
   const [activeTypes, setActiveTypes] = useState(() => new Set());
   const isAllMode = activeTypes.size === 0;
   // `null` until the user clicks a card. While null, the highlight defaults
@@ -31,16 +34,16 @@ export default function AerobicEfficiency() {
   // the most meaningful story without a click.
   const [trendType, setTrendType] = useState(null);
 
-  // If the mean pace slowed between early and late halves by more than
+  // If the mean pace slowed between the earlier and recent sets by more than
   // this, the HR drop is likely pace-driven (easier effort), not fitness,
   // so we flag it. Pace drifting FASTER is a pure win on both axes and is
-  // never flagged — a lower HR at a faster pace is unambiguously fitness.
+  // never flagged: a lower HR at a faster pace is unambiguously fitness.
   const PACE_DRIFT_WARN = 0.15; // min/km ≈ 9 s/km
 
   const toggleType = (t) => {
     const next = new Set(activeTypes);
     if (next.has(t)) next.delete(t); else next.add(t);
-    // Empty set is intentional — it means "All" mode.
+    // Empty set is intentional: it means "All" mode.
     setActiveTypes(next);
   };
   const selectAll = () => setActiveTypes(new Set());
@@ -52,21 +55,33 @@ export default function AerobicEfficiency() {
   const plotH = H - M.t - M.b;
 
   // Filter out recovery (outlier HR band) and any run missing valid HR data
-  // (e.g. Amazfit exports without HR — they'd otherwise drag bounds to 0).
-  const inView = useMemo(
-    () => runs.filter((r) => r.type !== 'recovery' && hasValidHr(r)),
-    [runs]
-  );
+  // (e.g. Amazfit exports without HR, they'd otherwise drag bounds to 0).
+  // Same predicate on both windows so the comparison is like for like.
+  const keep = (r) => r.type !== 'recovery' && hasValidHr(r);
+  const inView = useMemo(() => runs.filter(keep), [runs]);
+  const priorView = useMemo(() => priorRuns.filter(keep), [priorRuns]);
 
-  // Outer bounds = full extent of the visible data, used as the un-zoomed
+  // Comparison across every type. Drives the frame so prior-window runs
+  // fit, and stays stable while type chips change.
+  const allCmp = useMemo(() => pickComparison(inView, priorView), [inView, priorView]);
+
+  // Comparison for the visible subset (type chips applied to both sets).
+  const cmp = useMemo(() => {
+    if (isAllMode) return allCmp;
+    const f = (r) => activeTypes.has(r.type);
+    return pickComparison(inView.filter(f), priorView.filter(f));
+  }, [allCmp, inView, priorView, activeTypes, isAllMode]);
+
+  // Outer bounds = full extent of the plotted data, used as the un-zoomed
   // frame and as the clamp for pan/zoom. Field naming matches the generic
   // useScatterZoom contract (xMin/xMax/yMin/yMax).
   // X axis = HR (low→high, left-to-right). Y axis = Pace, with smaller
   // min/km values rendered at the top (faster).
   const outerBounds = useMemo(() => {
-    if (!inView.length) return { yMin: 3.5, yMax: 7, xMin: 120, xMax: 190 };
+    const pts = allCmp.plotted;
+    if (!pts.length) return { yMin: 3.5, yMax: 7, xMin: 120, xMax: 190 };
     let paceMin = Infinity, paceMax = -Infinity, hrMin = Infinity, hrMax = -Infinity;
-    inView.forEach((r) => {
+    pts.forEach((r) => {
       if (r.pace < paceMin) paceMin = r.pace;
       if (r.pace > paceMax) paceMax = r.pace;
       if (r.hr < hrMin) hrMin = r.hr;
@@ -80,37 +95,22 @@ export default function AerobicEfficiency() {
       xMin: Math.floor((hrMin - hrP) / 5) * 5,
       xMax: Math.ceil((hrMax + hrP) / 5) * 5,
     };
-  }, [inView]);
+  }, [allCmp]);
 
   const { view, xFor, yFor, isZoomed, reset, svgEvents } = useScatterZoom({
     outerBounds, plotW, plotH, M,
   });
 
-  const dateRange = useMemo(() => {
-    if (!inView.length) return { start: 0, end: 1 };
-    const ts = inView.map((r) => new Date(r.date + 'T00:00:00').getTime());
-    return { start: Math.min(...ts), end: Math.max(...ts) };
-  }, [inView]);
-
-  const recencyOf = (iso) => {
-    const t = new Date(iso + 'T00:00:00').getTime();
-    if (dateRange.end === dateRange.start) return 1;
-    return (t - dateRange.start) / (dateRange.end - dateRange.start);
-  };
-
-  // Membership in the count-based early half of the visible subset, used to
-  // pick hollow vs. filled. Must match the trend's count split exactly so the
-  // shape coding agrees with the legend's "earlier · X runs / recent · X runs".
-  const earlyIds = useMemo(() => {
-    const subset = inView.filter((r) => isAllMode || activeTypes.has(r.type));
-    if (subset.length < 2) return new Set();
-    const sorted = [...subset].sort((a, b) => a.date.localeCompare(b.date));
-    const mid = Math.floor(sorted.length / 2);
-    return new Set(sorted.slice(0, mid).map((r) => r.id));
-  }, [inView, activeTypes, isAllMode]);
+  // Runs from the previous window: drawn as context, tooltip only (no
+  // RunCard exists for them, so they never request focus).
+  const priorIds = useMemo(
+    () => new Set(cmp.mode === 'prior' ? cmp.earlier.map((r) => r.id) : []),
+    [cmp],
+  );
+  const earlierIds = useMemo(() => new Set(cmp.earlier.map((r) => r.id)), [cmp]);
 
   // Pace ticks live at clean *display* values (e.g. 5:00, 5:30 min/km or
-  // 8:00, 9:00 min/mi); each carries the km-denominated pace used by xFor.
+  // 8:00, 9:00 min/mi); each carries the km-denominated pace used by yFor.
   const paceTicks = useMemo(() => {
     const dispMin = view.yMin * paceK;
     const dispMax = view.yMax * paceK;
@@ -132,24 +132,16 @@ export default function AerobicEfficiency() {
 
   const bandReadouts = useMemo(() => {
     // "All" leads the row as an aggregate reference across every type.
-    // Split method: sort by date, take first half as early / second as late.
-    // Count-based (not time-midpoint) so a type whose runs cluster in a
-    // narrow window still gets a balanced split instead of falling off the
-    // "enough data" cliff.
+    // Each type picks its own comparison: previous window when it has
+    // enough runs of that type, otherwise halves of the selected window.
     const types = ['all', 'easy', 'tempo', 'intervals', 'long'];
 
     return types.map((t) => {
-      const typeRuns = t === 'all' ? inView : inView.filter((r) => r.type === t);
-      if (typeRuns.length < 4) return { type: t, enough: false };
-
-      const sorted = [...typeRuns].sort((a, b) => a.date.localeCompare(b.date));
-      const mid = Math.floor(sorted.length / 2);
-      const early = sorted.slice(0, mid);
-      const late = sorted.slice(mid);
-
-      // Need ≥2 per half so each side is at least a short average, not a
-      // single session. (Relaxed from 3; noisier but reaches more types.)
-      if (early.length < 2 || late.length < 2) return { type: t, enough: false };
+      const c = t === 'all'
+        ? allCmp
+        : pickComparison(inView.filter((r) => r.type === t), priorView.filter((r) => r.type === t));
+      if (!c.enough) return { type: t, enough: false };
+      const { earlier: early, recent: late } = c;
 
       const earlyHr = mean(early.map((r) => r.hr));
       const lateHr = mean(late.map((r) => r.hr));
@@ -159,27 +151,21 @@ export default function AerobicEfficiency() {
       const earlyPace = mean(early.map((r) => r.pace));
       const latePace = mean(late.map((r) => r.pace));
       const paceDelta = latePace - earlyPace;
-      // Positive paceDelta = late half slower. Only the "slower" direction
+      // Positive paceDelta = recent set slower. Only the "slower" direction
       // makes the HR drop ambiguous; drifting faster is strictly a win.
       const paceDrifted = paceDelta >= PACE_DRIFT_WARN;
 
-      const dateFmt = (iso) =>
-        new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-      const earlyDates = early.map((r) => r.date).sort();
-      const lateDates = late.map((r) => r.date).sort();
-
       return {
-        type: t, enough: true,
+        type: t, enough: true, mode: c.mode,
         earlyHr, lateHr, delta, pct,
         earlyPace, latePace, paceDelta, paceDrifted,
         earlyN: early.length, lateN: late.length,
-        earlyLabel: `${dateFmt(earlyDates[0])} → ${dateFmt(earlyDates[earlyDates.length - 1])}`,
-        lateLabel: `${dateFmt(lateDates[0])} → ${dateFmt(lateDates[lateDates.length - 1])}`,
+        earlyLabel: c.earlyLabel, lateLabel: c.lateLabel,
       };
     });
-  }, [inView]);
+  }, [allCmp, inView, priorView]);
 
-  // Biggest clean HR drop across the specific-type bands — used as the
+  // Biggest clean HR drop across the specific-type bands, used as the
   // default active card when the user hasn't clicked one yet.
   const winnerType = useMemo(() => {
     const wins = bandReadouts.filter((b) => b.type !== 'all' && b.enough && b.delta < 0 && !b.paceDrifted);
@@ -188,38 +174,29 @@ export default function AerobicEfficiency() {
   }, [bandReadouts]);
   const activeTrend = trendType ?? winnerType ?? 'tempo';
 
-  // Chart centroid follows the currently-visible subset (filter aware) using
-  // the same count-based split as the band readouts above, so the chart's
-  // "+" markers match the "All" / per-type cards exactly.
+  // Chart summary for the visible subset: the mean of each set (arrow
+  // ends) plus the core region around each mean, in screen coordinates so
+  // the shapes follow zoom/pan.
   const trend = useMemo(() => {
-    const subset = inView.filter((r) => isAllMode || activeTypes.has(r.type));
-    if (subset.length < 4) return null;
-    const sorted = [...subset].sort((a, b) => a.date.localeCompare(b.date));
-    const mid = Math.floor(sorted.length / 2);
-    const early = sorted.slice(0, mid);
-    const late = sorted.slice(mid);
-    if (early.length < 2 || late.length < 2) return null;
+    if (!cmp.enough) return null;
+    const { earlier: early, recent: late } = cmp;
     const earlyHr = mean(early.map((r) => r.hr));
     const lateHr = mean(late.map((r) => r.hr));
     const earlyPace = mean(early.map((r) => r.pace));
     const latePace = mean(late.map((r) => r.pace));
-    const paceDrifted = (latePace - earlyPace) >= PACE_DRIFT_WARN;
-    const dateFmt = (iso) =>
-      new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-    const earlyDates = early.map((r) => r.date).sort();
-    const lateDates = late.map((r) => r.date).sort();
+    const startX = xFor(earlyHr), startY = yFor(earlyPace);
+    const endX = xFor(lateHr), endY = yFor(latePace);
+    const pts = (list) => list.map((r) => ({ x: xFor(r.hr), y: yFor(r.pace) }));
     return {
-      startHr: earlyHr, endHr: lateHr,
-      startPace: earlyPace, endPace: latePace,
-      startX: xFor(earlyHr), startY: yFor(earlyPace),
-      endX: xFor(lateHr), endY: yFor(latePace),
-      delta: lateHr - earlyHr,
-      paceDrifted,
+      startX, startY, endX, endY,
+      earlyRegion: coreRegion(pts(early), startX, startY),
+      lateRegion: coreRegion(pts(late), endX, endY),
       earlyN: early.length, lateN: late.length,
-      earlyLabel: `${dateFmt(earlyDates[0])} → ${dateFmt(earlyDates[earlyDates.length - 1])}`,
-      lateLabel: `${dateFmt(lateDates[0])} → ${dateFmt(lateDates[lateDates.length - 1])}`,
+      earlyLabel: cmp.earlyLabel, lateLabel: cmp.lateLabel,
     };
-  }, [inView, activeTypes, isAllMode, view]);
+  }, [cmp, view]);
+
+  const caption = comparisonCaption(cmp, rangeName, rangeKey);
 
   const showMetric = (r) => {
     const hour = Math.floor(r.duration / 60);
@@ -239,6 +216,9 @@ export default function AerobicEfficiency() {
           <div className="t-row"><span>Stopped</span><span>{Math.round(r.stoppedRatio * 100)}%</span></div>
         )}
         {r.pr && <div className="t-row" style={{ marginTop: 4 }}><span style={{ color: 'var(--positive)' }}>● PR</span><span /></div>}
+        {priorIds.has(r.id) && (
+          <div style={{ marginTop: 6, opacity: .7, fontSize: 10.5, fontFamily: 'var(--mono)', textTransform: 'uppercase' }}>Previous window</div>
+        )}
       </>
     );
   };
@@ -254,9 +234,10 @@ export default function AerobicEfficiency() {
           <div className="stat-label" style={{ marginBottom: 4 }}>Aerobic Efficiency</div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', lineHeight: 1.5 }}>
             Every run plotted by <b>heart rate × pace</b>. As you get fitter, dots drift <b>up-left</b>: faster pace at a <i>lower</i> HR.
-            Sorted by date, your runs are split into an earlier half (hollow) and a more recent half (filled); darker = more recent within each half.
-            The bold <b style={{ color: 'var(--accent)' }}>+</b> marks the <i>mean</i> of each half, and the arrow shows the direction of progress.
-            Cards below break the story down by type; click one to drive the take-away.
+            Your selected period is compared with the same-length period before it (or split in half when there is no earlier data).
+            Each shaded region holds the middle half of that period&rsquo;s runs: <span style={{ color: 'var(--inkMuted)' }}>dashed</span> for earlier,{' '}
+            <b style={{ color: 'var(--accent)' }}>solid</b> for recent. The arrow joins their averages and shows the direction of progress.
+            Cards below break the story down by type. Click one to drive the take-away.
           </div>
         </div>
 
@@ -363,28 +344,39 @@ export default function AerobicEfficiency() {
             </g>
 
             <g clipPath="url(#ae-plot-clip)">
-            {inView
+            {/* Context dots: earlier set first (muted), recent set on top. */}
+            {cmp.plotted
               .slice()
-              .sort((a, b) => a.date.localeCompare(b.date))
+              .sort((a, b) => (earlierIds.has(b.id) - earlierIds.has(a.id)) || a.date.localeCompare(b.date))
               .map((r) => {
-                const active = isAllMode || activeTypes.has(r.type);
-                if (!active) return null;
                 const cx = xFor(r.hr);
                 const cy = yFor(r.pace);
-                const rec = recencyOf(r.date);
+                const isEarlier = earlierIds.has(r.id);
+                const isPrior = priorIds.has(r.id);
                 const isHover = hovered?.runId === r.id;
                 const isSelected = selectedRunId === r.id;
                 const isMatch = hovered && !isHover && (hovered.type === r.type || hovered.routeId === r.routeId);
                 const dim = hovered && !isHover && !isMatch && !isSelected;
-                const size = 3.5 + Math.sqrt(r.distance) * 0.7;
-                const fillOp = dim ? 0.1 : (0.25 + rec * 0.65);
-                const fillBase = isAllMode ? 'var(--ink)' : `var(--type-${r.type})`;
-                // Shape splits the cloud at the count-midpoint of the visible
-                // subset (same split as the centroids and the legend): early
-                // runs are hollow rings, recent runs are filled discs. Color
-                // is ink in "All" mode, type-colored when a type filter is
-                // active — shape is orthogonal to color.
-                const isHollow = earlyIds.has(r.id);
+                const fill = isEarlier
+                  ? 'var(--inkMuted)'
+                  : (isAllMode ? 'var(--ink)' : `var(--type-${r.type})`);
+                const op = dim ? 0.08 : (isEarlier ? 0.4 : (isAllMode ? 0.45 : 0.75));
+                const size = isHover ? 3.6 : (isEarlier ? 2.2 : 2.6);
+
+                if (isPrior) {
+                  // Previous-window run: tooltip only, never requests focus.
+                  return (
+                    <g
+                      key={r.id}
+                      onMouseEnter={(e) => show(showMetric(r), e.clientX, e.clientY)}
+                      onMouseMove={(e) => show(showMetric(r), e.clientX, e.clientY)}
+                      onMouseLeave={() => hide()}
+                    >
+                      <circle cx={cx} cy={cy} r={6} fill="transparent" />
+                      <circle cx={cx} cy={cy} r={size} fill={fill} fillOpacity={op} />
+                    </g>
+                  );
+                }
 
                 return (
                   <g
@@ -402,13 +394,14 @@ export default function AerobicEfficiency() {
                     }}
                     onClick={() => { if (requestFocus(r.id)) hide(); }}
                   >
+                    {/* Invisible hit target: the visible dots are small. */}
+                    <circle cx={cx} cy={cy} r={6} fill="transparent" />
                     <circle
                       cx={cx} cy={cy} r={size}
-                      fill={isHollow ? 'var(--bgRaised)' : fillBase}
-                      fillOpacity={isHollow ? 1 : fillOp}
-                      stroke={isHollow ? fillBase : (dim ? 'none' : (isHover ? 'var(--ink)' : 'none'))}
-                      strokeOpacity={isHollow ? fillOp : 1}
-                      strokeWidth={isHollow ? (isHover ? 1.8 : 1.2) : (isHover ? 1.5 : 0)}
+                      fill={fill}
+                      fillOpacity={isHover ? 1 : op}
+                      stroke={isHover ? 'var(--ink)' : 'none'}
+                      strokeWidth={isHover ? 1.2 : 0}
                     />
                     {isSelected && (
                       <circle
@@ -422,28 +415,29 @@ export default function AerobicEfficiency() {
                 );
               })}
 
-            {/* Direction-of-progress: plus-marker centroids joined by an
-                 accent-colored arrow. Accent (not ink) so the summary pops
-                 against any type color in the cloud below. */}
+            {/* Core regions: middle half of each set around its mean, then
+                 the arrow from earlier mean to recent mean. Non-interactive
+                 so dots underneath stay hoverable. */}
             {trend && (
-              <g>
+              <g style={{ pointerEvents: 'none' }}>
                 <defs>
                   <marker id="ae-prog-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
                     <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)" />
                   </marker>
                 </defs>
+                {trend.earlyRegion && (
+                  <path d={trend.earlyRegion} fill="var(--inkMuted)" fillOpacity={0.14} stroke="var(--inkSoft)" strokeWidth={1.4} strokeDasharray="4 3" />
+                )}
+                {trend.lateRegion && (
+                  <path d={trend.lateRegion} fill="var(--accent)" fillOpacity={0.12} stroke="var(--accent)" strokeWidth={1.8} />
+                )}
                 <line
                   x1={trend.startX} y1={trend.startY}
                   x2={trend.endX} y2={trend.endY}
                   stroke="var(--accent)" strokeWidth={1.8}
                   markerEnd="url(#ae-prog-arrow)"
                 />
-                {/* Early centroid: thin accent plus */}
-                <line x1={trend.startX - 8} y1={trend.startY} x2={trend.startX + 8} y2={trend.startY} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
-                <line x1={trend.startX} y1={trend.startY - 8} x2={trend.startX} y2={trend.startY + 8} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
-                {/* Recent centroid: bolder accent plus */}
-                <line x1={trend.endX - 9} y1={trend.endY} x2={trend.endX + 9} y2={trend.endY} stroke="var(--accent)" strokeWidth={3} />
-                <line x1={trend.endX} y1={trend.endY - 9} x2={trend.endX} y2={trend.endY + 9} stroke="var(--accent)" strokeWidth={3} />
+                <circle cx={trend.startX} cy={trend.startY} r={3} fill="var(--inkSoft)" />
               </g>
             )}
             </g>
@@ -461,56 +455,7 @@ export default function AerobicEfficiency() {
             )}
           </svg>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 8, paddingLeft: M.l, fontSize: 10.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '.08em', flexWrap: 'wrap' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <svg width={10} height={10} style={{ display: 'block' }}>
-                <circle cx={5} cy={5} r={3.2} fill="none" stroke="var(--ink)" strokeWidth={1.2} />
-              </svg>
-              <svg width={12} height={12} style={{ display: 'block' }}>
-                <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
-                <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
-              </svg>
-              earlier {trend && (
-                <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--inkSoft)' }}>
-                  · {trend.earlyLabel} · {trend.earlyN} runs
-                </span>
-              )}
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <svg width={10} height={10} style={{ display: 'block' }}>
-                <circle cx={5} cy={5} r={3.2} fill="var(--ink)" />
-              </svg>
-              <svg width={12} height={12} style={{ display: 'block' }}>
-                <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={3} />
-                <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={3} />
-              </svg>
-              recent {trend && (
-                <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>
-                  · {trend.lateLabel} · {trend.lateN} runs
-                </span>
-              )}
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>older</span>
-              <svg width={120} height={10} style={{ display: 'block' }}>
-                <defs>
-                  <linearGradient id="recgrad" x1="0" x2="1">
-                    <stop offset="0" stopColor="var(--ink)" stopOpacity={0.15} />
-                    <stop offset="1" stopColor="var(--ink)" stopOpacity={0.9} />
-                  </linearGradient>
-                </defs>
-                <rect width={120} height={10} fill="url(#recgrad)" rx={5} />
-              </svg>
-              <span>newer</span>
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <svg width={14} height={14} style={{ display: 'block' }}>
-                <circle cx={7} cy={7} r={2.4} fill="var(--ink)" />
-                <circle cx={7} cy={7} r={5.5} fill="none" stroke="var(--accent)" strokeWidth={1.6} />
-              </svg>
-              ringed = latest run, or open card
-            </span>
-          </div>
+          <ComparisonLegend trend={trend} caption={caption} indent={M.l} />
         </div>
 
         <div style={{ borderTop: '1px solid var(--ruleSoft)', paddingTop: 16 }}>
@@ -526,7 +471,7 @@ export default function AerobicEfficiency() {
             fontSize: 11, color: 'var(--inkMuted)', marginBottom: 10,
             fontStyle: 'italic', fontFamily: 'var(--serif)',
           }}>
-            Same split, applied per type: runs sorted by date, halved by count (≥2 per half). We compare the mean HR and show each half&rsquo;s mean pace. If pace drifted between halves, the HR delta may be pace-driven (not fitness) and gets flagged.
+            Same comparison, per type: previous period when it has at least 4 runs of that type, otherwise the selected period split in half. We compare the mean HR and show each set&rsquo;s mean pace. If pace drifted between the two, the HR delta may be pace-driven (not fitness) and gets flagged.
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
@@ -600,7 +545,7 @@ export default function AerobicEfficiency() {
                         <span>{Math.round(b.lateHr)}</span>
                       </div>
                       <div style={{ marginTop: 4, fontSize: 10, color: 'var(--inkMuted)', fontFamily: 'var(--mono)' }}>
-                        {b.earlyN} earlier · {b.lateN} recent
+                        {b.earlyN} {b.mode === 'prior' ? 'before' : 'earlier'} · {b.lateN} recent
                       </div>
                       <div style={{ marginTop: 2, fontSize: 9.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', opacity: 0.8 }}>
                         {b.earlyLabel} · {b.lateLabel}
@@ -636,14 +581,14 @@ export default function AerobicEfficiency() {
         if (band.delta >= 0) {
           return (
             <Highlight tone="muted">
-              <HlNum>{label}</HlNum>: average HR held steady or crept up ({Math.abs(band.delta).toFixed(1)} bpm) between halves. No clear fitness gain in this window.
+              <HlNum>{label}</HlNum>: average HR held steady or crept up ({Math.abs(band.delta).toFixed(1)} bpm) vs the earlier runs. No clear fitness gain in this window.
             </Highlight>
           );
         }
         if (band.paceDrifted) {
           return (
             <Highlight tone="muted">
-              <HlNum>{label}</HlNum>: HR dropped <HlNum>{Math.abs(band.delta).toFixed(1)} bpm</HlNum>, but pace shifted between halves; the gain may be pace-driven, not fitness.
+              <HlNum>{label}</HlNum>: HR dropped <HlNum>{Math.abs(band.delta).toFixed(1)} bpm</HlNum>, but pace shifted too, so the gain may be pace-driven, not fitness.
             </Highlight>
           );
         }

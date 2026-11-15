@@ -98,6 +98,8 @@ If you add a new interactive element that should be "tap to focus a run," follow
 | `WeekComparator` | Week-over-week mix + totals. |
 | `SeasonArc` | Year-over-year season comparison. |
 
+**Period comparison (AerobicEfficiency, DistancePaceCurve, and their compact tiles).** The selected window is compared with the same-length window right before it (`useComparisonWindow()` in `lib/shared.jsx`). `pickComparison(current, prior)` falls back to halving the selected window by run count when the previous window has fewer than 4 qualifying runs (always on All time). Filter both windows with the same predicate before calling it. Each set is drawn as a core region (`lib/coreRegion.js`, the middle half of the set around its mean) with an arrow between the means. Previous-window dots get a tooltip but never call `requestFocus`, since no RunCard exists for them.
+
 Panel boundaries: `RunCards` is the **interactive deep-dive for a single run**; every other panel shows aggregate/trend data. Don't duplicate cohort-comparison logic outside `RunCards`.
 
 Each panel is wrapped in a `PanelErrorBoundary` in `Dashboard.jsx` — one panel crashing doesn't take the page down.

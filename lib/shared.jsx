@@ -430,6 +430,10 @@ export function TweakProvider({ children }) {
 export function useTweaks() { return useContext(TweakContext); }
 
 // ---------- Filter runs by current time range ----------
+// Window length in days per preset. Shared by useFilteredRuns and
+// useComparisonWindow so the "previous window" is always the same length.
+export const RANGE_DAYS = { '1m': 30, '3m': 92, '6m': 183, '1y': 365, 'all': 99999 };
+export const RANGE_NAME = { '1m': 'month', '3m': '3 months', '6m': '6 months', '1y': '12 months' };
 export function useFilteredRuns() {
   const { timeRange, customRange } = useTweaks();
   const data = useData();
@@ -446,7 +450,7 @@ export function useFilteredRuns() {
     // imported data always produces a populated window.
     const maxIso = all.reduce((a, r) => (r.date > a ? r.date : a), all[0].date);
     const end = new Date(maxIso + 'T00:00:00');
-    const days = { '1m': 30, '3m': 92, '6m': 183, '1y': 365, 'all': 99999 }[timeRange] || 9999;
+    const days = RANGE_DAYS[timeRange] || 99999;
     const start = new Date(end.getTime() - days * 86400000);
     return all.filter((r) => new Date(r.date + 'T00:00:00') >= start);
   }, [all, timeRange, customRange]);
@@ -537,4 +541,94 @@ export function useAnalysisRuns() {
     if (!excluded.size) return filtered;
     return filtered.filter((r) => !excluded.has(String(r.id)));
   }, [filtered, excluded]);
+}
+
+// ---------- Period comparison (scatter panels) ----------
+// The scatters compare the selected window against the same-length window
+// right before it. `current` is exactly what useAnalysisRuns returns;
+// `prior` is the previous window (exclusions applied, empty for "all").
+export function useComparisonWindow() {
+  const { timeRange, customRange } = useTweaks();
+  const data = useData();
+  const { excluded } = useExclusions();
+  const current = useAnalysisRuns();
+  return useMemo(() => {
+    const all = excluded.size
+      ? data.runs.filter((r) => !excluded.has(String(r.id)))
+      : data.runs;
+    const toT = (iso) => new Date(iso + 'T00:00:00').getTime();
+    let prior = [];
+    let days = null;
+    if (timeRange === 'custom' && customRange && customRange.from && customRange.to) {
+      const fromT = toT(customRange.from);
+      days = Math.max(1, Math.round((toT(customRange.to) - fromT) / 86400000) + 1);
+      const startT = fromT - days * 86400000;
+      prior = all.filter((r) => { const t = toT(r.date); return t >= startT && t < fromT; });
+    } else if (timeRange !== 'all' && timeRange !== 'custom' && data.runs.length) {
+      days = RANGE_DAYS[timeRange];
+      const maxIso = data.runs.reduce((a, r) => (r.date > a ? r.date : a), data.runs[0].date);
+      const endT = toT(maxIso);
+      const cut = endT - days * 86400000;
+      const startT = endT - 2 * days * 86400000;
+      prior = all.filter((r) => { const t = toT(r.date); return t < cut && t >= startT; });
+    }
+    const name = timeRange === 'custom'
+      ? (days ? `${days} days` : null)
+      : (RANGE_NAME[timeRange] || null);
+    return { current, prior, rangeKey: timeRange, rangeName: name };
+  }, [current, data.runs, excluded, timeRange, customRange]);
+}
+
+const fmtMonthYear = (iso) =>
+  new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+function spanLabel(list) {
+  if (!list.length) return '';
+  const dates = list.map((r) => r.date).sort();
+  return `${fmtMonthYear(dates[0])} → ${fmtMonthYear(dates[dates.length - 1])}`;
+}
+
+// Pick the two sets a scatter compares. Callers filter `current` and `prior`
+// with the same predicate first (type chips, valid HR, no recovery).
+//   mode 'prior'  : earlier = previous window, recent = selected window
+//   mode 'halves' : fallback when the previous window has < minN runs
+//                   (All time, short history). Selected window sorted by
+//                   date and halved by count.
+// `plotted` is every run the chart should draw. Returns null if either side
+// has fewer than 2 runs.
+export function pickComparison(current, prior, { minN = 4 } = {}) {
+  let mode, earlier, recent, plotted;
+  if (prior.length >= minN && current.length >= 2) {
+    mode = 'prior';
+    earlier = prior;
+    recent = current;
+    plotted = [...prior, ...current];
+  } else {
+    mode = 'halves';
+    const sorted = [...current].sort((a, b) => a.date.localeCompare(b.date));
+    const mid = Math.floor(sorted.length / 2);
+    earlier = sorted.slice(0, mid);
+    recent = sorted.slice(mid);
+    plotted = current;
+  }
+  if (earlier.length < 2 || recent.length < 2) {
+    return { mode, earlier, recent, plotted, enough: false, priorN: prior.length };
+  }
+  return {
+    mode, earlier, recent, plotted, enough: true, priorN: prior.length,
+    earlyLabel: spanLabel(earlier),
+    lateLabel: spanLabel(recent),
+  };
+}
+
+// One-line description of which two sets are being compared, shared by the
+// full panels' legends.
+export function comparisonCaption(cmp, rangeName, rangeKey) {
+  if (!cmp) return '';
+  if (cmp.mode === 'prior') {
+    return `Last ${rangeName} (${cmp.recent.length} runs) vs previous ${rangeName} (${cmp.earlier.length} runs)`;
+  }
+  const why = rangeKey === 'all'
+    ? 'All time has no previous window'
+    : `only ${cmp.priorN} run${cmp.priorN === 1 ? '' : 's'} in the previous ${rangeName || 'window'}`;
+  return `${why}, so the window is split in half by date`;
 }

@@ -2,63 +2,42 @@
 
 import { useMemo } from 'react';
 import {
-  useAnalysisRuns, useTweaks, mean,
+  useComparisonWindow, pickComparison, useTweaks, mean,
   fmtPace, paceToDisplay, paceUnit, paceUnitLong,
   kmToDisplay, distUnit,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
-import { zoomAround } from './zoomBounds';
+import { coreRegion, robustBounds } from '@/lib/coreRegion';
 
-// Simplified Aerobic Durability: at compact size we strip the scatter and
-// keep only four labeled quadrants split at the early centroid plus a
-// single accent arrow. The arrow's tip lands in the quadrant that names
-// your change vs. baseline (top-right = durable: longer + faster).
+// Simplified Aerobic Durability: at compact size we drop the dots and keep
+// only the two core regions (earlier set dashed, recent set accent) and an
+// arrow between their means. Earlier = previous same-length window, or the
+// first half of the selected window when there is no usable previous one.
 export default function DistancePaceCurveCompact() {
-  const runs = useAnalysisRuns();
+  const { current: runs, prior: priorRuns, rangeName } = useComparisonWindow();
   const { units } = useTweaks();
 
   const view = useMemo(() => {
-    const inView = runs.filter((r) => r.type !== 'recovery');
+    const keep = (r) => r.type !== 'recovery';
+    const inView = runs.filter(keep);
     if (!inView.length) return null;
-    let distMin = Infinity, distMax = -Infinity, paceMin = Infinity, paceMax = -Infinity;
+    const cmp = pickComparison(inView, priorRuns.filter(keep));
     let longest = inView[0], fastest = inView[0];
     inView.forEach((r) => {
-      if (r.distance < distMin) distMin = r.distance;
-      if (r.distance > distMax) { distMax = r.distance; longest = r; }
-      if (r.pace < paceMin) { paceMin = r.pace; fastest = r; }
-      if (r.pace > paceMax) paceMax = r.pace;
+      if (r.distance > longest.distance) longest = r;
+      if (r.pace < fastest.pace) fastest = r;
     });
-    const dP = (distMax - distMin) * 0.05 || 1;
-    const pP = (paceMax - paceMin) * 0.08 || 0.3;
-    const bounds = {
-      distMin: Math.max(0, distMin - dP),
-      distMax: distMax + dP,
-      paceMin: paceMin - pP,
-      paceMax: paceMax + pP,
-    };
-
-    const sorted = [...inView].sort((a, b) => a.date.localeCompare(b.date));
-    const mid = Math.floor(sorted.length / 2);
-    const early = sorted.slice(0, mid);
-    const late = sorted.slice(mid);
-    let trend = null;
-    if (early.length >= 2 && late.length >= 2) {
-      // Date-range labels for the legend so "early / recent" lands as
-      // concrete months instead of being abstract halves.
-      const fmtRange = (iso) =>
-        new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-      trend = {
-        earlyDist: mean(early.map((r) => r.distance)),
-        lateDist: mean(late.map((r) => r.distance)),
-        earlyPace: mean(early.map((r) => r.pace)),
-        latePace: mean(late.map((r) => r.pace)),
-        earlyRange: `${fmtRange(early[0].date)} → ${fmtRange(early[early.length - 1].date)}`,
-        lateRange:  `${fmtRange(late[0].date)} → ${fmtRange(late[late.length - 1].date)}`,
-      };
-    }
-
-    return { points: sorted, longest, fastest, bounds, trend, mid };
-  }, [runs]);
+    const bounds = robustBounds(cmp.plotted.map((r) => r.distance), cmp.plotted.map((r) => r.pace));
+    const trend = cmp.enough ? {
+      early: cmp.earlier, late: cmp.recent, mode: cmp.mode,
+      earlyDist: mean(cmp.earlier.map((r) => r.distance)),
+      lateDist: mean(cmp.recent.map((r) => r.distance)),
+      earlyPace: mean(cmp.earlier.map((r) => r.pace)),
+      latePace: mean(cmp.recent.map((r) => r.pace)),
+      earlyRange: cmp.earlyLabel, lateRange: cmp.lateLabel,
+    } : null;
+    return { longest, fastest, bounds, trend };
+  }, [runs, priorRuns]);
 
   if (!view) {
     return (
@@ -68,32 +47,15 @@ export default function DistancePaceCurveCompact() {
     );
   }
 
-  const { longest, fastest, bounds: fullBounds, trend } = view;
+  const { longest, fastest, bounds, trend } = view;
   const W = 320;
   const H = 160;
   // Asymmetric margins make room for the rotated y-axis label + values on
   // the left, and x-axis values + a one-row date-range legend along the
-  // bottom (no dot swatches now that the scatter is gone).
+  // bottom.
   const M = { l: 36, r: 6, t: 8, b: 38 };
   const plotW = W - M.l - M.r;
   const plotH = H - M.t - M.b;
-
-  // Zoom around the centroids so the progress arrow stays a consistent
-  // ~1/3 of the frame. Multiplier 3 matches the AE tile. The min floors
-  // only engage when centroids are essentially overlapping — they prevent
-  // collapse to a single pixel without inflating the frame for a small
-  // but meaningful arrow.
-  const bounds = trend
-    ? zoomAround({
-        cx: (trend.earlyDist + trend.lateDist) / 2,
-        cy: (trend.earlyPace + trend.latePace) / 2,
-        spanX: Math.abs(trend.lateDist - trend.earlyDist),
-        spanY: Math.abs(trend.latePace - trend.earlyPace),
-        minSpanX: 1, minSpanY: 0.15,
-        mult: 3,
-        outer: { xMin: fullBounds.distMin, xMax: fullBounds.distMax, yMin: fullBounds.paceMin, yMax: fullBounds.paceMax },
-      })
-    : { xMin: fullBounds.distMin, xMax: fullBounds.distMax, yMin: fullBounds.paceMin, yMax: fullBounds.paceMax };
 
   const xFor = (d) => M.l + ((d - bounds.xMin) / (bounds.xMax - bounds.xMin || 1)) * plotW;
   const yFor = (p) => M.t + ((p - bounds.yMin) / (bounds.yMax - bounds.yMin || 1)) * plotH;
@@ -136,7 +98,15 @@ export default function DistancePaceCurveCompact() {
     headline = `Longest ${kmToDisplay(longest.distance, units).toFixed(1)} ${distUnit(units)} · fastest ${fmtPace(paceToDisplay(fastest.pace, units))}${paceUnit(units)}`;
   }
 
-  // Axis extents from the visible (zoomed) bounds.
+  // Core regions in screen coordinates, centered on each set's mean.
+  const regions = trend ? {
+    early: coreRegion(trend.early.map((r) => ({ x: xFor(r.distance), y: yFor(r.pace) })), xFor(trend.earlyDist), yFor(trend.earlyPace)),
+    late: coreRegion(trend.late.map((r) => ({ x: xFor(r.distance), y: yFor(r.pace) })), xFor(trend.lateDist), yFor(trend.latePace)),
+  } : null;
+  const earlyName = trend && trend.mode === 'prior' ? `previous ${rangeName}` : 'earlier half';
+  const lateName = trend && trend.mode === 'prior' ? `last ${rangeName}` : 'recent half';
+
+  // Axis extents from the plotted bounds.
   const xMinLabel = kmToDisplay(bounds.xMin, units).toFixed(1);
   const xMaxLabel = kmToDisplay(bounds.xMax, units).toFixed(1);
   const yTopLabel = fmtPace(paceToDisplay(bounds.yMin, units));
@@ -203,7 +173,7 @@ export default function DistancePaceCurveCompact() {
           <g transform={`translate(0, ${legendY})`}>
             <text x={M.l} y={0} textAnchor="start"
               style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-              baseline
+              {earlyName}
             </text>
             <text x={M.l} y={11} textAnchor="start"
               style={{ fontFamily: 'var(--mono)', fontSize: 8, fill: TICK, opacity: 0.85 }}>
@@ -211,7 +181,7 @@ export default function DistancePaceCurveCompact() {
             </text>
             <text x={M.l + plotW} y={0} textAnchor="end"
               style={{ fontFamily: 'var(--mono)', fontSize: 8.5, fill: TICK, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-              recent
+              {lateName}
             </text>
             <text x={M.l + plotW} y={11} textAnchor="end"
               style={{ fontFamily: 'var(--mono)', fontSize: 8, fill: TICK, opacity: 0.85 }}>
@@ -233,23 +203,6 @@ export default function DistancePaceCurveCompact() {
                 markerEnd="url(#dpcc-imp)"
                 opacity={0.45}
               />
-              {/* Quadrant dividers at the early centroid. The cross IS the
-                  arrow's tail — the quadrant the arrow tip lands in names
-                  your change vs. baseline (top-right is the durable corner:
-                  longer + faster). */}
-              <line
-                x1={xFor(trend.earlyDist)} y1={M.t}
-                x2={xFor(trend.earlyDist)} y2={M.t + plotH}
-                stroke="var(--ruleSoft)" strokeWidth={1}
-                strokeDasharray="2 3" opacity={0.7}
-              />
-              <line
-                x1={M.l} y1={yFor(trend.earlyPace)}
-                x2={M.l + plotW} y2={yFor(trend.earlyPace)}
-                stroke="var(--ruleSoft)" strokeWidth={1}
-                strokeDasharray="2 3" opacity={0.7}
-              />
-
               {/* Corner labels naming each quadrant's meaning. */}
               <text x={M.l + 4} y={M.t + 11} textAnchor="start"
                 style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 9, fill: 'var(--inkSoft)', opacity: 0.7 }}>
@@ -268,17 +221,21 @@ export default function DistancePaceCurveCompact() {
                 long + slow
               </text>
 
-              {/* Centroid arrow: baseline → recent. */}
+              {/* Core regions: middle half of each set, earlier dashed,
+                  recent in accent, plus the arrow between set means. */}
+              {regions.early && (
+                <path d={regions.early} fill="var(--inkMuted)" fillOpacity={0.16} stroke="var(--inkSoft)" strokeWidth={1.2} strokeDasharray="3 2.5" />
+              )}
+              {regions.late && (
+                <path d={regions.late} fill="var(--accent)" fillOpacity={0.14} stroke="var(--accent)" strokeWidth={1.6} />
+              )}
               <line
                 x1={xFor(trend.earlyDist)} y1={yFor(trend.earlyPace)}
                 x2={xFor(trend.lateDist)} y2={yFor(trend.latePace)}
                 stroke="var(--accent)" strokeWidth={1.8}
                 markerEnd="url(#dpcc-arrow)"
               />
-              {/* Recent centroid plus mark — anchors the arrow tip. The
-                  early centroid is implicitly marked by the divider cross. */}
-              <line x1={xFor(trend.lateDist) - 7} y1={yFor(trend.latePace)} x2={xFor(trend.lateDist) + 7} y2={yFor(trend.latePace)} stroke="var(--accent)" strokeWidth={2.2} />
-              <line x1={xFor(trend.lateDist)} y1={yFor(trend.latePace) - 7} x2={xFor(trend.lateDist)} y2={yFor(trend.latePace) + 7} stroke="var(--accent)" strokeWidth={2.2} />
+              <circle cx={xFor(trend.earlyDist)} cy={yFor(trend.earlyPace)} r={2.5} fill="var(--inkSoft)" />
             </>
           )}
         </g>

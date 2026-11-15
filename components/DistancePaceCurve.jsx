@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import {
-  useData, useLink, useTooltip, useTweaks, useAnalysisRuns,
+  useData, useLink, useTooltip, useTweaks,
+  useComparisonWindow, pickComparison, comparisonCaption,
   fmtDate, fmtPace, fmtHr, isInterrupted, pad, mean,
   fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
   MI_PER_KM, distUnit, paceUnit, paceUnitLong,
@@ -10,15 +11,17 @@ import {
   Highlight, HlNum,
 } from '@/lib/shared';
 import { useScatterZoom } from '@/lib/useScatterZoom';
+import { coreRegion } from '@/lib/coreRegion';
+import ComparisonLegend from './ComparisonLegend';
 
 // Distance × Pace scatter. Shows every run as a dot; x = distance, y = pace.
-// Convention: standard math chart — fast pace (low value) at BOTTOM, slow at
-// TOP. As fitness improves, the cloud shifts DOWN (and RIGHT for longer runs).
-// Optional early-vs-recent LOWESS-style trend lines make the shift visible.
+// Fast pace (low min/km) is drawn at the TOP. The selected window is
+// compared with the previous same-length window (halves fallback); each set
+// is drawn as a core region with an arrow between their means.
 
 export default function DistancePaceCurve() {
   const data = useData();
-  const runs = useAnalysisRuns();
+  const { current: runs, prior: priorRuns, rangeName, rangeKey } = useComparisonWindow();
   const { hovered, setHovered, isTouch, pendingFocusId, requestFocus, selectedRunId } = useLink();
   const { show, hide } = useTooltip();
   const { units, tempUnits, stoppedThreshold } = useTweaks();
@@ -48,15 +51,27 @@ export default function DistancePaceCurve() {
   const plotW = W - M.l - M.r;
   const plotH = H - M.t - M.b;
 
-  const inView = useMemo(() => runs.filter((r) => r.type !== 'recovery'), [runs]);
+  const keep = (r) => r.type !== 'recovery';
+  const inView = useMemo(() => runs.filter(keep), [runs]);
+  const priorView = useMemo(() => priorRuns.filter(keep), [priorRuns]);
 
-  // Outer bounds = full extent of the visible data, used as the un-zoomed
+  // Comparison across every type (drives the frame), and for the visible
+  // subset with type chips applied to both sets.
+  const allCmp = useMemo(() => pickComparison(inView, priorView), [inView, priorView]);
+  const cmp = useMemo(() => {
+    if (isAllMode) return allCmp;
+    const f = (r) => activeTypes.has(r.type);
+    return pickComparison(inView.filter(f), priorView.filter(f));
+  }, [allCmp, inView, priorView, activeTypes, isAllMode]);
+
+  // Outer bounds = full extent of the plotted data, used as the un-zoomed
   // frame and as the clamp for pan/zoom. Field naming matches the generic
   // useScatterZoom contract (xMin/xMax/yMin/yMax).
   const outerBounds = useMemo(() => {
-    if (!inView.length) return { xMin: 0, xMax: 20, yMin: 3.5, yMax: 7 };
+    const pts = allCmp.plotted;
+    if (!pts.length) return { xMin: 0, xMax: 20, yMin: 3.5, yMax: 7 };
     let distMin = Infinity, distMax = -Infinity, paceMin = Infinity, paceMax = -Infinity;
-    inView.forEach((r) => {
+    pts.forEach((r) => {
       if (r.distance < distMin) distMin = r.distance;
       if (r.distance > distMax) distMax = r.distance;
       if (r.pace < paceMin) paceMin = r.pace;
@@ -70,81 +85,53 @@ export default function DistancePaceCurve() {
       yMin: paceMin - pP,
       yMax: paceMax + pP,
     };
-  }, [inView]);
+  }, [allCmp]);
 
   const { view, xFor, yFor, isZoomed, reset, svgEvents } = useScatterZoom({
     outerBounds, plotW, plotH, M,
   });
 
-  const dateRange = useMemo(() => {
-    if (!inView.length) return { start: 0, end: 1 };
-    const ts = inView.map((r) => new Date(r.date + 'T00:00:00').getTime());
-    return { start: Math.min(...ts), end: Math.max(...ts) };
-  }, [inView]);
+  // Previous-window runs: context only, tooltip but never focus.
+  const priorIds = useMemo(
+    () => new Set(cmp.mode === 'prior' ? cmp.earlier.map((r) => r.id) : []),
+    [cmp],
+  );
+  const earlierIds = useMemo(() => new Set(cmp.earlier.map((r) => r.id)), [cmp]);
 
-  const recencyOf = (iso) => {
-    const t = new Date(iso + 'T00:00:00').getTime();
-    if (dateRange.end === dateRange.start) return 1;
-    return (t - dateRange.start) / (dateRange.end - dateRange.start);
-  };
-
-  // Membership in the count-based early half of the visible subset, used to
-  // pick hollow vs. filled. Must match the centroid split exactly so the
-  // shape coding agrees with the legend's "earlier · X runs / recent · X runs".
-  const earlyIds = useMemo(() => {
-    const subset = inView.filter((r) => isAllMode || activeTypes.has(r.type));
-    if (subset.length < 2) return new Set();
-    const sorted = [...subset].sort((a, b) => a.date.localeCompare(b.date));
-    const mid = Math.floor(sorted.length / 2);
-    return new Set(sorted.slice(0, mid).map((r) => r.id));
-  }, [inView, activeTypes, isAllMode]);
-
-  // (distance × pace) centroid for each half of the visible subset. Split
-  // is count-based (sort by date, take halves) so a filter like "race" with
-  // runs clustered near an event still gets a balanced early/recent split
-  // instead of producing an empty early half. Both axes use mean so the
-  // marker is the cloud's center of mass and every new run shifts it
-  // proportionally. Also carries n + date ranges for the legend so the
-  // chart's early/recent language agrees everywhere.
+  // Mean (distance × pace) of each set plus the core region around it,
+  // in screen coordinates so the shapes follow zoom/pan. Also carries n +
+  // date ranges for the legend.
   const centroids = useMemo(() => {
-    const subset = inView.filter((r) => isAllMode || activeTypes.has(r.type));
-    if (subset.length < 4) return null;
-    const sorted = [...subset].sort((a, b) => a.date.localeCompare(b.date));
-    const mid = Math.floor(sorted.length / 2);
-    const early = sorted.slice(0, mid);
-    const late = sorted.slice(mid);
-    if (early.length < 2 || late.length < 2) return null;
+    if (!cmp.enough) return null;
+    const { earlier: early, recent: late } = cmp;
     const startDist = mean(early.map((r) => r.distance));
     const endDist = mean(late.map((r) => r.distance));
     const startPace = mean(early.map((r) => r.pace));
     const endPace = mean(late.map((r) => r.pace));
-    const dateFmt = (iso) =>
-      new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-    const earlyDates = early.map((r) => r.date).sort();
-    const lateDates = late.map((r) => r.date).sort();
+    const startX = xFor(startDist), startY = yFor(startPace);
+    const endX = xFor(endDist), endY = yFor(endPace);
+    const pts = (list) => list.map((r) => ({ x: xFor(r.distance), y: yFor(r.pace) }));
     return {
-      startX: xFor(startDist), startY: yFor(startPace),
-      endX: xFor(endDist), endY: yFor(endPace),
+      startX, startY, endX, endY,
       startDist, endDist, startPace, endPace,
+      earlyRegion: coreRegion(pts(early), startX, startY),
+      lateRegion: coreRegion(pts(late), endX, endY),
       earlyN: early.length, lateN: late.length,
-      earlyLabel: `${dateFmt(earlyDates[0])} → ${dateFmt(earlyDates[earlyDates.length - 1])}`,
-      lateLabel: `${dateFmt(lateDates[0])} → ${dateFmt(lateDates[lateDates.length - 1])}`,
+      earlyLabel: cmp.earlyLabel, lateLabel: cmp.lateLabel,
     };
-  }, [inView, activeTypes, isAllMode, view]);
+  }, [cmp, view]);
 
-  // Per-type (and "all") early/recent readouts for the endurance cards.
-  // Same count-based split + mean-of-both methodology as the chart
-  // centroids, so the cards and the "+" markers agree exactly.
+  // Per-type (and "all") readouts for the endurance cards. Each type picks
+  // its own comparison (previous window when it has enough runs of that
+  // type, else halves), with the same mean methodology as the chart.
   const bandReadouts = useMemo(() => {
     const types = ['all', 'easy', 'tempo', 'intervals', 'long'];
     return types.map((t) => {
-      const typeRuns = t === 'all' ? inView : inView.filter((r) => r.type === t);
-      if (typeRuns.length < 4) return { type: t, enough: false };
-      const sorted = [...typeRuns].sort((a, b) => a.date.localeCompare(b.date));
-      const mid = Math.floor(sorted.length / 2);
-      const early = sorted.slice(0, mid);
-      const late = sorted.slice(mid);
-      if (early.length < 2 || late.length < 2) return { type: t, enough: false };
+      const c = t === 'all'
+        ? allCmp
+        : pickComparison(inView.filter((r) => r.type === t), priorView.filter((r) => r.type === t));
+      if (!c.enough) return { type: t, enough: false };
+      const { earlier: early, recent: late } = c;
       const startDist = mean(early.map((r) => r.distance));
       const endDist = mean(late.map((r) => r.distance));
       const startPace = mean(early.map((r) => r.pace));
@@ -152,20 +139,17 @@ export default function DistancePaceCurve() {
       const distDelta = endDist - startDist;       // positive = longer now
       const distPct = startDist > 0 ? (distDelta / startDist) * 100 : 0;
       const paceDelta = startPace - endPace;        // positive = faster now (min/km drop)
-      const dateFmt = (iso) =>
-        new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-      const earlyDates = early.map((r) => r.date).sort();
-      const lateDates = late.map((r) => r.date).sort();
       return {
-        type: t, enough: true,
+        type: t, enough: true, mode: c.mode,
         startDist, endDist, startPace, endPace,
         distDelta, distPct, paceDelta,
         earlyN: early.length, lateN: late.length,
-        earlyLabel: `${dateFmt(earlyDates[0])} → ${dateFmt(earlyDates[earlyDates.length - 1])}`,
-        lateLabel: `${dateFmt(lateDates[0])} → ${dateFmt(lateDates[lateDates.length - 1])}`,
+        earlyLabel: c.earlyLabel, lateLabel: c.lateLabel,
       };
     });
-  }, [inView]);
+  }, [allCmp, inView, priorView]);
+
+  const caption = comparisonCaption(cmp, rangeName, rangeKey);
 
   // `null` until user clicks a card. While null, the highlight defaults to
   // the type with the biggest distance growth, so the first read shows
@@ -220,6 +204,9 @@ export default function DistancePaceCurve() {
         {r.temp != null && <div className="t-row"><span>Temp</span><span>{fmtTemp(r.temp, tempUnits)}{tempUnit(tempUnits)}</span></div>}
         {isInterrupted(r, stoppedThreshold) && <div className="t-row"><span>Stopped</span><span>{Math.round(r.stoppedRatio * 100)}%</span></div>}
         {r.pr && <div className="t-pill" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>PR</div>}
+        {priorIds.has(r.id) && (
+          <div style={{ marginTop: 6, opacity: .7, fontSize: 10.5, fontFamily: 'var(--mono)', textTransform: 'uppercase' }}>Previous window</div>
+        )}
       </>
     );
   };
@@ -235,10 +222,10 @@ export default function DistancePaceCurve() {
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', lineHeight: 1.5 }}>
             Every run plotted by <b>distance × pace</b>. Fast pace is at the top; longer runs sit to the
             right, and the cloud naturally slopes toward the lower-right (longer = slower).
-            Sorted by date, your runs are split into an earlier half (hollow) and a more recent half (filled). The bold
-            {' '}<b style={{ color: 'var(--accent)' }}>+</b> marks the <i>mean</i> of each half, and the
-            arrow shows the direction of progress (up = faster, right = longer).
-            Cards below break the story down by type; click one to drive the take-away.
+            Your selected period is compared with the same-length period before it (or split in half when there is no earlier data).
+            Each shaded region holds the middle half of that period&rsquo;s runs: <span style={{ color: 'var(--inkMuted)' }}>dashed</span> for earlier,{' '}
+            <b style={{ color: 'var(--accent)' }}>solid</b> for recent. The arrow joins their averages (up = faster, right = longer).
+            Cards below break the story down by type. Click one to drive the take-away.
           </div>
         </div>
 
@@ -349,28 +336,39 @@ export default function DistancePaceCurve() {
         </g>
 
         <g clipPath="url(#dpc-plot-clip)">
-        {/* Dots — older first so newer sits on top */}
-        {inView
+        {/* Context dots: earlier set first (muted), recent set on top. */}
+        {cmp.plotted
           .slice()
-          .sort((a, b) => a.date.localeCompare(b.date))
+          .sort((a, b) => (earlierIds.has(b.id) - earlierIds.has(a.id)) || a.date.localeCompare(b.date))
           .map((r) => {
-            if (!isAllMode && !activeTypes.has(r.type)) return null;
             const cx = xFor(r.distance);
             const cy = yFor(r.pace);
-            const rec = recencyOf(r.date);
+            const isEarlier = earlierIds.has(r.id);
+            const isPrior = priorIds.has(r.id);
             const isHover = hovered?.runId === r.id;
             const isSelected = selectedRunId === r.id;
             const isMatch = hovered && !isHover && (hovered.type === r.type || hovered.routeId === r.routeId);
             const dim = hovered && !isHover && !isMatch && !isSelected;
-            const size = 3.2 + Math.sqrt(r.distance) * 0.55;
-            const fillOp = dim ? 0.1 : (0.25 + rec * 0.65);
-            const fillBase = isAllMode ? 'var(--ink)' : `var(--type-${r.type})`;
-            // Shape splits the cloud at the count-midpoint of the visible
-            // subset (same split as the centroids and the legend): early runs
-            // are hollow rings, recent runs are filled discs. Color is ink in
-            // "All" mode, type-colored when a type filter is active — shape
-            // is orthogonal to color.
-            const isHollow = earlyIds.has(r.id);
+            const fill = isEarlier
+              ? 'var(--inkMuted)'
+              : (isAllMode ? 'var(--ink)' : `var(--type-${r.type})`);
+            const op = dim ? 0.08 : (isEarlier ? 0.4 : (isAllMode ? 0.45 : 0.75));
+            const size = isHover ? 3.6 : (isEarlier ? 2.2 : 2.6);
+
+            if (isPrior) {
+              // Previous-window run: tooltip only, never requests focus.
+              return (
+                <g
+                  key={r.id}
+                  onMouseEnter={(e) => show(showMetric(r), e.clientX, e.clientY)}
+                  onMouseMove={(e) => show(showMetric(r), e.clientX, e.clientY)}
+                  onMouseLeave={() => hide()}
+                >
+                  <circle cx={cx} cy={cy} r={6} fill="transparent" />
+                  <circle cx={cx} cy={cy} r={size} fill={fill} fillOpacity={op} />
+                </g>
+              );
+            }
 
             return (
               <g
@@ -388,13 +386,14 @@ export default function DistancePaceCurve() {
                 }}
                 onClick={() => { if (requestFocus(r.id)) hide(); }}
               >
+                {/* Invisible hit target: the visible dots are small. */}
+                <circle cx={cx} cy={cy} r={6} fill="transparent" />
                 <circle
                   cx={cx} cy={cy} r={size}
-                  fill={isHollow ? 'var(--bgRaised)' : fillBase}
-                  fillOpacity={isHollow ? 1 : fillOp}
-                  stroke={isHollow ? fillBase : (isHover ? 'var(--ink)' : 'none')}
-                  strokeOpacity={isHollow ? fillOp : 1}
-                  strokeWidth={isHollow ? (isHover ? 1.8 : 1.2) : (isHover ? 1.5 : 0)}
+                  fill={fill}
+                  fillOpacity={isHover ? 1 : op}
+                  stroke={isHover ? 'var(--ink)' : 'none'}
+                  strokeWidth={isHover ? 1.2 : 0}
                 />
                 {isSelected && (
                   <circle
@@ -408,26 +407,28 @@ export default function DistancePaceCurve() {
             );
           })}
 
-        {/* Direction-of-progress: plus-marker centroids joined by an
-             accent arrow. Accent (not ink) so the summary pops against
-             any type color in the cloud. Rendered after dots. */}
+        {/* Core regions + arrow between set means. Non-interactive so the
+             dots underneath stay hoverable. */}
         {centroids && (
-          <g>
+          <g style={{ pointerEvents: 'none' }}>
             <defs>
               <marker id="dpc-prog-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
                 <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)" />
               </marker>
             </defs>
+            {centroids.earlyRegion && (
+              <path d={centroids.earlyRegion} fill="var(--inkMuted)" fillOpacity={0.14} stroke="var(--inkSoft)" strokeWidth={1.4} strokeDasharray="4 3" />
+            )}
+            {centroids.lateRegion && (
+              <path d={centroids.lateRegion} fill="var(--accent)" fillOpacity={0.12} stroke="var(--accent)" strokeWidth={1.8} />
+            )}
             <line
               x1={centroids.startX} y1={centroids.startY}
               x2={centroids.endX} y2={centroids.endY}
               stroke="var(--accent)" strokeWidth={1.8}
               markerEnd="url(#dpc-prog-arrow)"
             />
-            <line x1={centroids.startX - 8} y1={centroids.startY} x2={centroids.startX + 8} y2={centroids.startY} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
-            <line x1={centroids.startX} y1={centroids.startY - 8} x2={centroids.startX} y2={centroids.startY + 8} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
-            <line x1={centroids.endX - 9} y1={centroids.endY} x2={centroids.endX + 9} y2={centroids.endY} stroke="var(--accent)" strokeWidth={3} />
-            <line x1={centroids.endX} y1={centroids.endY - 9} x2={centroids.endX} y2={centroids.endY + 9} stroke="var(--accent)" strokeWidth={3} />
+            <circle cx={centroids.startX} cy={centroids.startY} r={3} fill="var(--inkSoft)" />
           </g>
         )}
         </g>
@@ -445,61 +446,7 @@ export default function DistancePaceCurve() {
         )}
       </svg>
 
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 18, marginTop: 8, paddingLeft: M.l,
-        fontSize: 10.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)',
-        textTransform: 'uppercase', letterSpacing: '.08em',
-        flexWrap: 'wrap',
-      }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <svg width={10} height={10} style={{ display: 'block' }}>
-            <circle cx={5} cy={5} r={3.2} fill="none" stroke="var(--ink)" strokeWidth={1.2} />
-          </svg>
-          <svg width={12} height={12} style={{ display: 'block' }}>
-            <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
-            <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={2} opacity={0.65} />
-          </svg>
-          earlier {centroids && (
-            <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--inkSoft)' }}>
-              · {centroids.earlyLabel} · {centroids.earlyN} runs
-            </span>
-          )}
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <svg width={10} height={10} style={{ display: 'block' }}>
-            <circle cx={5} cy={5} r={3.2} fill="var(--ink)" />
-          </svg>
-          <svg width={12} height={12} style={{ display: 'block' }}>
-            <line x1={1} y1={6} x2={11} y2={6} stroke="var(--accent)" strokeWidth={3} />
-            <line x1={6} y1={1} x2={6} y2={11} stroke="var(--accent)" strokeWidth={3} />
-          </svg>
-          recent {centroids && (
-            <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--ink)' }}>
-              · {centroids.lateLabel} · {centroids.lateN} runs
-            </span>
-          )}
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          older
-          <svg width={120} height={10} style={{ display: 'block' }}>
-            <defs>
-              <linearGradient id="dpcrecgrad" x1="0" x2="1">
-                <stop offset="0" stopColor="var(--ink)" stopOpacity={0.15} />
-                <stop offset="1" stopColor="var(--ink)" stopOpacity={0.9} />
-              </linearGradient>
-            </defs>
-            <rect width={120} height={10} fill="url(#dpcrecgrad)" rx={5} />
-          </svg>
-          newer
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <svg width={14} height={14} style={{ display: 'block' }}>
-            <circle cx={7} cy={7} r={2.4} fill="var(--ink)" />
-            <circle cx={7} cy={7} r={5.5} fill="none" stroke="var(--accent)" strokeWidth={1.6} />
-          </svg>
-          ringed = latest run, or open card
-        </span>
-      </div>
+      <ComparisonLegend trend={centroids} caption={caption} indent={M.l} />
 
       <div style={{ borderTop: '1px solid var(--ruleSoft)', paddingTop: 16, marginTop: 16 }}>
         <div style={{
@@ -514,7 +461,7 @@ export default function DistancePaceCurve() {
           fontSize: 11, color: 'var(--inkMuted)', marginBottom: 10,
           fontStyle: 'italic', fontFamily: 'var(--serif)',
         }}>
-          Same split, applied per type: runs sorted by date, halved by count (≥2 per half). We compare the mean distance and show each half&rsquo;s mean pace alongside.
+          Same comparison, per type: previous period when it has at least 4 runs of that type, otherwise the selected period split in half. We compare the mean distance and show each set&rsquo;s mean pace alongside.
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
@@ -590,7 +537,7 @@ export default function DistancePaceCurve() {
                       <span>{kmToDisplay(b.endDist, units).toFixed(1)}</span>
                     </div>
                     <div style={{ marginTop: 4, fontSize: 10, color: 'var(--inkMuted)', fontFamily: 'var(--mono)' }}>
-                      {b.earlyN} earlier · {b.lateN} recent
+                      {b.earlyN} {b.mode === 'prior' ? 'before' : 'earlier'} · {b.lateN} recent
                     </div>
                     <div style={{ marginTop: 2, fontSize: 9.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', opacity: 0.8 }}>
                       {b.earlyLabel} · {b.lateLabel}
