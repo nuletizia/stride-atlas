@@ -10,6 +10,10 @@ import {
   Highlight, HlNum, MI_PER_KM,
 } from '@/lib/shared';
 
+// Cards render in batches inside a fixed-height scroll box; the next batch
+// loads when the sentinel at the bottom of the box comes into view.
+const BATCH = 24;
+
 export default function RunCards() {
   const data = useData();
   const runs = useFilteredRuns();
@@ -25,7 +29,14 @@ export default function RunCards() {
   const [density, setDensity] = useState('compact');
   const [expandedId, setExpandedId] = useState(null);
   const [pinnedId, setPinnedId] = useState(null);
-  const [capped, setCapped] = useState(true);
+  const [shownCount, setShownCount] = useState(BATCH);
+  // A run from outside the selected range (a gray previous-window dot in a
+  // scatter) opened via focusRequest. Shown as a temporary first card,
+  // compared against the in-range runs, cleared when it's closed.
+  const [extraRunId, setExtraRunId] = useState(null);
+  // Pending "bring this card into view" request: { id, page }. Resolved by
+  // an effect once the card is inside the rendered batch.
+  const [revealReq, setRevealReq] = useState(null);
   const [rankBy, setRankBy] = useState('pace'); // 'pace' | 'hr' | 'efficiency'
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Transient: the run we just jumped to, so we can flash-outline its card
@@ -37,7 +48,6 @@ export default function RunCards() {
   // The inverse direction (chart dot hover → card focus) still works via the
   // global `hovered` below.
   const [hoveredCardId, setHoveredCardId] = useState(null);
-  const CAP = 18;
 
   // How many runs in the current filter have valid HR. If fewer than 3, HR
   // ranking is too noisy to be useful, so we lock the toggle to pace.
@@ -78,8 +88,16 @@ export default function RunCards() {
     return out;
   }, [runs, effectiveRankBy]);
 
+  const extraRun = useMemo(() => {
+    if (extraRunId == null || runs.some((r) => r.id === extraRunId)) return null;
+    return data.runs.find((r) => r.id === extraRunId) || null;
+  }, [extraRunId, runs, data.runs]);
+
   const withPeers = useMemo(() => {
-    return runs.map((r) => {
+    // The extra run gets a card and a cohort, but peers and type ranks are
+    // always drawn from the in-range runs only.
+    const pool = extraRun ? [extraRun, ...runs] : runs;
+    return pool.map((r) => {
       const typeRank = typeRankMap.get(r.id) || null;
       const peers = runs.filter((other) => {
         if (other.id === r.id) return false;
@@ -91,6 +109,7 @@ export default function RunCards() {
       const n = peers.length;
       const base = {
         ...r,
+        isOutside: r === extraRun,
         typeRank: typeRank?.rank ?? null,
         typeRankTotal: typeRank?.total ?? null,
       };
@@ -155,7 +174,7 @@ export default function RunCards() {
         ...active,
       };
     });
-  }, [runs, similarityMode, distTol, typeRankMap, effectiveRankBy]);
+  }, [runs, extraRun, similarityMode, distTol, typeRankMap, effectiveRankBy]);
 
   const filtered = useMemo(() => {
     let arr = withPeers;
@@ -171,8 +190,13 @@ export default function RunCards() {
     else if (sortBy === 'fastest') arr = [...arr].sort((a, b) => a.pace - b.pace);
     else if (sortBy === 'longest') arr = [...arr].sort((a, b) => b.distance - a.distance);
     else if (sortBy === 'prs') arr = [...arr].sort((a, b) => (b.pr ? 1 : 0) - (a.pr ? 1 : 0) || b.date.localeCompare(a.date));
+    // The out-of-range run always leads, whatever the filters and sort.
+    if (extraRun) {
+      const ex = withPeers.find((r) => r.id === extraRun.id);
+      arr = [ex, ...arr.filter((r) => r.id !== extraRun.id)];
+    }
     return arr;
-  }, [withPeers, typeFilter, sortBy, effectiveRankBy]);
+  }, [withPeers, extraRun, typeFilter, sortBy, effectiveRankBy]);
 
   const focusId = pinnedId ?? expandedId ?? hoveredCardId ?? hovered?.runId;
   const focusRun = withPeers.find((r) => r.id === focusId);
@@ -183,31 +207,90 @@ export default function RunCards() {
   // If the target is hidden by the type filter, widen to 'all' first so the
   // card exists in the DOM. Same fallback for the active rank mode: when an
   // HR-less run is jumped to while in HR/EF mode (which hides such runs),
-  // flip back to pace so the target card actually appears. Always uncap so
-  // the node is rendered.
-  const jumpToRun = (runId) => {
-    const target = withPeers.find((r) => r.id === runId);
+  // flip back to pace so the target card actually appears. The reveal
+  // effect below then loads batches up to the card and scrolls the box.
+  const jumpToRun = (runId, { page = false } = {}) => {
+    const target = withPeers.find((r) => r.id === runId)
+      ?? (extraRun && extraRun.id === runId ? extraRun : null)
+      ?? data.runs.find((r) => r.id === runId);
     if (!target) return;
     if (typeFilter !== 'all' && target.type !== typeFilter) setTypeFilter('all');
     if ((effectiveRankBy === 'hr' || effectiveRankBy === 'efficiency') && !hasValidHr(target)) {
       setRankBy('pace');
     }
-    if (capped) setCapped(false);
     setExpandedId(runId);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const el = document.getElementById(`run-card-${runId}`);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
-    });
+    setRevealReq({ id: runId, page });
   };
+
+  // Scroll a card into view inside the box (top-aligned, since an expanded
+  // card spans the row and is tall). With `page`, also bring the panel
+  // itself on screen. Never call scrollIntoView on the card: it would move
+  // the page and the box together.
+  const boxRef = useRef(null);
+  const revealCard = (id, page) => {
+    const box = boxRef.current;
+    const el = document.getElementById(`run-card-${id}`);
+    if (!box || !el) return;
+    if (page && panelRef.current) panelRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const top = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 8;
+    box.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  };
+
+  // Back to one batch at the top whenever the list itself changes.
+  useEffect(() => {
+    setShownCount(BATCH);
+    if (boxRef.current) boxRef.current.scrollTop = 0;
+  }, [typeFilter, sortBy, effectiveRankBy, similarityMode, distTol, runs]);
+
+  // A new time range drops any out-of-range card.
+  useEffect(() => { setExtraRunId(null); }, [runs]);
+
+  // Resolve a reveal request: grow the rendered batch until it contains the
+  // card, then scroll to it after layout.
+  useEffect(() => {
+    if (!revealReq) return;
+    const idx = filtered.findIndex((r) => r.id === revealReq.id);
+    if (idx < 0) return;
+    if (idx >= shownCount) {
+      const need = Math.ceil((idx + 1) / BATCH) * BATCH;
+      setShownCount((c) => Math.max(c, need));
+      return;
+    }
+    const req = revealReq;
+    setRevealReq(null);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => revealCard(req.id, req.page));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealReq, filtered, shownCount]);
+
+  // Load the next batch when the sentinel nears the bottom of the box.
+  // Re-armed after each batch so a short box keeps filling.
+  const sentinelRef = useRef(null);
+  const hasMore = shownCount < filtered.length;
+  useEffect(() => {
+    if (!hasMore) return;
+    const box = boxRef.current;
+    const sentinel = sentinelRef.current;
+    if (!box || !sentinel || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setShownCount((c) => c + BATCH);
+    }, { root: box, rootMargin: '200px' });
+    io.observe(sentinel);
+    return () => io.disconnect();
+  }, [hasMore, shownCount]);
 
   // Cross-panel jump: another panel (e.g. AE / DPC scatter) writes a runId
   // into LinkContext.focusRequest; we trigger jumpToRun, flash the arrival,
   // and clear the request.
   useEffect(() => {
     if (!focusRequest) return;
-    jumpToRun(focusRequest);
+    // A run outside the selected range (gray scatter dot) gets a
+    // temporary card at the top of the grid.
+    if (!runs.some((r) => r.id === focusRequest) && data.runs.some((r) => r.id === focusRequest)) {
+      setExtraRunId(focusRequest);
+    }
+    jumpToRun(focusRequest, { page: true });
     setFlashingRunId(focusRequest);
     setFocusRequest(null);
     const t = setTimeout(() => setFlashingRunId(null), 1500);
@@ -232,6 +315,11 @@ export default function RunCards() {
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [expandedId]);
 
+  // The out-of-range card lives only while it's the open one.
+  useEffect(() => {
+    if (extraRunId != null && expandedId !== extraRunId) setExtraRunId(null);
+  }, [expandedId, extraRunId]);
+
   // Mirror the expanded card into LinkContext so cross-panel views (Trend
   // Ribbons + the two scatters) can ring the matching dot. The "default
   // = latest run" fallback lives in Dashboard so it works in compact
@@ -252,9 +340,7 @@ export default function RunCards() {
           <div className="stat-label" style={{ marginBottom: 4 }}>
             Run Cards
             <span className="num muted" style={{ marginLeft: 8, fontSize: 10, letterSpacing: 0, textTransform: 'none' }}>
-              {capped
-                ? `${Math.min(CAP, filtered.length)}/${filtered.length} runs`
-                : `${filtered.length}/${filtered.length} runs`}
+              {`${filtered.length} run${filtered.length === 1 ? '' : 's'}`}
             </span>
           </div>
           <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 620 }}>
@@ -406,8 +492,18 @@ export default function RunCards() {
             </div>
           )}
 
+          {/* Fixed-height scroll box: cards load in batches as you scroll
+               inside it, so the page length never changes. */}
+          <div
+            ref={boxRef}
+            style={{
+              maxHeight: 'min(640px, 72vh)', overflowY: 'auto', overscrollBehavior: 'contain',
+              borderTop: '1px solid var(--ruleSoft)', borderBottom: '1px solid var(--ruleSoft)',
+              padding: '10px 2px',
+            }}
+          >
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${minCol}px, 1fr))`, gap: density === 'compact' ? 8 : 12 }}>
-            {(capped ? filtered.slice(0, CAP) : filtered).map((r) => {
+            {filtered.slice(0, shownCount).map((r) => {
               const isFocus = focusId === r.id;
               const isPeer = focusPeerIds && focusPeerIds.has(r.id);
               const dim = focusId && !isFocus && !isPeer;
@@ -437,7 +533,12 @@ export default function RunCards() {
                   stoppedThreshold={stoppedThreshold}
                   onHoverIn={() => setHoveredCardId(r.id)}
                   onHoverOut={() => setHoveredCardId(null)}
-                  onClick={() => setExpandedId(isExpanded ? null : r.id)}
+                  outside={r.isOutside}
+                  onClick={() => {
+                    if (isExpanded) { setExpandedId(null); return; }
+                    setExpandedId(r.id);
+                    setRevealReq({ id: r.id, page: false });
+                  }}
                   onPin={(e) => { e.stopPropagation(); setPinnedId(pinnedId === r.id ? null : r.id); }}
                   onToggleExclude={(e) => { e.stopPropagation(); toggleExclusion(r.id); }}
                   onPeerClick={jumpToRun}
@@ -446,18 +547,15 @@ export default function RunCards() {
             })}
           </div>
 
-          {capped && filtered.length > CAP && (
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--ruleSoft)' }}>
-              <button className="chip" onClick={() => setCapped(false)}>
-                Show {filtered.length - CAP} more
-              </button>
+          {filtered.length > BATCH && (
+            <div
+              ref={sentinelRef}
+              style={{ padding: '12px 0 2px', textAlign: 'center', fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--inkMuted)' }}
+            >
+              {hasMore ? `Showing ${shownCount} of ${filtered.length} · scroll for more` : `All ${filtered.length} runs`}
             </div>
           )}
-          {!capped && filtered.length > CAP && (
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--ruleSoft)' }}>
-              <button className="chip" onClick={() => setCapped(true)}>Show less</button>
-            </div>
-          )}
+          </div>
 
           {filtered.length === 0 && (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--inkMuted)', fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 18 }}>
@@ -468,7 +566,23 @@ export default function RunCards() {
   );
 }
 
-function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinned, flashing, isLatestRing, meta, rankBy, units, tempUnits, stoppedThreshold, onHoverIn, onHoverOut, onClick, onPin, onToggleExclude, onPeerClick }) {
+// Marks a card opened from a gray (previous-window) scatter dot.
+function OutsideBadge() {
+  return (
+    <span
+      title="This run is before the selected range. It is compared with similar runs inside the range."
+      style={{
+        fontFamily: 'var(--mono)', fontSize: 8.5, letterSpacing: '.08em', textTransform: 'uppercase',
+        border: '1px solid var(--accent)', color: 'var(--accent)', borderRadius: 2,
+        padding: '0 4px', marginLeft: 6, whiteSpace: 'nowrap', fontStyle: 'normal',
+      }}
+    >
+      Before selected range
+    </span>
+  );
+}
+
+function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinned, flashing, isLatestRing, outside, meta, rankBy, units, tempUnits, stoppedThreshold, onHoverIn, onHoverOut, onClick, onPin, onToggleExclude, onPeerClick }) {
   const color = `var(--type-${run.type})`;
   const hasPeers = run.peerCount > 0;
   const isHrMode = rankBy === 'hr';
@@ -573,7 +687,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinne
       <div id={`run-card-${run.id}`} data-run-card-id={run.id} className={flashing ? 'run-card-flash' : undefined} onMouseEnter={onHoverIn} onMouseLeave={onHoverOut} onClick={onClick} style={cardStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
           <span className="mono" style={{ fontSize: 9.5, color: 'var(--inkMuted)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
-            {new Date(run.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {new Date(run.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: outside ? '2-digit' : undefined })}
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <span style={{ fontFamily: 'var(--sans)', fontSize: 10.5, color: 'var(--inkSoft)', fontWeight: 500 }}>
@@ -635,6 +749,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinne
         <div>
           <div className="mono" style={{ fontSize: 10, color: 'var(--inkMuted)', letterSpacing: '.1em', textTransform: 'uppercase' }}>
             {new Date(run.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: expanded ? 'numeric' : undefined })}
+            {outside && <OutsideBadge />}
           </div>
           <div style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 16, marginTop: 1 }}>
             {meta[run.type].label} · <span style={{ fontStyle: 'normal', fontFamily: 'var(--sans)', fontSize: 13 }}>{run.routeName}</span>
@@ -788,7 +903,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinne
               fontSize: 10, color: 'var(--inkMuted)', letterSpacing: '.08em', textTransform: 'uppercase',
               flex: '1 1 auto', minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.5,
             }}>
-              Recent similar runs{peerView === 'grid' ? ` · sorted by ${isHrMode ? 'lowest avg HR' : isEfMode ? 'highest efficiency' : 'fastest pace'}` : ' · HR × pace'}
+              {outside ? 'Similar runs in the selected range' : 'Recent similar runs'}{peerView === 'grid' ? ` · sorted by ${isHrMode ? 'lowest avg HR' : isEfMode ? 'highest efficiency' : 'fastest pace'}` : ' · HR × pace'}
             </div>
             <div
               className="seg"

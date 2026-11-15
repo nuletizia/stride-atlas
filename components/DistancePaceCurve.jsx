@@ -91,7 +91,8 @@ export default function DistancePaceCurve() {
     outerBounds, plotW, plotH, M,
   });
 
-  // Previous-window runs: context only, tooltip but never focus.
+  // Previous-window runs: muted, flagged in the tooltip; clicking one
+  // opens it in RunCards as an out-of-range card.
   const priorIds = useMemo(
     () => new Set(cmp.mode === 'prior' ? cmp.earlier.map((r) => r.id) : []),
     [cmp],
@@ -344,7 +345,6 @@ export default function DistancePaceCurve() {
             const cx = xFor(r.distance);
             const cy = yFor(r.pace);
             const isEarlier = earlierIds.has(r.id);
-            const isPrior = priorIds.has(r.id);
             const isHover = hovered?.runId === r.id;
             const isSelected = selectedRunId === r.id;
             const isMatch = hovered && !isHover && (hovered.type === r.type || hovered.routeId === r.routeId);
@@ -355,20 +355,6 @@ export default function DistancePaceCurve() {
             const op = dim ? 0.08 : (isEarlier ? 0.4 : (isAllMode ? 0.45 : 0.75));
             const size = isHover ? 3.6 : (isEarlier ? 2.2 : 2.6);
 
-            if (isPrior) {
-              // Previous-window run: tooltip only, never requests focus.
-              return (
-                <g
-                  key={r.id}
-                  onMouseEnter={(e) => show(showMetric(r), e.clientX, e.clientY)}
-                  onMouseMove={(e) => show(showMetric(r), e.clientX, e.clientY)}
-                  onMouseLeave={() => hide()}
-                >
-                  <circle cx={cx} cy={cy} r={6} fill="transparent" />
-                  <circle cx={cx} cy={cy} r={size} fill={fill} fillOpacity={op} />
-                </g>
-              );
-            }
 
             return (
               <g

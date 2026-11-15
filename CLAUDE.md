@@ -82,6 +82,8 @@ Click a dot/bar/cell anywhere in any panel → the corresponding RunCard scrolls
 - `RunCards` hover state is **local** (`hoveredCardId`), intentionally decoupled from the global `hovered`, so hovering a card doesn't ripple into SameRouteDuel / other panels.
 - Outside-click-to-collapse for expanded run cards is scoped to `!panelRef.current.contains(e.target)` — outside the **panel**, not just outside the card — so chips and the View FAB don't trip it.
 
+- `RunCards` renders inside a fixed-height scroll box and loads cards in batches of 24 as you scroll (an `IntersectionObserver` sentinel). Jumps go through `jumpToRun` → `revealReq`, which grows the batch until it contains the card and then calls `revealCard` to scroll the box. Never call `scrollIntoView` on a card: it moves the page and the box together.
+
 If you add a new interactive element that should be "tap to focus a run," follow the pattern: call `requestFocus(runId)` on click, tag the SVG group with `data-tap-focus="true"`, dismiss tooltip iff the call returns `true`.
 
 ## Panels
@@ -98,7 +100,7 @@ If you add a new interactive element that should be "tap to focus a run," follow
 | `WeekComparator` | Week-over-week mix + totals. |
 | `SeasonArc` | Year-over-year season comparison. |
 
-**Period comparison (AerobicEfficiency, DistancePaceCurve, and their compact tiles).** The selected window is compared with the same-length window right before it (`useComparisonWindow()` in `lib/shared.jsx`). `pickComparison(current, prior)` falls back to halving the selected window by run count when the previous window has fewer than 4 qualifying runs (always on All time). Filter both windows with the same predicate before calling it. Each set is drawn as a core region (`lib/coreRegion.js`, the middle half of the set around its mean) with an arrow between the means. Previous-window dots get a tooltip but never call `requestFocus`, since no RunCard exists for them.
+**Period comparison (AerobicEfficiency, DistancePaceCurve, and their compact tiles).** The selected window is compared with the same-length window right before it (`useComparisonWindow()` in `lib/shared.jsx`). `pickComparison(current, prior)` falls back to halving the selected window by run count when the previous window has fewer than 4 qualifying runs (always on All time). Filter both windows with the same predicate before calling it. Each set is drawn as a core region (`lib/coreRegion.js`, the middle half of the set around its mean) with an arrow between the means. Previous-window dots are interactive like any other: `requestFocus` on one makes RunCards show it as a temporary first card flagged "Before selected range", compared against the in-range runs.
 
 Panel boundaries: `RunCards` is the **interactive deep-dive for a single run**; every other panel shows aggregate/trend data. Don't duplicate cohort-comparison logic outside `RunCards`.
 
