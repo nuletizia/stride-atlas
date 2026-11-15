@@ -723,3 +723,7 @@ body { min-height: 100vh; }
     -webkit-mask-image: linear-gradient(to right, black 94%, transparent 100%);
   }
 }
+
+/* Trend Ribbons: each row is a button that focuses that workout type. */
+.ribbon-row:hover .ribbon-row-bg { fill: var(--bgSunken); }
+.ribbon-row:focus-visible .ribbon-row-bg { stroke: var(--accent); stroke-width: 1.5; }

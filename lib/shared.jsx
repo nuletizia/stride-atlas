@@ -313,7 +313,7 @@ export function LinkProvider({ children }) {
     <LinkContext.Provider value={{
       hovered, setHovered,
       focusRequest, setFocusRequest,
-      selectedRunId,
+      selectedRunId, userSelectedRunId,
       setUserSelectedRunId, setLatestRunId,
       isTouch, pendingFocusId, setPendingFocusId, requestFocus,
     }}>

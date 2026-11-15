@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   useData, useLink, useTooltip, useTweaks, useAnalysisRuns,
   fmtDate, fmtPace, fmtHr, hasValidHr, isInterrupted,
   fmtDistance, fmtPaceUnit, kmToDisplay, paceToDisplay,
-  distUnit, paceUnit, paceUnitLong, efOf, stamOf,
+  distUnit, paceUnit, paceUnitLong, efOf, stamOf, MI_PER_KM,
   Highlight, HlNum,
 } from '@/lib/shared';
 
@@ -15,6 +15,16 @@ export default function PaceRibbon() {
   const { hovered, setHovered, isTouch, pendingFocusId, requestFocus, selectedRunId } = useLink();
   const { show, hide } = useTooltip();
   const { metric, units, stoppedThreshold } = useTweaks();
+  // Types the user clicked to focus. Empty = the default stack of ribbons;
+  // otherwise one larger chart with only these types on a shared axis.
+  const [focusTypes, setFocusTypes] = useState(() => new Set());
+  const toggleFocus = (t) => {
+    setFocusTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t); else next.add(t);
+      return next;
+    });
+  };
 
   const types = ['easy', 'tempo', 'intervals', 'recovery', 'long', 'race'];
   // Rendered rows — "all" sits at the top as a combined overview alongside
@@ -79,19 +89,73 @@ export default function PaceRibbon() {
     const t = new Date(r.date + 'T00:00:00').getTime();
     return ((t - xMin) / (xMax - xMin || 1)) * PLOT_W;
   }
-  function rollingAvg(arr, bounds) {
-    const pts = [];
+  // 5-run centered rolling average, in metric units. Each view maps the
+  // values to its own coordinates.
+  function rollingVals(arr) {
     const win = 5;
-    for (let i = 0; i < arr.length; i++) {
+    return arr.map((r, i) => {
       const from = Math.max(0, i - Math.floor(win / 2));
       const to = Math.min(arr.length, i + Math.ceil(win / 2));
       const slice = arr.slice(from, to);
-      const v = slice.reduce((a, r) => a + valueOf(r), 0) / slice.length;
+      return { r, v: slice.reduce((a, x) => a + valueOf(x), 0) / slice.length };
+    });
+  }
+  function rollingAvg(arr, bounds) {
+    return rollingVals(arr).map(({ r, v }) => {
       const t = (v - bounds.min) / (bounds.max - bounds.min || 1);
       const clamped = higherIsBetter ? 1 - t : t;
-      pts.push({ x: xFor(arr[i]), y: 10 + clamped * (H_ROW - 20), value: v });
-    }
-    return pts;
+      return { x: xFor(r), y: 10 + clamped * (H_ROW - 20), value: v };
+    });
+  }
+
+  // One interactive run dot (tooltip, hover linking, two-tap focus, PR and
+  // selected rings). Shared by the ribbon stack and the focus chart. Click
+  // stops propagation so it opens the run instead of toggling row focus.
+  function renderDot(r, cx, cy, color, fillOpacity = 1) {
+    const isHover = hovered?.runId === r.id;
+    const isSelected = selectedRunId === r.id;
+    const isMatch = hovered && (hovered.type === r.type || hovered.routeId === r.routeId);
+    const dim = hovered && !isHover && !isMatch && !isSelected;
+    return (
+      <g
+        key={r.id}
+        data-tap-focus="true"
+        opacity={dim ? 0.15 : 1}
+        style={{ cursor: 'pointer' }}
+        onMouseEnter={(e) => {
+          setHovered({ runId: r.id, routeId: r.routeId, type: r.type, date: r.date });
+          show(
+            <>
+              <span className="t-title">{fmtDate(r.date, { year: true })}</span>
+              <div style={{ opacity: .7, fontSize: 10.5, fontFamily: 'var(--mono)', textTransform: 'uppercase', marginBottom: 6 }}>
+                {meta[r.type].label} · {r.routeName}
+              </div>
+              <div className="t-row"><span>{metricLabel}</span><span>{
+                metric === 'pace' ? `${fmtPaceUnit(r.pace, units)} ${metricUnit}` :
+                metric === 'distance' ? `${fmtDistance(r.distance, units, 2)} ${metricUnit}` :
+                metric === 'hr' ? fmtHr(r) :
+                metric === 'stamina' ? (stamOf(r) != null ? stamOf(r).toFixed(2) : '—') :
+                (efOf(r) != null ? efOf(r).toFixed(2) : '—')
+              }</span></div>
+              <div className="t-row"><span>Distance</span><span>{fmtDistance(r.distance, units, 2)} {distUnit(units)}</span></div>
+              {isInterrupted(r, stoppedThreshold) && <div className="t-row"><span>Stopped</span><span>{Math.round(r.stoppedRatio * 100)}%</span></div>}
+              {r.pr && <div className="t-pill" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>PR</div>}
+            </>,
+            e.clientX, e.clientY
+          );
+        }}
+        onMouseLeave={() => {
+          if (isTouch && pendingFocusId === r.id) return;
+          setHovered(null); hide();
+        }}
+        onClick={(e) => { e.stopPropagation(); if (requestFocus(r.id)) { setHovered(null); hide(); } }}
+      >
+        <circle cx={cx} cy={cy} r={r.pr ? 4 : 2.8} fill={color} fillOpacity={fillOpacity} />
+        {r.pr && <circle cx={cx} cy={cy} r={6} fill="none" stroke="var(--ink)" strokeWidth={1} opacity={fillOpacity < 1 ? 0.35 : 1} />}
+        {isHover && <circle cx={cx} cy={cy} r={8} fill="none" stroke="var(--ink)" opacity={0.5} />}
+        {isSelected && <circle cx={cx} cy={cy} r={7} fill="none" stroke="var(--accent)" strokeWidth={1.8} />}
+      </g>
+    );
   }
 
   const fmtMetric = (v) =>
@@ -118,6 +182,165 @@ export default function PaceRibbon() {
     stamina: 'efficiency × distance',
   }[metric];
 
+
+  // ---------- Focus view: selected types on one shared, labelled axis ----------
+  const paceK = units === 'mi' ? 1 / MI_PER_KM : 1;   // min/km → min/display
+  const distK = units === 'mi' ? MI_PER_KM : 1;       // km → display
+  function niceStep(range, target = 5) {
+    const raw = range / target || 1;
+    const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+    const m = raw / pow;
+    return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * pow;
+  }
+
+  function renderFocus() {
+    const FW = W, FH = 320;
+    const M = { l: 58, r: 78, t: 14, b: 34 };
+    const PW = FW - M.l - M.r, PH = FH - M.t - M.b;
+    const sets = rowTypes
+      .filter((t) => focusTypes.has(t))
+      .map((t) => {
+        let arr = byType[t] || [];
+        if (needsHr) arr = arr.filter(hasValidHr);
+        arr = arr.filter((r) => valueOf(r) != null);
+        return { type: t, arr };
+      })
+      .filter((x) => x.arr.length);
+
+    const chips = (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 10 }}>
+        {rowTypes.filter((t) => (byType[t] || []).length).map((t) => (
+          <button
+            key={t}
+            className={`chip ${focusTypes.has(t) ? 'active' : ''}`}
+            aria-pressed={focusTypes.has(t)}
+            onClick={() => toggleFocus(t)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: colorFor(t), display: 'inline-block' }} />
+            {labelFor(t)}
+          </button>
+        ))}
+        <button className="chip" style={{ marginLeft: 'auto' }} onClick={() => setFocusTypes(new Set())}>
+          All ribbons
+        </button>
+      </div>
+    );
+    if (!sets.length) {
+      return (
+        <>
+          {chips}
+          <Highlight tone="muted">No runs of these types have {metricLabel.toLowerCase()} data in this view.</Highlight>
+        </>
+      );
+    }
+
+    // Shared bounds: 2nd–98th percentile of every selected run's value, so a
+    // single outlier can't flatten the lines.
+    const vals = sets.flatMap((s) => s.arr.map(valueOf)).sort((a, b) => a - b);
+    const q = (f) => vals[Math.min(vals.length - 1, Math.max(0, Math.round((vals.length - 1) * f)))];
+    let lo = q(0.02), hi = q(0.98);
+    const pad = (hi - lo) * 0.08 || Math.abs(lo) * 0.05 || 1;
+    lo -= pad; hi += pad;
+    const ts = sets.flatMap((s) => s.arr.map((r) => new Date(r.date + 'T00:00:00').getTime()));
+    const t0 = Math.min(...ts), t1 = Math.max(...ts);
+    const fx = (r) => M.l + ((new Date(r.date + 'T00:00:00').getTime() - t0) / ((t1 - t0) || 1)) * PW;
+    // Improvement reads as up for every metric.
+    const fy = (v) => {
+      const t = (v - lo) / ((hi - lo) || 1);
+      return M.t + (higherIsBetter ? 1 - t : t) * PH;
+    };
+
+    // Y ticks at clean values in display units, converted back to km units.
+    const toDisp = metric === 'pace' ? (v) => v * paceK : metric === 'distance' ? (v) => v * distK : (v) => v;
+    const fromDisp = metric === 'pace' ? (d) => d / paceK : metric === 'distance' ? (d) => d / distK : (d) => d;
+    const dLo = Math.min(toDisp(lo), toDisp(hi)), dHi = Math.max(toDisp(lo), toDisp(hi));
+    const step = metric === 'pace' ? (units === 'mi' ? 1 : 0.5)
+      : metric === 'hr' ? (dHi - dLo > 40 ? 10 : 5)
+      : niceStep(dHi - dLo);
+    const fmtTick = (d) => metric === 'pace' ? fmtPace(d)
+      : metric === 'distance' ? (step < 1 ? d.toFixed(1) : d.toFixed(0))
+      : metric === 'hr' ? String(Math.round(d))
+      : d.toFixed(2);
+    const yTicks = [];
+    for (let d = Math.ceil(dLo / step) * step; d <= dHi + 1e-9; d += step) yTicks.push(d);
+
+    // Month ticks; every 1, 2 or 3 months depending on the span.
+    const months = (t1 - t0) / (30 * 86400000);
+    const mStep = months > 14 ? 3 : months > 6 ? 2 : 1;
+    const xTicks = [];
+    const d0 = new Date(t0); d0.setDate(1); d0.setMonth(d0.getMonth() + 1);
+    for (const d = new Date(d0); d.getTime() <= t1; d.setMonth(d.getMonth() + mStep)) xTicks.push(new Date(d));
+
+    const many = sets.length > 1;
+    const lines = sets.map(({ type, arr }) => {
+      const roll = rollingVals(arr);
+      return {
+        type, arr, roll,
+        d: roll.map((p, i) => `${i ? 'L' : 'M'} ${fx(p.r).toFixed(1)} ${fy(p.v).toFixed(1)}`).join(' '),
+        first: roll[0].v, last: roll[roll.length - 1].v,
+      };
+    });
+    // End labels in the right gutter, nudged apart so they never overlap.
+    const ends = lines
+      .map((l) => ({ type: l.type, y: fy(l.last), v: l.last, improved: higherIsBetter ? l.last > l.first : l.last < l.first }))
+      .sort((a, b) => a.y - b.y);
+    for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 13) ends[i].y = ends[i - 1].y + 13;
+
+    return (
+      <>
+        {chips}
+        <div className="mobile-scroll-fade" style={{ overflowX: 'auto' }}>
+          <svg width={FW} height={FH} style={{ display: 'block' }} role="img" aria-label={`${metricLabel} over time for selected workout types`}>
+            <defs>
+              <clipPath id="ribbon-focus-clip"><rect x={M.l - 9} y={M.t - 9} width={PW + 18} height={PH + 18} /></clipPath>
+            </defs>
+            {yTicks.map((d) => (
+              <g key={`y-${d}`}>
+                <line x1={M.l} x2={M.l + PW} y1={fy(fromDisp(d))} y2={fy(fromDisp(d))} stroke="var(--ruleSoft)" />
+                <text x={M.l - 8} y={fy(fromDisp(d)) + 3} textAnchor="end" style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkMuted)' }}>{fmtTick(d)}</text>
+              </g>
+            ))}
+            {xTicks.map((d) => {
+              const x = M.l + ((d.getTime() - t0) / ((t1 - t0) || 1)) * PW;
+              return (
+                <g key={`x-${d.getTime()}`}>
+                  <line x1={x} x2={x} y1={M.t} y2={M.t + PH} stroke="var(--ruleSoft)" strokeDasharray="2 3" />
+                  <text x={x} y={M.t + PH + 16} textAnchor="middle" style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkMuted)' }}>
+                    {d.toLocaleDateString('en-US', { month: 'short' })}{d.getMonth() === 0 ? ` '${String(d.getFullYear()).slice(2)}` : ''}
+                  </text>
+                </g>
+              );
+            })}
+            <rect x={M.l} y={M.t} width={PW} height={PH} fill="none" stroke="var(--rule)" />
+            <text
+              x={14} y={M.t + PH / 2}
+              textAnchor="middle"
+              transform={`rotate(-90 14 ${M.t + PH / 2})`}
+              style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkSoft)', letterSpacing: '.08em', textTransform: 'uppercase' }}
+            >
+              {metricLabel}{metricUnitLabel ? ` (${metricUnitLabel})` : ''} · better ↑
+            </text>
+            <g clipPath="url(#ribbon-focus-clip)">
+              {lines.map((l) => l.arr.map((r) => renderDot(r, fx(r), fy(valueOf(r)), colorFor(l.type), many ? 0.45 : 0.6)))}
+              {lines.map((l) => (
+                <path key={`line-${l.type}`} d={l.d} fill="none" stroke={colorFor(l.type)} strokeWidth={2.4} strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+              ))}
+            </g>
+            {ends.map((e) => (
+              <g key={`end-${e.type}`}>
+                <text x={M.l + PW + 8} y={e.y + 3.5} style={{ fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 600, fill: e.improved ? 'var(--positive)' : 'var(--ink)' }}>
+                  {fmtMetric(e.v)}
+                </text>
+                <circle cx={M.l + PW + 64} cy={e.y} r={3.5} fill={colorFor(e.type)} />
+              </g>
+            ))}
+          </svg>
+        </div>
+      </>
+    );
+  }
+
   if (!runs.length) return null;
 
   return (
@@ -130,7 +353,12 @@ export default function PaceRibbon() {
               <span className="mono muted" style={{ fontSize: 11, marginLeft: 6 }}>
                 ({metricUnitLabel})
               </span>
-            )} over time. Top ribbon is <b>All runs</b>; each row below is a single workout type. The line is a 5-run rolling average; watch it drift up as fitness climbs.
+            )} over time.{' '}
+            {focusTypes.size > 0 ? (
+              <>Showing <b>{rowTypes.filter((t) => focusTypes.has(t)).map(labelFor).join(', ')}</b> on one shared axis. Line = 5-run rolling average.</>
+            ) : (
+              <>Top ribbon is <b>All runs</b>; each row below is a single workout type. The line is a 5-run rolling average; watch it drift up as fitness climbs. <b>Click a ribbon to focus it.</b></>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 10.5, color: 'var(--inkMuted)', fontFamily: 'var(--mono)', textTransform: 'uppercase', letterSpacing: '.08em' }}>
             <svg width={14} height={14} style={{ display: 'block' }}>
@@ -143,7 +371,8 @@ export default function PaceRibbon() {
         <MetricToggle />
       </div>
 
-      {(() => {
+      {focusTypes.size > 0 && renderFocus()}
+      {focusTypes.size === 0 && (() => {
       // Pre-filter so empty rows (e.g. "recovery" with no runs) don't
       // reserve vertical space below the last rendered ribbon.
       const rowsToRender = rowTypes
@@ -183,7 +412,21 @@ export default function PaceRibbon() {
               : lastRoll.value < firstRoll.value;
 
             return (
-              <g key={type} transform={`translate(0, ${ri * H_ROW})`}>
+              <g
+                key={type}
+                transform={`translate(0, ${ri * H_ROW})`}
+                className="ribbon-row"
+                role="button"
+                tabIndex={0}
+                aria-label={`Focus ${labelFor(type)}`}
+                style={{ cursor: 'pointer', outline: 'none' }}
+                onClick={() => toggleFocus(type)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFocus(type); }
+                }}
+              >
+                {/* Row hit area + hover fill; the CSS lives in globals. */}
+                <rect className="ribbon-row-bg" x={-6} y={0} width={W + 6} height={H_ROW} rx={3} fill="transparent" />
                 <text
                   x={0} y={H_ROW / 2 + 4}
                   style={{ fontFamily: 'var(--sans)', fontSize: 13, fill: 'var(--ink)', fontWeight: 500 }}
@@ -230,54 +473,7 @@ export default function PaceRibbon() {
                     {fmtMetric(lastRoll.value)}
                   </text>
 
-                  {arr.map((r) => {
-                    const cx = xFor(r);
-                    const cy = getY(r, bounds);
-                    const isHover = hovered?.runId === r.id;
-                    const isSelected = selectedRunId === r.id;
-                    const isMatch = hovered && (hovered.type === r.type || hovered.routeId === r.routeId);
-                    const dim = hovered && !isHover && !isMatch && !isSelected;
-                    return (
-                      <g
-                        key={r.id}
-                        data-tap-focus="true"
-                        opacity={dim ? 0.15 : 1}
-                        style={{ cursor: 'pointer' }}
-                        onMouseEnter={(e) => {
-                          setHovered({ runId: r.id, routeId: r.routeId, type: r.type, date: r.date });
-                          show(
-                            <>
-                              <span className="t-title">{fmtDate(r.date, { year: true })}</span>
-                              <div style={{ opacity: .7, fontSize: 10.5, fontFamily: 'var(--mono)', textTransform: 'uppercase', marginBottom: 6 }}>
-                                {meta[r.type].label} · {r.routeName}
-                              </div>
-                              <div className="t-row"><span>{metricLabel}</span><span>{
-                                metric === 'pace' ? `${fmtPaceUnit(r.pace, units)} ${metricUnit}` :
-                                metric === 'distance' ? `${fmtDistance(r.distance, units, 2)} ${metricUnit}` :
-                                metric === 'hr' ? fmtHr(r) :
-                                metric === 'stamina' ? (stamOf(r) != null ? stamOf(r).toFixed(2) : '—') :
-                                (efOf(r) != null ? efOf(r).toFixed(2) : '—')
-                              }</span></div>
-                              <div className="t-row"><span>Distance</span><span>{fmtDistance(r.distance, units, 2)} {distUnit(units)}</span></div>
-                              {isInterrupted(r, stoppedThreshold) && <div className="t-row"><span>Stopped</span><span>{Math.round(r.stoppedRatio * 100)}%</span></div>}
-                              {r.pr && <div className="t-pill" style={{ background: 'var(--accent)', color: 'var(--bg)' }}>PR</div>}
-                            </>,
-                            e.clientX, e.clientY
-                          );
-                        }}
-                        onMouseLeave={() => {
-                          if (isTouch && pendingFocusId === r.id) return;
-                          setHovered(null); hide();
-                        }}
-                        onClick={() => { if (requestFocus(r.id)) { setHovered(null); hide(); } }}
-                      >
-                        <circle cx={cx} cy={cy} r={r.pr ? 4 : 2.8} fill={color} />
-                        {r.pr && <circle cx={cx} cy={cy} r={6} fill="none" stroke="var(--ink)" strokeWidth={1} />}
-                        {isHover && <circle cx={cx} cy={cy} r={8} fill="none" stroke="var(--ink)" opacity={0.5} />}
-                        {isSelected && <circle cx={cx} cy={cy} r={7} fill="none" stroke="var(--accent)" strokeWidth={1.8} />}
-                      </g>
-                    );
-                  })}
+                  {arr.map((r) => renderDot(r, xFor(r), getY(r, bounds), color))}
                 </g>
               </g>
             );

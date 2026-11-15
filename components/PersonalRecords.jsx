@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import {
-  useLink, useData, useTweaks, useExclusions,
+  useLink, useData, useTweaks, useExclusions, useTooltip,
   fmtDate, fmtPace, fmtDuration,
   fmtPaceUnit, paceUnit, fmtDistance, distUnit, fmtHr,
   hasValidHr, efOf, stamOf,
@@ -84,11 +84,11 @@ export default function PersonalRecords() {
     const best = sorted.slice(0, 3);
     const bestIds = new Set(best.map((r) => r.id));
     const toughest = [...sorted].reverse().filter((r) => !bestIds.has(r.id)).slice(0, 3);
-    return { metric, best, toughest };
+    return { metric, best, toughest, sorted };
   }, [runs, rankBy]);
 
   function renderLeaderboard() {
-    const { metric, best, toughest } = leaderboard;
+    const { metric, best, toughest, sorted } = leaderboard;
     if (!best.length) return null;
     const row = (r, i) => {
       const color = `var(--type-${r.type})`;
@@ -156,6 +156,7 @@ export default function PersonalRecords() {
             </div>
           )}
         </div>
+        <RankStrip metric={metric} sorted={sorted} allRuns={runs} units={units} meta={meta} />
       </div>
     );
   }
@@ -394,6 +395,139 @@ function DistancePR({ record, onHover, onFocus, hovered, isAllTime }) {
         </div>
         {compareBlock}
       </div>
+    </div>
+  );
+}
+
+// One-line view of the whole ranking under the podium: a tick per run at
+// its metric value ("better" always on the right), top/bottom 3 emphasized,
+// and the selected run (latest by default, or the open card) ringed with
+// its rank. Hover picks the nearest run; click opens it in Run Cards.
+function RankStrip({ metric, sorted, allRuns, units, meta }) {
+  const { hovered, setHovered, isTouch, pendingFocusId, requestFocus, selectedRunId, userSelectedRunId } = useLink();
+  const { show, hide } = useTooltip();
+  const n = sorted.length;
+  if (n < 7) return null;
+
+  // The SVG stretches to the panel width (preserveAspectRatio="none"), so
+  // ticks use non-scaling strokes and every label / the ring are HTML
+  // positioned by percentage: they keep their size at any width.
+  const W = 1000, H = 36, MID = 18;
+  const vals = sorted.map((r) => metric.value(r));
+  const vBest = vals[0], vWorst = vals[n - 1];
+  // Left = worst, right = best, whatever the metric's direction.
+  const pctOf = (v) => 1 + ((v - vWorst) / ((vBest - vWorst) || 1)) * 98;
+  const ps = vals.map(pctOf);
+
+  const selIdx = sorted.findIndex((r) => r.id === selectedRunId);
+  const sel = selIdx >= 0 ? sorted[selIdx] : null;
+  const selRun = sel || allRuns.find((r) => r.id === selectedRunId) || null;
+  const rank = selIdx + 1;
+  const pct = Math.round((rank / n) * 100);
+  const hoverIdx = hovered ? sorted.findIndex((r) => r.id === hovered.runId) : -1;
+  const who = userSelectedRunId != null ? 'This run' : 'Your latest run';
+
+  const nearest = (e) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    const p = ((e.clientX - box.left) / box.width) * 100;
+    let bi = 0;
+    for (let i = 1; i < n; i++) if (Math.abs(ps[i] - p) < Math.abs(ps[bi] - p)) bi = i;
+    return bi;
+  };
+  const tip = (i) => {
+    const r = sorted[i];
+    return (
+      <>
+        <span className="t-title">{fmtDate(r.date, { year: true })}</span>
+        <div style={{ opacity: .7, fontSize: 10.5, fontFamily: 'var(--mono)', textTransform: 'uppercase', marginBottom: 6 }}>
+          {meta[r.type].label} · {fmtDistance(r.distance, units, 1)} {distUnit(units)}
+        </div>
+        <div className="t-row"><span>{metric.label}</span><span>{fmtRankValue(metric, r, units)}</span></div>
+        <div className="t-row"><span>Rank</span><span>{i + 1} of {n}</span></div>
+      </>
+    );
+  };
+  const capStyle = { fontFamily: 'var(--mono)', fontSize: 9.5, color: 'var(--inkMuted)', letterSpacing: '.08em', textTransform: 'uppercase' };
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', ...capStyle }}>
+        <span>{metric.bottomLabel}</span>
+        <span>All {n} runs</span>
+        <span>{metric.topLabel}</span>
+      </div>
+      <div
+        data-tap-focus="true"
+        style={{ position: 'relative', height: H, cursor: 'pointer', marginTop: 2 }}
+        onMouseMove={(e) => {
+          const i = nearest(e);
+          const r = sorted[i];
+          if (hovered?.runId !== r.id) setHovered({ runId: r.id, routeId: r.routeId, type: r.type, date: r.date });
+          show(tip(i), e.clientX, e.clientY);
+        }}
+        onMouseLeave={() => {
+          if (isTouch && pendingFocusId != null) return;
+          setHovered(null); hide();
+        }}
+        onClick={(e) => {
+          const r = sorted[nearest(e)];
+          if (requestFocus(r.id)) { setHovered(null); hide(); }
+        }}
+      >
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }}
+          role="img"
+          aria-label={`Every run ranked by ${metric.label.toLowerCase()}`}
+        >
+          <line x1={0} x2={W} y1={MID} y2={MID} stroke="var(--rule)" vectorEffect="non-scaling-stroke" />
+          {sorted.map((r, i) => {
+            const top = i < 3, bot = i >= n - 3;
+            const strong = top || bot;
+            const x = ps[i] * W / 100;
+            return (
+              <line
+                key={r.id}
+                x1={x} x2={x}
+                y1={strong ? MID - 11 : MID - 6} y2={strong ? MID + 11 : MID + 6}
+                stroke={top ? 'var(--positive)' : bot ? 'var(--inkSoft)' : 'var(--inkMuted)'}
+                strokeWidth={strong ? 2 : 1}
+                opacity={strong ? 1 : 0.45}
+                vectorEffect="non-scaling-stroke"
+              />
+            );
+          })}
+          {hoverIdx >= 0 && (
+            <line
+              x1={ps[hoverIdx] * W / 100} x2={ps[hoverIdx] * W / 100} y1={MID - 14} y2={MID + 14}
+              stroke="var(--ink)" strokeWidth={2} vectorEffect="non-scaling-stroke"
+            />
+          )}
+        </svg>
+        {sel && (
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'absolute', left: `${ps[selIdx]}%`, top: MID, width: 12, height: 12,
+              transform: 'translate(-50%, -50%)', borderRadius: '50%',
+              background: 'var(--bgRaised)', border: '2px solid var(--accent)', pointerEvents: 'none',
+            }}
+          />
+        )}
+      </div>
+      {sel && (
+        <Highlight tone="muted">
+          {who} ({fmtDate(sel.date, { year: true })}) ranks{' '}
+          <HlNum>{rank} of {n}</HlNum> on {metric.label.toLowerCase()}, in the{' '}
+          {pct <= 50 ? <>top <HlNum>{Math.max(1, pct)}%</HlNum></> : <>bottom <HlNum>{100 - pct + 1}%</HlNum></>}. The ringed tick marks it.
+        </Highlight>
+      )}
+      {!sel && selRun && (
+        <Highlight tone="muted">
+          {who} ({fmtDate(selRun.date, { year: true })}) has no heart-rate data, so it isn&rsquo;t ranked on {metric.label.toLowerCase()}.
+        </Highlight>
+      )}
     </div>
   );
 }

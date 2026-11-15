@@ -91,8 +91,8 @@ If you add a new interactive element that should be "tap to focus a run," follow
 | Component | Role |
 |---|---|
 | `RunAtlas` | Calendar heatmap — every run as a cell. Global. |
-| `PersonalRecords` | Rolling splits per standard distance. Gated on `streamsSynced`. |
-| `PaceRibbon` | Trend ribbons per workout type. Has its own `MetricToggle` (pace/distance/hr/efficiency) — this is the **only** place metric matters. |
+| `PersonalRecords` | Rolling splits per standard distance. Gated on `streamsSynced`. Its Strongest & Weakest board keeps a top 3 per side plus a `RankStrip` (one tick per run, selected run ringed with its rank). |
+| `PaceRibbon` | Trend ribbons per workout type. Has its own `MetricToggle` (pace/distance/hr/efficiency) — this is the **only** place metric matters. Clicking ribbons (`focusTypes`) swaps the stack for one shared-axis chart of just those types; dots go through the shared `renderDot`. |
 | `AerobicEfficiency` | Pace ÷ HR over time. |
 | `DistancePaceCurve` | Scatter: distance × pace, with per-type fit lines. |
 | `RunCards` | Per-run cohort comparison (same type, similar distance). The destination of every `focusRequest`. |
