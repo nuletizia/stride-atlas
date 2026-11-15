@@ -367,7 +367,7 @@ function classifyTraining(s) {
 // Body content is split out so it can read `viewMode` from TweakContext.
 // That context isn't available at the root Dashboard level because the
 // provider wraps this body.
-function DashboardBody({ effectiveMode, athleteName, runCount }) {
+function DashboardBody({ effectiveMode, athleteName, athleteId, runCount }) {
   const { viewMode, units } = useTweaks();
   const filteredRuns = useAnalysisRuns();
   const { setLatestRunId } = useLink();
@@ -403,7 +403,7 @@ function DashboardBody({ effectiveMode, athleteName, runCount }) {
 
   return (
     <div className="app">
-      <ConnectBanner mode={effectiveMode} athleteName={athleteName} runCount={runCount} />
+      <ConnectBanner mode={effectiveMode} athleteName={athleteName} athleteId={athleteId} runCount={runCount} />
       <Header />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, gap: 24, flexWrap: 'wrap' }}>
         <div>
@@ -475,17 +475,16 @@ function DashboardBody({ effectiveMode, athleteName, runCount }) {
             alt="Powered by Strava"
             style={{ height: 18, width: 'auto' }}
           />
-          <a
-            href="/privacy"
-            style={{ color: 'inherit', textDecoration: 'none' }}
-          >Privacy</a>
+          {['support', 'privacy', 'terms'].map((p) => (
+            <a key={p} href={`/${p}`} style={{ color: 'inherit', textDecoration: 'none' }}>{p}</a>
+          ))}
         </div>
       </div>
     </div>
   );
 }
 
-export default function Dashboard({ data, mode = 'demo', athleteName = null }) {
+export default function Dashboard({ data, mode = 'demo', athleteName = null, athleteId = null }) {
   // In user mode, if they have <THIN_THRESHOLD runs, swap the "signed in"
   // banner for an honest "your history is thin" message. Demo mode stays
   // as-is because the bundled dataset is curated to be rich.
@@ -503,6 +502,7 @@ export default function Dashboard({ data, mode = 'demo', athleteName = null }) {
               <DashboardBody
                 effectiveMode={effectiveMode}
                 athleteName={athleteName}
+                athleteId={athleteId}
                 runCount={runCount}
               />
               <TweakPanel />

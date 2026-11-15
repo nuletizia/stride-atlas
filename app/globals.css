@@ -630,6 +630,13 @@ body { min-height: 100vh; }
   margin: 36px 0 10px 0;
   color: var(--ink);
 }
+.privacy h3 {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 15px;
+  margin: 22px 0 6px 0;
+  color: var(--ink);
+}
 .privacy p { margin: 0 0 16px 0; color: var(--inkSoft); }
 .privacy ul {
   margin: 0 0 16px 0;
@@ -727,3 +734,14 @@ body { min-height: 100vh; }
 /* Trend Ribbons: each row is a button that focuses that workout type. */
 .ribbon-row:hover .ribbon-row-bg { fill: var(--bgSunken); }
 .ribbon-row:focus-visible .ribbon-row-bg { stroke: var(--accent); stroke-width: 1.5; }
+
+/* Strava brand guidelines: links back to Strava data read "View on Strava"
+   and are marked by bold, underline or Strava orange. The orange is a brand
+   requirement, so it's the one hard-coded color outside lib/theme.js. */
+.view-on-strava {
+  color: #FC5200;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.view-on-strava:hover { filter: brightness(0.9); }

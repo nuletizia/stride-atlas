@@ -9,21 +9,10 @@ import { NextResponse } from 'next/server';
 import { getSession, isLoggedIn } from '@/lib/session';
 import { withFreshToken, fetchAllActivities, fetchAthlete } from '@/lib/strava';
 import { summaryToRun, buildStrideData, estimateHrMax } from '@/lib/ingest-runtime';
+import { getCachedRuns, setCachedRuns } from '@/lib/runs-cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-// Module-scoped cache. Survives between requests on the same warm instance.
-// Cold starts throw it away; that's fine for MVP.
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
-const cache = new Map(); // athleteId -> { data, fetchedAt }
-
-function cached(athleteId) {
-  const hit = cache.get(athleteId);
-  if (!hit) return null;
-  if (Date.now() - hit.fetchedAt > CACHE_TTL_MS) return null;
-  return hit.data;
-}
 
 export async function GET(request) {
   const session = await getSession();
@@ -35,7 +24,7 @@ export async function GET(request) {
   const force = url.searchParams.get('refresh') === '1';
 
   if (!force) {
-    const hit = cached(session.athleteId);
+    const hit = getCachedRuns(session.athleteId);
     if (hit) return NextResponse.json(hit);
   }
 
@@ -58,7 +47,7 @@ export async function GET(request) {
       .filter(Boolean);
 
     const data = buildStrideData(runs, athlete, { hrMax });
-    cache.set(session.athleteId, { data, fetchedAt: Date.now() });
+    setCachedRuns(session.athleteId, data);
     return NextResponse.json(data);
   } catch (e) {
     console.error('/api/runs error:', e);

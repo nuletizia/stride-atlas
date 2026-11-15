@@ -74,7 +74,7 @@ function Notice({ title, body, showDemo = false }) {
   );
 }
 
-export default function UserDashboardLoader({ athleteName = null }) {
+export default function UserDashboardLoader({ athleteName = null, athleteId = null }) {
   const [state, setState] = useState(STATES.LOADING);
   const [data, setData] = useState(null);
   // Categorize failures the same way the old server component did, so the
@@ -162,5 +162,5 @@ export default function UserDashboardLoader({ athleteName = null }) {
     );
   }
 
-  return <Dashboard data={data} mode="user" athleteName={athleteName} />;
+  return <Dashboard data={data} mode="user" athleteName={athleteName} athleteId={athleteId} />;
 }

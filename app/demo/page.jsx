@@ -3,7 +3,7 @@ import path from 'node:path';
 import Dashboard from '@/components/Dashboard';
 
 export const metadata = {
-  title: 'Demo · Stride Atlas',
+  title: 'Demo',
   description: 'Explore the Stride Atlas dashboard with sample data.',
 };
 

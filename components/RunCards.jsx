@@ -9,6 +9,7 @@ import {
   fmtTemp, tempUnit,
   Highlight, HlNum, MI_PER_KM,
 } from '@/lib/shared';
+import { stravaActivityUrl } from '../lib/site';
 
 // Cards render in batches inside a fixed-height scroll box; the next batch
 // loads when the sentinel at the bottom of the box comes into view.
@@ -770,6 +771,27 @@ function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinne
       {expanded && run.note && (
         <div style={{ marginBottom: 8, fontSize: 12.5, color: 'var(--inkSoft)', fontStyle: 'italic', fontFamily: 'var(--serif)' }}>
           &ldquo;{run.note}&rdquo;
+        </div>
+      )}
+
+      {expanded && (run.stravaId || run.device) && (
+        <div style={{ display: 'flex', gap: 12, alignItems: 'baseline', flexWrap: 'wrap', marginBottom: 8, fontSize: 11.5 }}>
+          {run.stravaId && (
+            <a
+              className="view-on-strava"
+              href={stravaActivityUrl(run.stravaId)}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >View on Strava</a>
+          )}
+          {/* Garmin requires "Garmin [model]" attribution next to its data;
+              Strava's device_name already reads that way. */}
+          {run.device && (
+            <span className="mono" style={{ color: 'var(--inkMuted)', fontSize: 10.5 }}>
+              Recorded with {run.device}
+            </span>
+          )}
         </div>
       )}
 

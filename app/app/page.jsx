@@ -3,7 +3,7 @@ import { getSession, isLoggedIn } from '@/lib/session';
 import UserDashboardLoader from '@/components/UserDashboardLoader';
 
 export const metadata = {
-  title: 'Dashboard · Stride Atlas',
+  title: 'Dashboard',
   description: 'Your Strava runs, annotated.',
 };
 
@@ -20,5 +20,5 @@ export default async function AppPage() {
   // agreed-upon routing: / is always landing, /app is always dashboard.
   if (!isLoggedIn(session)) redirect('/');
 
-  return <UserDashboardLoader athleteName={session.athleteName} />;
+  return <UserDashboardLoader athleteName={session.athleteName} athleteId={session.athleteId} />;
 }

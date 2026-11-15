@@ -20,9 +20,12 @@ There is no test suite. Verify changes by running `next build` and by clicking t
 | `/app` | `app/app/page.jsx` | required | Real user dashboard. Fetches Strava, renders `<Dashboard mode="user">`. |
 | `/demo` | `app/demo/page.jsx` | public | Same dashboard from bundled `data/runs.json`, `mode="demo"`. |
 | `/privacy` | `app/privacy/page.jsx` | public | Plain-English privacy policy. Keep it in sync with actual data flow. |
+| `/terms` | `app/terms/page.jsx` | public | Terms. Keep the third-party warranty/liability disclaimer (Strava API Policy 9.2). |
+| `/support` | `app/support/page.jsx` | public | Support contact + FAQ. This is the Support URL given to Strava. |
+| `/disconnected` | `app/disconnected/page.jsx` | public | Written deletion confirmation shown after Disconnect. |
 | `/api/auth/strava` | OAuth initiate | — | Redirects to Strava with CSRF `state`. |
 | `/api/auth/strava/callback` | OAuth callback | — | Exchanges code → tokens → session. |
-| `/api/auth/logout` | clear session | — | POST; redirects to `/`. |
+| `/api/auth/logout` | disconnect | — | POST; revokes at Strava (`deauthorize`), evicts the runs cache, clears session, redirects to `/disconnected`. |
 | `/api/runs` | — | required | Force-refresh Strava data (handles token refresh). |
 | `/api/debug/strava-raw` | — | required | Dev-only raw activity dump. |
 
@@ -42,7 +45,7 @@ Personal Records that depend on rolling splits (`bestSplits`) are **gated** in s
 ### The run record (what every panel consumes)
 
 ```
-{ id, date, dow, type, routeId, routeName,
+{ id, stravaId, device, date, dow, type, routeId, routeName,
   distance, pace, duration, hr, maxHr, elev, temp,
   zones, bestSplits, pr, routePR, note,
   isRace, isLong, isRecovery, sufferScore }
@@ -122,8 +125,16 @@ The **View panel** (`components/TweakPanel.jsx`, FAB bottom-right) exposes Visua
 - **Dates are ISO `YYYY-MM-DD` strings** everywhere in the data layer. Compare with `localeCompare`; construct `Date` via `new Date(iso + 'T00:00:00')` to avoid UTC-drift off-by-ones.
 - **Routes** are clustered by start GPS + distance similarity (≤500m + ≤15% distance). `indoor` is a reserved routeId for treadmill runs (no GPS).
 - **PR flags** are post-processed two-pass in `buildStrideData`: the *actual best* gets the flag, not the first seen. Don't "stream" PR detection.
-- **In-memory cache** (`/app/page.jsx`): 1h TTL per athlete, lives in a module-scoped `Map`. Resets on serverless cold-start — that's the design, not a bug. If you need cache invalidation, the user can hit `/api/runs`.
+- **In-memory cache** (`lib/runs-cache.js`, written by `/api/runs`): 1h TTL per athlete, lives in a module-scoped `Map`. Resets on serverless cold-start — that's the design, not a bug. If you need cache invalidation, the user can hit `/api/runs`.
 - **Session** is an iron-session encrypted cookie (`stride_session`, 30-day rolling). No users table exists. Tokens auto-refresh in `withFreshToken` during API-route handling; server components can't refresh (can't mutate cookies), so if `session.expiresAt` is near-expiry they bail and the page shows a reconnect message.
+
+## Strava API compliance
+
+Strava's API Policy (June 2026) is enforced at review time. Keep these true:
+- Contact/operator constants live in `lib/site.js` (`SUPPORT_EMAIL`, `OPERATOR_NAME`, `LEGAL_UPDATED`).
+- Every expanded RunCard shows a **View on Strava** link (`.view-on-strava`, brand orange is the one allowed hard-coded color) and `Recorded with {device}` for Garmin attribution.
+- The runs cache (`lib/runs-cache.js`) stays ≤7 days (it's 1h) and is evicted on Disconnect.
+- Strava data is only ever shown to the athlete it belongs to. No AI/ML, no analytics on Strava data.
 
 ## Env vars
 

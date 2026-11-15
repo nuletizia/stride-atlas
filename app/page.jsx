@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSession, isLoggedIn } from '@/lib/session';
 import HeroRibbonPreview from '@/components/HeroRibbonPreview';
+import { FooterLinks } from '@/components/LegalPage';
 
 export const metadata = {
   title: 'Stride Atlas · See your running progress',
@@ -22,7 +23,7 @@ export default async function LandingPage() {
         </div>
         <nav className="landing-nav-links">
           <Link href="/demo">Demo</Link>
-          <Link href="/privacy">Privacy</Link>
+          <Link href="/support">Support</Link>
         </nav>
       </header>
 
@@ -76,10 +77,7 @@ export default async function LandingPage() {
           height={22}
           style={{ height: 22, width: 'auto' }}
         />
-        <nav className="landing-footer-links">
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/demo">Demo</Link>
-        </nav>
+        <FooterLinks />
       </footer>
     </div>
   );

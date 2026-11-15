@@ -394,6 +394,7 @@ function ingestStrava() {
 
     activities.push({
       stravaId: id,
+      device: null, // export CSV has no recording-device name
       date: iso,
       dow: dt.getDay(),
       type,
@@ -488,6 +489,7 @@ function ingestLooseFits() {
     const temp = isFinite(tempRaw) ? Math.round(tempRaw) : null;
     activities.push({
       stravaId: null,
+      device: null,
       date: iso,
       dow: dt.getDay(),
       type: inferType({

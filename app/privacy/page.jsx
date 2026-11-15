@@ -1,167 +1,168 @@
 import Link from 'next/link';
+import LegalPage from '@/components/LegalPage';
+import { SUPPORT_EMAIL, OPERATOR_NAME, LEGAL_UPDATED, STRAVA_APPS_SETTINGS } from '@/lib/site';
 
 export const metadata = {
-  title: 'Privacy · Stride Atlas',
+  title: 'Privacy',
   description: 'What Stride Atlas stores, where, and for how long.',
 };
 
 // Plain-English privacy policy reflecting how the app actually handles
 // data: no server DB for activities, in-memory cache only, localStorage
 // for client-side preferences, encrypted session cookie for Strava tokens.
+// It also covers what Strava's API Policy (June 2026) requires: data types,
+// collection method, withdrawing consent, deletion + written confirmation,
+// GDPR basics, and the Strava usage-data statement (6.5).
 // Keep the copy honest and specific. If behaviour changes, update here.
 export default function PrivacyPage() {
+  const mail = <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>;
   return (
-    <div className="app landing">
-      <header className="landing-nav">
-        <Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <div>
-            <div className="eyebrow">Your Running Progress · v1</div>
-            <div className="wordmark"><b>Stride</b><i>Atlas</i></div>
-          </div>
-        </Link>
-        <nav className="landing-nav-links">
-          <Link href="/demo">Demo</Link>
-          <Link href="/app">Dashboard</Link>
-        </nav>
-      </header>
+    <LegalPage
+      title="Privacy"
+      updated={LEGAL_UPDATED}
+      lede="Stride Atlas is a personal dashboard for your Strava runs. There's no database of activities on our side, no email list, and no sharing beyond what's strictly needed to make the app work. This page spells out exactly what that means."
+    >
+      <h2>Who is responsible</h2>
+      <p>
+        Stride Atlas is run by {OPERATOR_NAME}, who is the data controller for the personal
+        data described here. Contact: {mail}.
+      </p>
 
-      <article className="privacy">
-        <h1>Privacy</h1>
-        <p className="privacy-lede">
-          Stride Atlas is a personal dashboard for your Strava runs. It&rsquo;s built to keep
-          your data close to you. There&rsquo;s no database of activities on our side, no
-          email list, no third-party sharing beyond what&rsquo;s strictly required to make
-          the app work. This page spells out exactly what that means.
-        </p>
+      <h2>What we collect, and how</h2>
+      <p>
+        Nothing is collected until you click <b>Connect with Strava</b> and approve access on
+        Strava&rsquo;s own consent screen. We ask for two Strava permissions:
+      </p>
+      <ul>
+        <li>
+          <code>read</code>: your public profile (name, city, athlete ID).
+        </li>
+        <li>
+          <code>activity:read_all</code>: your activities, including ones set to
+          &ldquo;Only You&rdquo;, so your private runs appear in your own dashboard. Only you
+          ever see them.
+        </li>
+      </ul>
+      <p>
+        With that access, our server reads your activity summaries from the Strava API. From
+        each run we use the date, distance, moving and elapsed time, heart rate, elevation,
+        temperature, Relative Effort, start location (to group runs on the same route),
+        activity name, recording device, and race or long-run flags. Strava also gives us an
+        access token and a refresh token so we can read this data on your behalf.
+      </p>
+      <p>We do <b>not</b> collect:</p>
+      <ul>
+        <li>Your email address (Strava doesn&rsquo;t share it with us, and we don&rsquo;t ask).</li>
+        <li>GPS traces or maps (we read summaries only).</li>
+        <li>Any activity other than runs, beyond filtering them out.</li>
+        <li>Anything you do on the site beyond the setting choices you make in the View panel.</li>
+      </ul>
 
-        <div className="privacy-meta">
-          Last updated: <b>April 2026</b>
-        </div>
+      <h2>Why we use it</h2>
+      <p>
+        Only to show you your own dashboard. The legal basis is your consent, given on
+        Strava&rsquo;s authorization screen, which you can withdraw at any time. Your Strava
+        data is never shown to anyone else, never sold or shared, never used for advertising,
+        never used for analytics about you or our users, and never used to train or run any AI
+        model.
+      </p>
 
-        <h2>What we collect</h2>
-        <p>
-          When you click <b>Connect with Strava</b>, Strava redirects you back to us with a
-          short-lived access token and a long-lived refresh token. We also receive your
-          Strava athlete profile (your name, city, and athlete ID) and your run activities
-          (date, distance, pace, duration, heart rate, elevation, route name): the same
-          data Strava shows you on its own dashboard.
-        </p>
-        <p>We do <b>not</b> collect:</p>
-        <ul>
-          <li>Your email address (Strava doesn&rsquo;t share it with us, and we don&rsquo;t ask).</li>
-          <li>GPS traces (we read summaries only; individual lat/lng points are never requested).</li>
-          <li>Any activity type other than runs.</li>
-          <li>Anything from you while you&rsquo;re using the site beyond the setting choices you make in the View panel.</li>
-        </ul>
+      <h2>Where it&rsquo;s stored, and for how long</h2>
+      <ul>
+        <li>
+          <b>Tokens</b> live in an encrypted session cookie (<code>stride_session</code>) in
+          your browser. It&rsquo;s HTTP-only, SameSite=Lax and Secure, and expires after 30
+          days of inactivity. We don&rsquo;t have a database of users.
+        </li>
+        <li>
+          <b>Activities</b> are fetched from Strava when you open the dashboard and held in a
+          per-athlete server memory cache for <b>at most one hour</b>. Server restarts wipe it
+          sooner. Changes or deletions you make on Strava show up within that hour.
+        </li>
+        <li>
+          <b>Preferences</b> (theme, units, time range, HR max override) live in your
+          browser&rsquo;s localStorage and never leave your device.
+        </li>
+      </ul>
 
-        <h2>Where it&rsquo;s stored</h2>
-        <p>
-          Your Strava access and refresh tokens live in an <b>encrypted session cookie</b>{' '}
-          (iron-session) that the browser sends back to our server on each request. The
-          cookie is HTTP-only, SameSite=Lax, and Secure in production. It expires after
-          30 days of inactivity. We don&rsquo;t have a database of users. If the cookie is
-          cleared, there&rsquo;s nothing on our side to reconstruct.
-        </p>
-        <p>
-          Your run activities are fetched from Strava on demand and held in a{' '}
-          <b>per-athlete in-memory cache</b> for up to one hour, so the dashboard loads
-          quickly without re-hitting Strava&rsquo;s API on every navigation. This cache lives
-          in the server process. When the process restarts (which Vercel does regularly
-          on serverless functions), the cache is gone.
-        </p>
-        <p>
-          Your preferences (theme, km/mi, time range, custom date range, HR max
-          override) live in your browser&rsquo;s <b>localStorage</b>. They never leave your
-          device.
-        </p>
+      <h2>Third parties</h2>
+      <ul>
+        <li>
+          <b>Strava</b> is the source of your data and handles sign-in through OAuth. Strava
+          may collect usage data about how Stride Atlas uses the Strava API and use it for its
+          own business purposes, as described in{' '}
+          <a href="https://www.strava.com/legal/privacy" target="_blank" rel="noreferrer">
+            Strava&rsquo;s Privacy Policy
+          </a>
+          , which governs Strava&rsquo;s own processing and controls if it conflicts with this
+          page.
+        </li>
+        <li>
+          <b>Vercel</b> hosts the app. It keeps standard request
+          logs (IP address, time, URL) under its own policy; we don&rsquo;t read or keep them.
+          Vercel Analytics records anonymous page views (page path, country, referrer) with no
+          cookies and no Strava data.
+        </li>
+      </ul>
+      <p>That&rsquo;s the complete list. No ad networks, marketing pixels or session replay.</p>
 
-        <h2>Third parties</h2>
-        <ul>
-          <li>
-            <b>Strava.</b> The whole point. Your Strava account is authenticated via
-            OAuth 2.0; the app reads activities using the permissions you grant. You can
-            revoke Stride Atlas&rsquo;s access at any time from{' '}
-            <a href="https://www.strava.com/settings/apps" target="_blank" rel="noreferrer">
-              your Strava account settings
-            </a>.
-          </li>
-          <li>
-            <b>Vercel Analytics.</b> We track anonymous page views (route visited, country,
-            referrer) to see roughly how the site is being used. No IP addresses or
-            fingerprints are associated with individual users. Vercel&rsquo;s{' '}
-            <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noreferrer">
-              privacy policy
-            </a>{' '}
-            covers what they do with that data.
-          </li>
-          <li>
-            <b>Vercel hosting.</b> The site runs on Vercel&rsquo;s edge/serverless infrastructure.
-            Standard request logs (IP, timestamp, URL, response time) are retained by
-            Vercel per their policy; we don&rsquo;t read or store them ourselves.
-          </li>
-        </ul>
-        <p>
-          That&rsquo;s the entire third-party list. No ad networks, no marketing pixels, no
-          session-replay tools.
-        </p>
+      <h2>Cookies</h2>
+      <p>
+        One cookie: <code>stride_session</code>, used only to keep you signed in. No tracking
+        cookies.
+      </p>
 
-        <h2>Cookies</h2>
-        <p>
-          One session cookie: <code>stride_session</code>, used only for authentication.
-          No tracking cookies. Vercel Analytics is cookieless by default.
-        </p>
+      <h2>Your rights</h2>
+      <ul>
+        <li>
+          <b>Withdraw consent / disconnect.</b> Press <b>Disconnect</b> on your dashboard. We
+          revoke our access at Strava, delete your cached activities and your session, and show
+          you a page confirming it. You can also revoke Stride Atlas from{' '}
+          <a href={STRAVA_APPS_SETTINGS} target="_blank" rel="noreferrer">
+            your Strava app settings
+          </a>
+          ; our cached copy then expires within an hour.
+        </li>
+        <li>
+          <b>Deletion.</b> Disconnecting deletes everything we hold about you. You can also
+          email {mail} to ask for deletion, and we&rsquo;ll confirm in writing once it&rsquo;s
+          done, within 30 days at most.
+        </li>
+        <li>
+          <b>Access.</b> Your dashboard shows all the data we use. Email us for a copy, or use
+          Strava&rsquo;s own bulk export (<i>Settings → My Account → Download or Delete Your
+          Account</i>).
+        </li>
+        <li>
+          <b>Other rights.</b> Under the GDPR and UK GDPR you can also ask us to correct or
+          restrict processing of your data, or object to it, and you can complain to your
+          local data protection authority.
+        </li>
+      </ul>
 
-        <h2>Your rights</h2>
-        <ul>
-          <li>
-            <b>Disconnect.</b> Use the Disconnect button in the authed dashboard, or
-            revoke Stride Atlas from your{' '}
-            <a href="https://www.strava.com/settings/apps" target="_blank" rel="noreferrer">
-              Strava app settings
-            </a>. Either one clears our ability to reach your data.
-          </li>
-          <li>
-            <b>Access / export.</b> You already have all of this. It&rsquo;s your data on
-            Strava. Strava itself provides a bulk export of your activities under{' '}
-            <i>Account → Download or Delete Your Account</i>.
-          </li>
-          <li>
-            <b>Delete.</b> There&rsquo;s nothing persistent to delete on our side. Disconnecting
-            and clearing your browser&rsquo;s cookies/localStorage for this site removes
-            every trace locally.
-          </li>
-        </ul>
+      <h2>Security</h2>
+      <p>
+        All traffic uses HTTPS. Tokens are encrypted at rest in the cookie and never sent to
+        your browser&rsquo;s JavaScript. If a security incident ever affects your data, we will
+        tell affected users and Strava promptly.
+      </p>
 
-        <h2>Changes</h2>
-        <p>
-          If this policy changes in a way that affects what we collect or how we use it,
-          the <b>Last updated</b> date above will change, and the home page will surface
-          a small note for at least a week. If you&rsquo;re disconnected at that point, you
-          won&rsquo;t be affected anyway. There&rsquo;s nothing to change retroactively.
-        </p>
+      <h2>Children</h2>
+      <p>Stride Atlas isn&rsquo;t directed at children under 13, in line with Strava&rsquo;s own terms.</p>
 
-        <h2>Contact</h2>
-        <p>
-          Questions, or something here that doesn&rsquo;t match what you&rsquo;re seeing? Email{' '}
-          <a href="mailto:na@letizia.tech">na@letizia.tech</a>.
-          {/*
-            TODO (before launch): replace with your real contact address.
-            Strava API guidelines require a working contact for privacy concerns.
-          */}
-        </p>
-      </article>
+      <h2>Changes</h2>
+      <p>
+        If this policy changes in a way that affects what we collect or how we use it, the
+        date above changes and we&rsquo;ll ask for your consent again if the data we collect
+        changes.
+      </p>
 
-      <footer className="landing-footer">
-        <img
-          src="/strava-logos/powered-by-strava-horiz-orange.svg"
-          alt="Powered by Strava"
-          style={{ height: 22, width: 'auto' }}
-        />
-        <nav className="landing-footer-links">
-          <Link href="/">Home</Link>
-          <Link href="/demo">Demo</Link>
-        </nav>
-      </footer>
-    </div>
+      <h2>Contact</h2>
+      <p>
+        Questions, or something here that doesn&rsquo;t match what you&rsquo;re seeing? Email{' '}
+        {mail}. See also the <Link href="/support">support page</Link> and the{' '}
+        <Link href="/terms">terms</Link>.
+      </p>
+    </LegalPage>
   );
 }

@@ -1,11 +1,13 @@
 'use client';
 
+import { stravaAthleteUrl } from '@/lib/site';
+
 // Horizontal banner sitting above the header. Three states:
 //   demo — "you're viewing a sample dataset, connect your own Strava"
 //   user — "signed in as <name>, disconnect"
 //   thin — "you have N runs, the dashboard works best with ~20+"
 
-export default function ConnectBanner({ mode, athleteName, runCount }) {
+export default function ConnectBanner({ mode, athleteName, athleteId, runCount }) {
   if (mode === 'thin') {
     return (
       <div style={{
@@ -45,6 +47,15 @@ export default function ConnectBanner({ mode, athleteName, runCount }) {
           <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 14 }}>
             {athleteName || 'Runner'}
           </span>
+          {athleteId && (
+            <a
+              className="view-on-strava"
+              href={stravaAthleteUrl(athleteId)}
+              target="_blank"
+              rel="noreferrer"
+              style={{ marginLeft: 10, fontSize: 12 }}
+            >View on Strava</a>
+          )}
         </span>
         <form action="/api/auth/logout" method="POST">
           <button type="submit" className="chip" style={{ cursor: 'pointer' }}>
