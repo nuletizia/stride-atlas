@@ -19,7 +19,7 @@ export default function TermsPage() {
     >
       <h2>Who we are</h2>
       <p>
-        Stride Atlas (&ldquo;the app&rdquo;) is run by {OPERATOR_NAME} as an independent
+        Stride Atlas (“the app”) is run by {OPERATOR_NAME} as an independent
         project. Contact: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
       </p>
 
@@ -29,7 +29,7 @@ export default function TermsPage() {
         approved by Strava. Strava and the Strava logo are trademarks of Strava, Inc. Your
         use of Strava itself is governed by{' '}
         <a href="https://www.strava.com/legal/terms" target="_blank" rel="noreferrer">
-          Strava&rsquo;s Terms of Service
+          Strava’s Terms of Service
         </a>{' '}
         and{' '}
         <a href="https://www.strava.com/legal/privacy" target="_blank" rel="noreferrer">
@@ -50,8 +50,8 @@ export default function TermsPage() {
           .
         </li>
         <li>
-          Don&rsquo;t try to access other people&rsquo;s data, overload the service, or use it
-          to break the law or Strava&rsquo;s terms.
+          Don’t try to access other people’s data, overload the service, or use it
+          to break the law or Strava’s terms.
         </li>
         <li>
           How we handle your data is described in the{' '}
@@ -62,13 +62,13 @@ export default function TermsPage() {
       <h2>Not medical or coaching advice</h2>
       <p>
         Workout types, efficiency scores, trends and comparisons are estimates computed from
-        your recorded data. They can be wrong. Don&rsquo;t rely on them for medical,
+        your recorded data. They can be wrong. Don’t rely on them for medical,
         health or training-safety decisions.
       </p>
 
       <h2>No warranty</h2>
       <p>
-        The app is provided &ldquo;as is&rdquo; and &ldquo;as available&rdquo;, without
+        The app is provided “as is” and “as available”, without
         warranties of any kind. To the fullest extent permitted by law, Stride Atlas{' '}
         <b>and its third-party service providers, including Strava, Inc.</b> disclaim all
         warranties, express or implied, including the implied warranties of merchantability,

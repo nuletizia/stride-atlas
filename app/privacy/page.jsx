@@ -31,7 +31,7 @@ export default function PrivacyPage() {
       <h2>What we collect, and how</h2>
       <p>
         Nothing is collected until you click <b>Connect with Strava</b> and approve access on
-        Strava&rsquo;s own consent screen. We ask for two Strava permissions:
+        Strava’s own consent screen. We ask for two Strava permissions:
       </p>
       <ul>
         <li>
@@ -39,7 +39,7 @@ export default function PrivacyPage() {
         </li>
         <li>
           <code>activity:read_all</code>: your activities, including ones set to
-          &ldquo;Only You&rdquo;, so your private runs appear in your own dashboard. Only you
+          “Only You”, so your private runs appear in your own dashboard. Only you
           ever see them.
         </li>
       </ul>
@@ -52,7 +52,7 @@ export default function PrivacyPage() {
       </p>
       <p>We do <b>not</b> collect:</p>
       <ul>
-        <li>Your email address (Strava doesn&rsquo;t share it with us, and we don&rsquo;t ask).</li>
+        <li>Your email address (Strava doesn’t share it with us, and we don’t ask).</li>
         <li>GPS traces or maps (we read summaries only).</li>
         <li>Any activity other than runs, beyond filtering them out.</li>
         <li>Anything you do on the site beyond the setting choices you make in the View panel.</li>
@@ -61,18 +61,18 @@ export default function PrivacyPage() {
       <h2>Why we use it</h2>
       <p>
         Only to show you your own dashboard. The legal basis is your consent, given on
-        Strava&rsquo;s authorization screen, which you can withdraw at any time. Your Strava
+        Strava’s authorization screen, which you can withdraw at any time. Your Strava
         data is never shown to anyone else, never sold or shared, never used for advertising,
         never used for analytics about you or our users, and never used to train or run any AI
         model.
       </p>
 
-      <h2>Where it&rsquo;s stored, and for how long</h2>
+      <h2>Where it’s stored, and for how long</h2>
       <ul>
         <li>
           <b>Tokens</b> live in an encrypted session cookie (<code>stride_session</code>) in
-          your browser. It&rsquo;s HTTP-only, SameSite=Lax and Secure, and expires after 30
-          days of inactivity. We don&rsquo;t have a database of users.
+          your browser. It’s HTTP-only, SameSite=Lax and Secure, and expires after 30
+          days of inactivity. We don’t have a database of users.
         </li>
         <li>
           <b>Activities</b> are fetched from Strava when you open the dashboard and held in a
@@ -81,7 +81,7 @@ export default function PrivacyPage() {
         </li>
         <li>
           <b>Preferences</b> (theme, units, time range, HR max override) live in your
-          browser&rsquo;s localStorage and never leave your device.
+          browser’s localStorage and never leave your device.
         </li>
       </ul>
 
@@ -92,19 +92,19 @@ export default function PrivacyPage() {
           may collect usage data about how Stride Atlas uses the Strava API and use it for its
           own business purposes, as described in{' '}
           <a href="https://www.strava.com/legal/privacy" target="_blank" rel="noreferrer">
-            Strava&rsquo;s Privacy Policy
+            Strava’s Privacy Policy
           </a>
-          , which governs Strava&rsquo;s own processing and controls if it conflicts with this
+          , which governs Strava’s own processing and controls if it conflicts with this
           page.
         </li>
         <li>
           <b>Vercel</b> hosts the app. It keeps standard request
-          logs (IP address, time, URL) under its own policy; we don&rsquo;t read or keep them.
+          logs (IP address, time, URL) under its own policy; we don’t read or keep them.
           Vercel Analytics records anonymous page views (page path, country, referrer) with no
           cookies and no Strava data.
         </li>
       </ul>
-      <p>That&rsquo;s the complete list. No ad networks, marketing pixels or session replay.</p>
+      <p>That’s the complete list. No ad networks, marketing pixels or session replay.</p>
 
       <h2>Cookies</h2>
       <p>
@@ -125,12 +125,12 @@ export default function PrivacyPage() {
         </li>
         <li>
           <b>Deletion.</b> Disconnecting deletes everything we hold about you. You can also
-          email {mail} to ask for deletion, and we&rsquo;ll confirm in writing once it&rsquo;s
+          email {mail} to ask for deletion, and we’ll confirm in writing once it’s
           done, within 30 days at most.
         </li>
         <li>
           <b>Access.</b> Your dashboard shows all the data we use. Email us for a copy, or use
-          Strava&rsquo;s own bulk export (<i>Settings → My Account → Download or Delete Your
+          Strava’s own bulk export (<i>Settings → My Account → Download or Delete Your
           Account</i>).
         </li>
         <li>
@@ -143,23 +143,23 @@ export default function PrivacyPage() {
       <h2>Security</h2>
       <p>
         All traffic uses HTTPS. Tokens are encrypted at rest in the cookie and never sent to
-        your browser&rsquo;s JavaScript. If a security incident ever affects your data, we will
+        your browser’s JavaScript. If a security incident ever affects your data, we will
         tell affected users and Strava promptly.
       </p>
 
       <h2>Children</h2>
-      <p>Stride Atlas isn&rsquo;t directed at children under 13, in line with Strava&rsquo;s own terms.</p>
+      <p>Stride Atlas isn’t directed at children under 13, in line with Strava’s own terms.</p>
 
       <h2>Changes</h2>
       <p>
         If this policy changes in a way that affects what we collect or how we use it, the
-        date above changes and we&rsquo;ll ask for your consent again if the data we collect
+        date above changes and we’ll ask for your consent again if the data we collect
         changes.
       </p>
 
       <h2>Contact</h2>
       <p>
-        Questions, or something here that doesn&rsquo;t match what you&rsquo;re seeing? Email{' '}
+        Questions, or something here that doesn’t match what you’re seeing? Email{' '}
         {mail}. See also the <Link href="/support">support page</Link> and the{' '}
         <Link href="/terms">terms</Link>.
       </p>

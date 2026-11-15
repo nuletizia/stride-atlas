@@ -23,17 +23,17 @@ export default async function DisconnectedPage({ searchParams }) {
         {revoked ? (
           <li>
             <b>Revoked access at Strava.</b> Every token Strava issued to Stride Atlas for
-            your account is now invalid. The app can&rsquo;t read your activities again unless
+            your account is now invalid. The app can’t read your activities again unless
             you reconnect.
           </li>
         ) : (
           <li>
-            <b>Strava access.</b>{' '}Strava didn&rsquo;t confirm the revocation, most likely
+            <b>Strava access.</b>{' '}Strava didn’t confirm the revocation, most likely
             because access was already revoked or had expired. To be sure, check{' '}
             <a href={STRAVA_APPS_SETTINGS} target="_blank" rel="noreferrer">
               your Strava app settings
             </a>{' '}
-            and revoke Stride Atlas if it&rsquo;s still listed.
+            and revoke Stride Atlas if it’s still listed.
           </li>
         )}
         <li>
@@ -46,9 +46,9 @@ export default async function DisconnectedPage({ searchParams }) {
         </li>
       </ul>
       <p>
-        We don&rsquo;t keep a database of users or activities, so nothing else about you
+        We don’t keep a database of users or activities, so nothing else about you
         remains on our side. Display preferences (theme, units, HR max) are stored only in
-        this browser&rsquo;s localStorage; clear this site&rsquo;s data in your browser to
+        this browser’s localStorage; clear this site’s data in your browser to
         remove them too.
       </p>
       <p>

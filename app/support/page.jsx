@@ -16,7 +16,7 @@ export default function SupportPage() {
       <h2>Contact</h2>
       <p>
         Email <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>. Include what you
-        were looking at and, if it&rsquo;s about a specific run, its date. Expect a reply
+        were looking at and, if it’s about a specific run, its date. Expect a reply
         within a few days.
       </p>
 
@@ -40,7 +40,7 @@ export default function SupportPage() {
       <h3>How do I disconnect and delete my data?</h3>
       <p>
         Press <b>Disconnect</b> at the top of your dashboard. That revokes Stride
-        Atlas&rsquo;s access at Strava, deletes your cached activities and session, and
+        Atlas’s access at Strava, deletes your cached activities and session, and
         shows a confirmation. You can also revoke access from{' '}
         <a href={STRAVA_APPS_SETTINGS} target="_blank" rel="noreferrer">
           your Strava app settings
