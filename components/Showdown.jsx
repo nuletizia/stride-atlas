@@ -1,10 +1,10 @@
 'use client';
 
 // Showdown: two runs as game-style cards, side by side. Opened from an
-// expanded RunCard ("Compare") or from `?vs=a,b` in the URL. The winner
-// (faster time, projected to the same distance when they differ) gets the
-// bigger, accented card; every stat bar is a percentile among the
-// athlete's similar runs, so a longer bar always means better.
+// expanded RunCard ("Compare") or from `?vs=a,b` in the URL. The winner is
+// the better run on the metric picked in "Winner by" (Stamina by default)
+// and gets the bigger, accented card. Every bar is a percentile among the
+// athlete's own runs, so a longer bar always means better.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -12,10 +12,11 @@ import {
   fmtDuration, fmtPace, fmtPaceUnit, paceUnit, fmtDistance, distUnit,
   elevToDisplay, elevUnit, fmtTemp, tempUnit, hasValidHr, paceToDisplay, pad, isInterrupted,
 } from '@/lib/shared';
-import { buildShowdown, suggestOpponents, opponentChoices, COHORT_TOL } from '@/lib/showdown';
+import { buildShowdown, suggestOpponents, opponentChoices, availableMetrics, SHOWDOWN_METRICS, DEFAULT_RANK, COHORT_TOL } from '@/lib/showdown';
 import { stravaActivityUrl } from '@/lib/site';
 
 const PLOTS_KEY = 'stride.showdownPlots';
+const RANK_KEY = 'stride.showdownRankBy';
 
 const fmtDay = (iso, year = true) =>
   new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: year ? 'numeric' : undefined });
@@ -28,12 +29,23 @@ function fmtGap(min) {
   return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`;
 }
 
+// One line saying how the result was reached, e.g. "Higher stamina wins".
+function verdict(sd, fmt) {
+  const m = sd.metric;
+  const row = sd.metrics.find((r) => r.selected);
+  if (!sd.winner) return `Level on ${m.label.toLowerCase()}`;
+  const w = row[sd.winner].value, l = row[sd.winner === 'a' ? 'b' : 'a'].value;
+  return `${m.win} wins · ${fmt(m.id, w)} vs ${fmt(m.id, l)}`;
+}
+
 function fmtStat(key, v, units, tempUnits) {
   if (v == null) return '—';
   switch (key) {
     case 'pace': return `${fmtPaceUnit(v, units)}${paceUnit(units)}`;
-    case 'ef':
-    case 'stam': return v.toFixed(2);
+    case 'efficiency':
+    case 'stamina': return v.toFixed(2);
+    case 'distance': return `${fmtDistance(v, units, 2)} ${distUnit(units)}`;
+    case 'hr': return `${Math.round(v)} bpm`;
     case 'km1': return fmtPace(v);
     case 'elev': return `${Math.round(elevToDisplay(v, units))} ${elevUnit(units)}`;
     case 'temp': return `${fmtTemp(v, tempUnits)}${tempUnit(tempUnits)}`;
@@ -55,6 +67,17 @@ export default function Showdown() {
     const next = !plotsOpen;
     setPlotsOpen(next);
     try { localStorage.setItem(PLOTS_KEY, next ? '1' : '0'); } catch { /* storage blocked: fine */ }
+  };
+  // Metric that decides the winner. Remembered per browser.
+  const [rankBy, setRankByState] = useState(() => {
+    try {
+      const v = typeof window !== 'undefined' && localStorage.getItem(RANK_KEY);
+      return SHOWDOWN_METRICS.some((m) => m.id === v) ? v : DEFAULT_RANK;
+    } catch { return DEFAULT_RANK; }
+  });
+  const setRankBy = (id) => {
+    setRankByState(id);
+    try { localStorage.setItem(RANK_KEY, id); } catch { /* storage blocked: fine */ }
   };
   // Zoomed onto the two runs (default) or the whole cloud.
   const [zoom, setZoom] = useState(true);
@@ -104,8 +127,8 @@ export default function Showdown() {
   const suggestions = useMemo(() => suggestOpponents(a, pool), [a, pool]);
   const choices = useMemo(() => opponentChoices(a, data.runs), [a, data.runs]);
   const sd = useMemo(
-    () => buildShowdown(a, b, pool, { streamsSynced: data.streamsSynced !== false }),
-    [a, b, pool, data.streamsSynced]
+    () => buildShowdown(a, b, pool, { rankBy, streamsSynced: data.streamsSynced !== false }),
+    [a, b, pool, rankBy, data.streamsSynced]
   );
 
   if (!a) return null;
@@ -152,9 +175,27 @@ export default function Showdown() {
 
         {b && sd && (
           <>
+            <div className="sd-rankby">
+              <span className="mono sd-swap-label">Winner by</span>
+              <div className="chip-row">
+                {SHOWDOWN_METRICS.map((m) => {
+                  const ok = sd.available.includes(m.id);
+                  return (
+                    <button
+                      key={m.id}
+                      className={`chip ${sd.metric.id === m.id ? 'active' : ''}`}
+                      onClick={() => ok && setRankBy(m.id)}
+                      disabled={!ok}
+                      title={ok ? undefined : 'Needs heart rate on both runs'}
+                      style={m.compound ? { borderLeft: '3px solid var(--accent)' } : undefined}
+                    >{m.label}</button>
+                  );
+                })}
+              </div>
+            </div>
             <div className="sd-tally mono">
-              {sd.winner ? <>Won on time · {fmtGap(sd.time.diff)} {sd.sameDist ? 'faster' : `faster over ${fmtDistance(sd.km, units)} ${distUnit(units)}`}</> : <>Dead heat on time</>}
-              <span className="sd-tally-score">Stats {sd.tally[sides[0]]} – {sd.tally[sides[1]]}</span>
+              {verdict(sd, (k, v) => fmtStat(k, v, units, tempUnits))}
+              {sd.metric.id !== rankBy && <span className="sd-tally-note">No heart rate on one run, so ranked by pace</span>}
             </div>
             <div className="sd-arena">
               {sides.map((s, i) => (
@@ -165,8 +206,8 @@ export default function Showdown() {
                   result={sd.winner == null ? 'draw' : sd.winner === s ? 'win' : 'lose'}
                   projected={sd.sameDist || runOf(s).distance === sd.km ? null : sd.time[s]}
                   km={sd.km}
-                  gap={sd.time.diff}
-                  stats={sd.stats.map((st) => ({ ...st, mine: st[s], won: st.winner === s, lost: st.winner != null && st.winner !== s }))}
+                  gap={s === 'a' ? sd.time.a - sd.time.b : sd.time.b - sd.time.a}
+                  stats={sd.metrics.concat(sd.context).map((st) => ({ ...st, mine: st[s], won: st.better === s }))}
                   onOpen={openCard}
                   showStops={showStops}
                   align={i === 0 ? 'left' : 'right'}
@@ -195,7 +236,7 @@ export default function Showdown() {
                   <MiniScatter
                     title="Aerobic Efficiency"
                     sub="Heart rate × pace · up and left is better"
-                    runs={sd.cohort.filter(hasValidHr)}
+                    runs={[...new Map(sd.cohorts.a.concat(sd.cohorts.b).map((r) => [r.id, r])).values()].filter(hasValidHr)}
                     contenders={chrono}
                     x={(r) => (hasValidHr(r) ? r.hr : null)}
                     xMinHalf={3}
@@ -222,8 +263,8 @@ export default function Showdown() {
             </div>
 
             <p className="sd-foot">
-              Bars rank each run among your {sd.cohort.length} runs within {Math.round(COHORT_TOL * 100)}% of {fmtDistance(sd.km, units)} {distUnit(units)} ({[...new Set(sd.cohort.map((r) => meta[r.type].label))].join(', ')}).
-              A full bar is your best. Climb and heat count for the run that had it tougher.
+              The winner is the better run on the metric picked above. Pace isn&rsquo;t adjusted for distance; Stamina is.
+              Bars rank each run among your runs within {Math.round(COHORT_TOL * 100)}% of its own distance (Distance among all your runs), and a full bar is your best. A lower heart rate gets the longer bar.
               {' '}Times are moving time, as Strava reports them{showStops ? ', so stops at lights or for photos don\u2019t count against a run. Elapsed time is shown for reference' : ''}.
               {!sd.sameDist && <> Different distances, so times are projected to {fmtDistance(sd.km, units)} {distUnit(units)} with Riegel&rsquo;s formula.</>}
             </p>
@@ -253,10 +294,10 @@ function ShowdownCard({ run, meta, units, tempUnits, result, projected, km, gap,
       </div>
 
       <div className="sd-hero">{fmtDuration(run.duration)}</div>
-      <div className="mono sd-sub">
+      {!stats?.length && <div className="mono sd-sub">
         {fmtDistance(run.distance, units, 2)} {distUnit(units)} · {fmtPaceUnit(run.pace, units)}{paceUnit(units)}
         {hasValidHr(run) && <> · {run.hr} bpm</>}
-      </div>
+      </div>}
       {showStops && (() => {
         // `duration` is moving minutes; elapsed is recovered from the
         // stopped share, same as the expanded RunCard.
@@ -272,23 +313,25 @@ function ShowdownCard({ run, meta, units, tempUnits, result, projected, km, gap,
       {projected != null && (
         <div className="mono sd-proj">≈ {fmtDuration(projected)} over {fmtDistance(km, units)} {distUnit(units)}</div>
       )}
-      {result && result !== 'draw' && (
-        <div className={`mono sd-gap ${result === 'win' ? 'sd-gap-win' : ''}`}>
-          {result === 'win' ? '−' : '+'}{fmtGap(gap)}
+      {gap != null && Math.abs(gap) >= 1 / 60 && (
+        <div className={`mono sd-gap ${gap < 0 ? 'sd-gap-win' : ''}`}>
+          {gap < 0 ? '−' : '+'}{fmtGap(Math.abs(gap))}
         </div>
       )}
 
       {stats && stats.length > 0 && (
         <div className="sd-stats">
           {stats.map((st, i) => (
-            <div key={st.key} className={`sd-stat ${st.won ? 'sd-stat-won' : ''} ${st.lost ? 'sd-stat-lost' : ''}`}
-              title={`${st.hint ? st.hint + '. ' : ''}${ordinal(st.mine.rank)} of ${st.mine.total} similar runs`}>
-              {i > 0 && st.group !== stats[i - 1].group && <div className="sd-group mono">Conditions</div>}
+            <div key={st.id} className={`sd-stat ${st.won ? 'sd-stat-won' : ''} ${st.selected ? 'sd-stat-sel' : ''}`}
+              title={st.mine.rank ? `${st.hint ? st.hint + '. ' : ''}${ordinal(st.mine.rank)} of ${st.mine.total} ${st.cohortAll ? 'runs' : 'similar runs'}` : undefined}>
+              {i > 0 && !st.isMetric && stats[i - 1].isMetric && <div className="sd-group mono">Context</div>}
               <div className="sd-stat-row">
-                <span className="sd-stat-label mono">{st.label}</span>
-                <span className="sd-stat-val mono">{fmtStat(st.key, st.mine.value, units, tempUnits)}</span>
+                <span className="sd-stat-label mono">{st.rowLabel}</span>
+                <span className="sd-stat-val mono">{fmtStat(st.id, st.mine.value, units, tempUnits)}</span>
               </div>
-              <div className="sd-bar"><div className="sd-bar-fill" style={{ width: `${Math.max(4, st.mine.pct * 100)}%` }} /></div>
+              <div className="sd-bar">
+                {st.mine.pct != null && <div className="sd-bar-fill" style={{ width: `${Math.max(4, st.mine.pct * 100)}%` }} />}
+              </div>
             </div>
           ))}
         </div>
