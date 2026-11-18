@@ -289,6 +289,11 @@ export function LinkProvider({ children }) {
   const [latestRunId, setLatestRunId] = useState(null);
   const selectedRunId = userSelectedRunId ?? latestRunId;
   const [isTouch, setIsTouch] = useState(false);
+  // Showdown overlay: { a, b } run ids (b null while picking an opponent),
+  // or null when closed. Mirrored to `?vs=a,b` by the Showdown component.
+  const [showdown, setShowdown] = useState(null);
+  const openShowdown = useCallback((a, b = null) => setShowdown({ a, b }), []);
+  const closeShowdown = useCallback(() => setShowdown(null), []);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
@@ -316,6 +321,7 @@ export function LinkProvider({ children }) {
       selectedRunId, userSelectedRunId,
       setUserSelectedRunId, setLatestRunId,
       isTouch, pendingFocusId, setPendingFocusId, requestFocus,
+      showdown, setShowdown, openShowdown, closeShowdown,
     }}>
       {children}
     </LinkContext.Provider>

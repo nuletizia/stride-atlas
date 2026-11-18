@@ -18,7 +18,7 @@ const BATCH = 24;
 export default function RunCards() {
   const data = useData();
   const runs = useFilteredRuns();
-  const { hovered, setHovered, focusRequest, setFocusRequest, setUserSelectedRunId, selectedRunId } = useLink();
+  const { hovered, setHovered, focusRequest, setFocusRequest, setUserSelectedRunId, selectedRunId, openShowdown } = useLink();
   const { units, tempUnits, stoppedThreshold } = useTweaks();
   const { isExcluded, toggle: toggleExclusion } = useExclusions();
   const meta = data.typeMeta;
@@ -310,6 +310,8 @@ export default function RunCards() {
     const onPointerDown = (e) => {
       if (!panelRef.current) return;
       if (panelRef.current.contains(e.target)) return;
+      // The Showdown overlay is opened from a card; using it keeps the card open.
+      if (e.target.closest && e.target.closest('[data-showdown]')) return;
       setExpandedId(null);
     };
     document.addEventListener('pointerdown', onPointerDown);
@@ -541,6 +543,7 @@ export default function RunCards() {
                     setRevealReq({ id: r.id, page: false });
                   }}
                   onPin={(e) => { e.stopPropagation(); setPinnedId(pinnedId === r.id ? null : r.id); }}
+                  onCompare={(e) => { e.stopPropagation(); openShowdown(r.id); }}
                   onToggleExclude={(e) => { e.stopPropagation(); toggleExclusion(r.id); }}
                   onPeerClick={jumpToRun}
                 />
@@ -583,7 +586,7 @@ function OutsideBadge() {
   );
 }
 
-function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinned, flashing, isLatestRing, outside, meta, rankBy, units, tempUnits, stoppedThreshold, onHoverIn, onHoverOut, onClick, onPin, onToggleExclude, onPeerClick }) {
+function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinned, flashing, isLatestRing, outside, meta, rankBy, units, tempUnits, stoppedThreshold, onHoverIn, onHoverOut, onClick, onPin, onCompare, onToggleExclude, onPeerClick }) {
   const color = `var(--type-${run.type})`;
   const hasPeers = run.peerCount > 0;
   const isHrMode = rankBy === 'hr';
@@ -761,6 +764,7 @@ function RunCard({ run, density, isFocus, isPeer, dim, excluded, expanded, pinne
           <ExcludeToggle excluded={excluded} onToggle={onToggleExclude} />
           {expanded && (
             <>
+              <button className="chip" onClick={onCompare} title="Compare this run head to head with another">Compare</button>
               <button className="chip" onClick={onPin}>{pinned ? 'Unpin' : 'Pin'}</button>
               <button className="chip" onClick={(e) => { e.stopPropagation(); onClick(); }}>Close</button>
             </>

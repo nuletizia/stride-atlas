@@ -20,6 +20,7 @@ import SeasonArc from './SeasonArc';
 import TweakPanel, { COMPACT_MIN_WIDTH } from './TweakPanel';
 import ConnectBanner from './ConnectBanner';
 import TouchDismissHandler from './TouchDismissHandler';
+import Showdown from './Showdown';
 import PanelErrorBoundary from './PanelErrorBoundary';
 import CompactGrid from './CompactGrid';
 import CollapsibleSection from './CollapsibleSection';
@@ -506,6 +507,7 @@ export default function Dashboard({ data, mode = 'demo', athleteName = null, ath
                 runCount={runCount}
               />
               <TweakPanel />
+              <PanelErrorBoundary name="Showdown"><Showdown /></PanelErrorBoundary>
             </LinkProvider>
           </TooltipProvider>
         </ExclusionProvider>
