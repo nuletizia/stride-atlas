@@ -111,7 +111,7 @@ export default function PersonalRecordsCompact() {
               }}
             >
               <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {fmtDate(r.date)}
+                {fmtDate(r.date, { year: true })}
               </span>
               <span className="mono" style={{ fontSize: 11, fontWeight: 500, fontVariantNumeric: 'tabular-nums', color: 'var(--ink)' }}>
                 {stamOf(r).toFixed(2)}
