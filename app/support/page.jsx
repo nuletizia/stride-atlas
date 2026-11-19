@@ -55,8 +55,9 @@ export default function SupportPage() {
       <h3>Is Stride Atlas open source?</h3>
       <p>
         Yes. The code is on{' '}
-        <a href={REPO_URL} target="_blank" rel="noreferrer">GitHub</a>, so you can read exactly
-        how your data is handled and report bugs as issues.
+        <a href={REPO_URL} target="_blank" rel="noreferrer">GitHub</a> under the MIT license.
+        You can read exactly how your data is handled, report bugs as issues, or run your own
+        copy.
       </p>
     </LegalPage>
   );

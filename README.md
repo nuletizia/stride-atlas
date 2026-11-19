@@ -50,6 +50,7 @@ on an expanded run card, or share it as a <code>?vs=a,b</code> link.</sub>
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
 [![Strava API](https://img.shields.io/badge/Strava-API-FC4C02?logo=strava&logoColor=white)](https://developers.strava.com)
 [![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?logo=vercel&logoColor=white)](https://vercel.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
 ---
 
@@ -194,6 +195,11 @@ the Compact / Full toggle sit above the panels; style, units and temperature liv
 **View** button in the bottom right.
 
 For an architectural deep-dive, see [`CLAUDE.md`](./CLAUDE.md).
+
+## License
+
+[MIT](./LICENSE). Use it, fork it, run your own copy. The Strava name and logos are Strava's
+trademarks and are not covered by this license.
 
 ## Credits
 

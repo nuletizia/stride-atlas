@@ -39,6 +39,7 @@ export default function LegalPage({ title, updated, lede, children }) {
         <nav className="landing-nav-links">
           <Link href="/demo">Demo</Link>
           <Link href="/app">Dashboard</Link>
+          <a href={REPO_URL} target="_blank" rel="noreferrer">GitHub</a>
         </nav>
       </header>
 
