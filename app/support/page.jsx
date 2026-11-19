@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import LegalPage from '@/components/LegalPage';
-import { SUPPORT_EMAIL, STRAVA_APPS_SETTINGS } from '@/lib/site';
+import { SUPPORT_EMAIL, STRAVA_APPS_SETTINGS, REPO_URL } from '@/lib/site';
 
 export const metadata = {
   title: 'Support',
@@ -51,6 +51,12 @@ export default function SupportPage() {
       <p>
         Yes. Every expanded run card has a <b>View on Strava</b> link to the original
         activity, and your name at the top of the dashboard links to your Strava profile.
+      </p>
+      <h3>Is Stride Atlas open source?</h3>
+      <p>
+        Yes. The code is on{' '}
+        <a href={REPO_URL} target="_blank" rel="noreferrer">GitHub</a>, so you can read exactly
+        how your data is handled and report bugs as issues.
       </p>
     </LegalPage>
   );

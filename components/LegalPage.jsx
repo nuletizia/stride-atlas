@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { REPO_URL } from '@/lib/site';
 
 // Shared chrome for the plain text pages (privacy, terms, support,
 // disconnected). Server component: no hooks, no client state.
@@ -9,6 +10,7 @@ export function FooterLinks() {
       <Link href="/support">Support</Link>
       <Link href="/privacy">Privacy</Link>
       <Link href="/terms">Terms</Link>
+      <a href={REPO_URL} target="_blank" rel="noreferrer">GitHub</a>
     </nav>
   );
 }

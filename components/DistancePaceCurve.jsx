@@ -47,7 +47,10 @@ export default function DistancePaceCurve() {
 
   const W = 640;
   const H = 260;
-  const M = { l: 48, r: 20, t: 22, b: 40 };
+  // l: room for 5-char pace ticks ("10:00") plus the rotated axis title,
+  // which is pinned at Y_TITLE_X so the two never overlap.
+  const M = { l: 58, r: 20, t: 22, b: 40 };
+  const Y_TITLE_X = 10;
   const plotW = W - M.l - M.r;
   const plotH = H - M.t - M.b;
 
@@ -293,9 +296,9 @@ export default function DistancePaceCurve() {
         ))}
 
         <text
-          x={M.l - 36} y={M.t + plotH / 2}
+          x={Y_TITLE_X} y={M.t + plotH / 2}
           textAnchor="middle"
-          transform={`rotate(-90 ${M.l - 36} ${M.t + plotH / 2})`}
+          transform={`rotate(-90 ${Y_TITLE_X} ${M.t + plotH / 2})`}
           style={{ fontFamily: 'var(--mono)', fontSize: 10, fill: 'var(--inkSoft)', letterSpacing: '.1em', textTransform: 'uppercase' }}
         >Pace ({paceUnitLong(units)})</text>
         <text

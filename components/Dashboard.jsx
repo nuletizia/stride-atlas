@@ -22,6 +22,7 @@ import TweakPanel, { COMPACT_MIN_WIDTH } from './TweakPanel';
 import ConnectBanner from './ConnectBanner';
 import TouchDismissHandler from './TouchDismissHandler';
 import Showdown from './Showdown';
+import { REPO_URL } from '@/lib/site';
 import PanelErrorBoundary from './PanelErrorBoundary';
 import CompactGrid from './CompactGrid';
 import CollapsibleSection, { sectionId } from './CollapsibleSection';
@@ -530,6 +531,7 @@ function DashboardBody({ effectiveMode, athleteName, athleteId, runCount }) {
           {['support', 'privacy', 'terms'].map((p) => (
             <a key={p} href={`/${p}`} style={{ color: 'inherit', textDecoration: 'none' }}>{p}</a>
           ))}
+          <a href={REPO_URL} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>github</a>
         </div>
       </div>
     </div>

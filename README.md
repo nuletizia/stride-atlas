@@ -12,8 +12,10 @@ best, this week against your best week.
 <img src="public/screenshots/compact.png" alt="Stride Atlas compact view: a 3x3 grid of panels showing a run calendar heatmap, all-time totals, personal records, pace trend ribbons, aerobic efficiency, aerobic durability, same-route duel, week comparator and season arc">
 
 <sub><b>Compact view.</b> The whole dashboard on one screen, no scrolling. 130 runs, 1203 km,
-an 80/20 intensity split, and a plain-English read at the top: <i>27s/km faster, 4 bpm lower,
-2.9 km longer</i>. Switch to <b>Full</b> for the drill-down below.</sub>
+and a plain-English read at the top: <i>27s/km faster, 3.3 bpm lower, 2.9 km longer</i>, which
+reads as <i>fitness gains</i>. The sentence uses the same comparison as the scatter tiles below
+it, so they always agree. Click any tile, or flip the <b>Compact / Full</b> toggle, to drill
+in.</sub>
 
 <table>
 <tr>
@@ -21,7 +23,7 @@ an 80/20 intensity split, and a plain-English read at the top: <i>27s/km faster,
 <img src="public/screenshots/run-cards.png" alt="Run Cards panel with one card expanded: a half-marathon PR at 4:37/km, compared against three similar long runs on a peer spread bar">
 </td>
 <td width="50%" valign="top">
-<img src="public/screenshots/aerobic-efficiency.png" alt="Aerobic Efficiency scatter plot: every run plotted by average heart rate against pace, split into an earlier hollow half and a recent filled half, with an arrow showing the direction of progress">
+<img src="public/screenshots/aerobic-efficiency.png" alt="Aerobic Efficiency scatter plot: every run plotted by average heart rate against pace, the last 12 months drawn as a solid shaded region and the 12 months before as a dashed one, with an arrow between their averages and per-type cards below">
 </td>
 </tr>
 <tr>
@@ -30,11 +32,19 @@ an 80/20 intensity split, and a plain-English read at the top: <i>27s/km faster,
 average of its three closest peers, with the peer spread drawn as a bar and each comparison run
 one click away.</sub></td>
 <td valign="top"><sub><b>Aerobic Efficiency.</b> Every run as heart rate × pace. Dots drift
-<b>up-left</b> as you get fitter: faster at a lower HR. Hollow = earlier half, filled = recent
-half, and the <code>+</code> markers with the arrow show where the average moved. Click a dot to
-jump to that run's card.</sub></td>
+<b>up-left</b> as you get fitter: faster at a lower HR. The selected window (here the last 12
+months, solid) is compared with the same-length window before it (dashed). Each shaded region
+holds the middle half of its runs, and the arrow joins their averages. Cards below split the
+story by workout type. Click a dot to jump to that run's card.</sub></td>
 </tr>
 </table>
+
+<img src="public/screenshots/showdown.png" alt="Showdown: two half-marathon PRs side by side as cards, the May run winning on stamina 1.66 to 1.59, with percentile bars for pace, distance, heart rate, efficiency and stamina">
+
+<sub><b>Showdown.</b> Pick any two runs and put them head to head. The winner is decided by the
+metric you choose (stamina by default, which adjusts for distance), and every bar is a
+percentile among your own runs, so a longer bar is always better. Open it with <b>Compare</b>
+on an expanded run card, or share it as a <code>?vs=a,b</code> link.</sub>
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white)](https://nextjs.org)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
@@ -62,13 +72,14 @@ whole design brief.
 | **Personal Records** | What are my best rolling splits from 1K to the marathon, and when did they move? |
 | **Trend Ribbons** | Is my pace improving *per workout type*? Easy days and hard days get their own trend. |
 | **Aerobic Efficiency** | Is my heart rate falling at the same pace? The single clearest fitness signal here. |
-| **Aerobic Durability** | Can I hold pace as distance goes up? Distance × pace, with a fit line per type. |
+| **Aerobic Durability** | Can I hold pace as distance goes up? Distance × pace, this period against the one before, split by workout type. |
 | **Same-Route Duel** | On the route I run most, how does the first attempt compare to the best one? |
 | **Week Comparator** | How does this week stack up against my best week, on distance, runs and time? |
 | **Season Arc** | Am I ahead of where I was this time last year? |
 
 Click a dot, bar or calendar cell in any panel and the matching run card scrolls into view and
-expands. Everything is cross-linked to everything.
+expands. Everything is cross-linked to everything. From an expanded card, **Compare** opens a
+Showdown against your previous best, your last attempt, or any run you pick.
 
 ## How it works
 
@@ -177,9 +188,10 @@ lib/
 scripts/ingest.mjs          offline: FIT/TCX/GPX → data/runs.json
 ```
 
-Five visual styles ship with it (editorial light and dark, telemetry, fieldbook, dataart) — every
-component reads CSS variables, so a palette is a set of tokens, not a rewrite. Style, time range
-and units live behind the **View** button in the bottom right.
+Five visual styles ship with it (editorial light and dark, telemetry, fieldbook, dataart). Every
+component reads CSS variables, so a palette is a set of tokens, not a rewrite. The time range and
+the Compact / Full toggle sit above the panels; style, units and temperature live behind the
+**View** button in the bottom right.
 
 For an architectural deep-dive, see [`CLAUDE.md`](./CLAUDE.md).
 

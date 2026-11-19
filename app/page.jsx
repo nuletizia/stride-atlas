@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getSession, isLoggedIn } from '@/lib/session';
 import HeroRibbonPreview from '@/components/HeroRibbonPreview';
 import { FooterLinks } from '@/components/LegalPage';
+import { REPO_URL } from '@/lib/site';
 
 export const metadata = {
   title: 'Stride Atlas · See your running progress',
@@ -24,6 +25,7 @@ export default async function LandingPage() {
         <nav className="landing-nav-links">
           <Link href="/demo">Demo</Link>
           <Link href="/support">Support</Link>
+          <a href={REPO_URL} target="_blank" rel="noreferrer">GitHub</a>
         </nav>
       </header>
 
