@@ -82,7 +82,7 @@ Click a dot/bar/cell anywhere in any panel → the corresponding RunCard scrolls
   - second tap on the same target → commits focus, returns `true`
   - On hover-capable devices, one tap commits immediately. Callers use the return value to decide whether to dismiss the tooltip.
 - Every interactive `<g>` in the SVG panels is tagged `data-tap-focus="true"`. `TouchDismissHandler` listens for document `pointerdown`s outside any `data-tap-focus` element and clears `hovered` / `pendingFocusId` / tooltip — this kills stuck tooltips on mobile.
-- `RunCards` hover state is **local** (`hoveredCardId`), intentionally decoupled from the global `hovered`, so hovering a card doesn't ripple into SameRouteDuel / other panels.
+- `RunCards` hover state is **local** (`hoveredCardId`), intentionally decoupled from the global `hovered`, so hovering a card doesn't ripple into other panels.
 - Outside-click-to-collapse for expanded run cards is scoped to `!panelRef.current.contains(e.target)` — outside the **panel**, not just outside the card — so chips and the View FAB don't trip it.
 
 - `RunCards` renders inside a fixed-height scroll box and loads cards in batches of 24 as you scroll (an `IntersectionObserver` sentinel). Jumps go through `jumpToRun` → `revealReq`, which grows the batch until it contains the card and then calls `revealCard` to scroll the box. Never call `scrollIntoView` on a card: it moves the page and the box together.
@@ -99,9 +99,11 @@ If you add a new interactive element that should be "tap to focus a run," follow
 | `AerobicEfficiency` | Pace ÷ HR over time. |
 | `DistancePaceCurve` | Scatter: distance × pace, with per-type fit lines. |
 | `RunCards` | Per-run cohort comparison (same type, similar distance). The destination of every `focusRequest`. |
-| `SameRouteDuel` | First-vs-best **pace** on a loop: runs on the same route within 15% of each other's distance (`routeLoops` in `lib/shared.jsx`), since a `routeId` alone mixes very different distances. Ringed bar = best pace. Needs ≥2 runs on a loop. |
+| `FitnessDuel` | When was I fittest? Every run duels runs from **other** calendar periods (month / quarter / half year / year, auto-picked from history length) using Showdown's metrics and 15% distance rule (`lib/fitnessDuel.js`). A period's score = share of duels won, so 50% = the athlete's average. Heart duels also need similar pace (±5%); Distance duels pair every run. "Winner by" sits in the header; grouping lives behind ⚙ (Run Cards pattern). Best/worst labels come from each metric's `words` ("Fastest quarter", "Longest runs"), so don't hard-code "fittest". Uses the **whole history** (minus exclusions), ignoring the time range. Periods with < `MIN_DUELS` duels are hollow and skipped for peak/low. Clicking a dot focuses the period's standout run. Picks persist in localStorage `stride.fitnessDuel.v1`, shared with the compact tile. |
 | `WeekComparator` | Week-over-week mix + totals. |
 | `SeasonArc` | Year-over-year season comparison. |
+
+**Removed for now: Same-Route Duel** (Nov 2026). It showed first-vs-best pace on one loop (same `routeId`, distances within 15%). Few users opened it, so Fitness Duel took its slot to keep nine panels. A "same route only" switch in Fitness Duel was tried and dropped too. To bring either back, the last version of `components/SameRouteDuel.jsx`, its compact tile and `routeLoops` (was in `lib/shared.jsx`) are in git at commit `b4075f1`.
 
 **Period comparison (AerobicEfficiency, DistancePaceCurve, and their compact tiles).** The selected window is compared with the same-length window right before it (`useComparisonWindow()` in `lib/shared.jsx`). `pickComparison(current, prior)` falls back to halving the selected window by run count when the previous window has fewer than 4 qualifying runs (always on All time). Filter both windows with the same predicate before calling it (`keepForEfficiency` / `keepForDurability`). The dashboard summary sentence and its "Looks like…" pattern line use this same comparison and the shared `TREND_*` thresholds, so they always agree with the two compact tiles; change them together. Each set is drawn as a core region (`lib/coreRegion.js`, the middle half of the set around its mean) with an arrow between the means. Previous-window dots are interactive like any other: `requestFocus` on one makes RunCards show it as a temporary first card flagged "Before selected range", compared against the in-range runs.
 
@@ -146,6 +148,6 @@ Production domain is `stride.letizia.tech`. Strava's "Authorization Callback Dom
 
 - Prefer editing existing panels over adding new ones.
 - Don't change internal type keys (`tempo`, `intervals`) — too much depends on them. Change `TYPE_META[k].label` instead.
-- Don't add a metric toggle outside PaceRibbon.
+- Don't add a metric toggle outside PaceRibbon. Exceptions: Showdown's and Fitness Duel's "Winner by" pickers, which choose what decides a duel (local state, never the global `metric` tweak).
 - If adding cross-panel navigation from a new element: use `requestFocus`, tag with `data-tap-focus`, respect the two-tap return value.
 - UI changes need a browser check (mobile + desktop). `npm run build` only proves code compiles.

@@ -9,7 +9,7 @@ best, this week against your best week.
 
 ### [**→ Try the live demo**](https://stride.letizia.tech/demo) (sample data, no login)
 
-<img src="public/screenshots/compact.png" alt="Stride Atlas compact view: a 3x3 grid of panels showing a run calendar heatmap, all-time totals, personal records, pace trend ribbons, aerobic efficiency, aerobic durability, same-route duel, week comparator and season arc">
+<img src="public/screenshots/compact.png" alt="Stride Atlas compact view: a 3x3 grid of panels showing a run calendar heatmap, all-time totals, personal records, pace trend ribbons, aerobic efficiency, aerobic durability, fitness duel, week comparator and season arc">
 
 <sub><b>Compact view.</b> The whole dashboard on one screen, no scrolling. 130 runs, 1203 km,
 and a plain-English read at the top: <i>27s/km faster, 3.3 bpm lower, 2.9 km longer</i>, which
@@ -74,7 +74,7 @@ whole design brief.
 | **Trend Ribbons** | Is my pace improving *per workout type*? Easy days and hard days get their own trend. |
 | **Aerobic Efficiency** | Is my heart rate falling at the same pace? The single clearest fitness signal here. |
 | **Aerobic Durability** | Can I hold pace as distance goes up? Distance × pace, this period against the one before, split by workout type. |
-| **Same-Route Duel** | On the route I run most, how does the first attempt compare to the best one? |
+| **Fitness Duel** | When was I fittest? Every run duels similar runs from every other month (or quarter, half year, year), and each period scores the share of duels it won. |
 | **Week Comparator** | How does this week stack up against my best week, on distance, runs and time? |
 | **Season Arc** | Am I ahead of where I was this time last year? |
 
@@ -103,7 +103,7 @@ A few decisions worth knowing about:
   race / recovery` from heart rate relative to your max, with distance and title as fallbacks.
   Change your HR max in the header and the labels re-shuffle live, no refetch.
 - **Routes are clustered from GPS**, not names: runs starting within 500m of each other with
-  distances inside 15% are treated as the same route, which is what makes Same-Route Duel work.
+  distances inside 15% are treated as the same route, which lets Run Cards compare a run against others on the same route.
 - **Peers are matched, not averaged.** A run is only compared against runs of the same type
   within a similar distance band, so an easy 5K is never scored against a long run.
 - **Stopped time is handled explicitly.** Runs where a large share of elapsed time was spent

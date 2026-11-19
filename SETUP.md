@@ -157,7 +157,7 @@ Visit `http://localhost:3000`. You'll see the offline demo (if you've ingested d
 
 Fetching **summaries only** from Strava — no per-activity streams — already fills 8 of the 9 panels:
 
-- Run Atlas · Trend Ribbons · Aerobic Efficiency (avg HR) · Distance × Pace · Run Cards · Same-Route Duel · Week Comparator · Season Arc
+- Run Atlas · Trend Ribbons · Aerobic Efficiency (avg HR) · Distance × Pace · Run Cards · Fitness Duel · Week Comparator · Season Arc
 
 **Personal Records** shows a placeholder until streams are fetched — those require one extra API call per activity to compute rolling 1 km / 5 km / 10 km / HM / Marathon splits. Coming in Phase 2.
 

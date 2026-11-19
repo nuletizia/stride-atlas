@@ -15,7 +15,7 @@ import AerobicEfficiency from './AerobicEfficiency';
 import DistancePaceCurve from './DistancePaceCurve';
 import RunCards from './RunCards';
 import PersonalRecords from './PersonalRecords';
-import SameRouteDuel from './SameRouteDuel';
+import FitnessDuel from './FitnessDuel';
 import WeekComparator from './WeekComparator';
 import SeasonArc from './SeasonArc';
 import TweakPanel, { COMPACT_MIN_WIDTH } from './TweakPanel';
@@ -33,7 +33,7 @@ import PaceRibbonCompact from './compact/PaceRibbonCompact';
 import AerobicEfficiencyCompact from './compact/AerobicEfficiencyCompact';
 import DistancePaceCurveCompact from './compact/DistancePaceCurveCompact';
 import WindowStatsCompact from './compact/WindowStatsCompact';
-import SameRouteDuelCompact from './compact/SameRouteDuelCompact';
+import FitnessDuelCompact from './compact/FitnessDuelCompact';
 import WeekComparatorCompact from './compact/WeekComparatorCompact';
 import SeasonArcCompact from './compact/SeasonArcCompact';
 
@@ -496,7 +496,7 @@ function DashboardBody({ effectiveMode, athleteName, athleteId, runCount }) {
           {tile('Trend Ribbons', 'Trend Ribbons', <PaceRibbonCompact />)}
           {tile('Aerobic Efficiency', 'Aerobic Efficiency', <AerobicEfficiencyCompact />)}
           {tile('Aerobic Durability', 'Distance × Pace', <DistancePaceCurveCompact />)}
-          {tile('Same-Route Duel', 'Same-Route Duel', <SameRouteDuelCompact />)}
+          {tile('Fitness Duel', 'Fitness Duel', <FitnessDuelCompact />)}
           {tile('Week Comparator', 'Week Comparator', <WeekComparatorCompact />)}
           {tile('Season Arc', 'Season Arc', <SeasonArcCompact />)}
         </CompactGrid>
@@ -508,7 +508,7 @@ function DashboardBody({ effectiveMode, athleteName, athleteId, runCount }) {
           <CollapsibleSection {...sec('Trend Ribbons')}><PanelErrorBoundary name="Trend Ribbons"><PaceRibbon /></PanelErrorBoundary></CollapsibleSection>
           <CollapsibleSection {...sec('Aerobic Efficiency')}><PanelErrorBoundary name="Aerobic Efficiency"><AerobicEfficiency /></PanelErrorBoundary></CollapsibleSection>
           <CollapsibleSection {...sec('Aerobic Durability')}><PanelErrorBoundary name="Aerobic Durability"><DistancePaceCurve /></PanelErrorBoundary></CollapsibleSection>
-          <CollapsibleSection {...sec('Same-Route Duel')}><PanelErrorBoundary name="Same-Route Duel"><SameRouteDuel /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection {...sec('Fitness Duel')}><PanelErrorBoundary name="Fitness Duel"><FitnessDuel /></PanelErrorBoundary></CollapsibleSection>
           <CollapsibleSection {...sec('Week Comparator')}><PanelErrorBoundary name="Week Comparator"><WeekComparator /></PanelErrorBoundary></CollapsibleSection>
           <CollapsibleSection {...sec('Season Arc')}><PanelErrorBoundary name="Season Arc"><SeasonArc /></PanelErrorBoundary></CollapsibleSection>
         </>

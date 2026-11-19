@@ -464,7 +464,7 @@ export function useFilteredRuns() {
 
 // ---------- Run exclusion (omit runs from computed stats) ----------
 // A user-curated set of run IDs that should NOT influence any aggregate or
-// trend stat — Personal Records, trend ribbons, the scatters, Same-Route
+// trend stat — Personal Records, trend ribbons, the scatters, Fitness
 // Duel, week/season totals, the headline summary. Excluded runs still show
 // in the Run Atlas and Run Cards: they stay in your log, they just stop
 // poisoning your analytics (bad GPS, a treadmill blip, a race you walked).
@@ -647,47 +647,4 @@ export function comparisonCaption(cmp, rangeName, rangeKey) {
     ? 'All time has no previous window'
     : `only ${cmp.priorN} run${cmp.priorN === 1 ? '' : 's'} in the previous ${rangeName || 'window'}`;
   return `${why}, so the window is split in half by date`;
-}
-
-// ---------- Route loops (Same-Route Duel) ----------
-// A routeId groups runs by start point, so one "route" can mix a 4 km loop
-// with a 13 km long run. A loop is the subset of a route's runs whose
-// distances sit within `tol` of each other, so attempts are comparable.
-// Greedy: sort by distance, start a new loop whenever a run is more than
-// `tol` longer than the loop's shortest run. Pure.
-export function routeLoops(runs, routes = [], { tol = 0.15, minRuns = 2 } = {}) {
-  const byRoute = new Map();
-  runs.forEach((r) => {
-    if (r.routeId == null) return;
-    if (!byRoute.has(r.routeId)) byRoute.set(r.routeId, []);
-    byRoute.get(r.routeId).push(r);
-  });
-  const nameOf = (id, fallback) => routes.find((x) => x.id === id)?.name ?? fallback ?? String(id);
-  const loops = [];
-  for (const [routeId, list] of byRoute) {
-    const sorted = [...list].sort((a, b) => a.distance - b.distance);
-    let group = [];
-    let idx = 0;
-    const flush = () => {
-      if (group.length >= minRuns) {
-        const ds = group.map((r) => r.distance).sort((a, b) => a - b);
-        const mid = ds.length >> 1;
-        loops.push({
-          id: `${routeId}~${idx}`,
-          routeId,
-          name: nameOf(routeId, group[0].routeName),
-          km: ds.length % 2 ? ds[mid] : (ds[mid - 1] + ds[mid]) / 2,
-          runs: [...group].sort((a, b) => a.date.localeCompare(b.date)),
-        });
-      }
-      idx += 1;
-      group = [];
-    };
-    sorted.forEach((r) => {
-      if (group.length && r.distance > group[0].distance * (1 + tol)) flush();
-      group.push(r);
-    });
-    flush();
-  }
-  return loops.sort((a, b) => b.runs.length - a.runs.length);
 }
