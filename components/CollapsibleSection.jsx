@@ -14,7 +14,13 @@ function storageKey(name) {
   return 'stride.panel.collapsed.' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 }
 
-export default function CollapsibleSection({ name, children }) {
+export function sectionId(name) {
+  return 'section-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+}
+
+// `reveal`: set by Dashboard when a compact tile asked to open this panel.
+// Forces the section open so the user never lands on a collapsed stub.
+export default function CollapsibleSection({ name, reveal = false, children }) {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -24,6 +30,13 @@ export default function CollapsibleSection({ name, children }) {
       // private mode / disabled storage — stay expanded
     }
   }, [name]);
+
+  // Declared after the storage read so it wins when both run on mount.
+  useEffect(() => {
+    if (!reveal) return;
+    setCollapsed(false);
+    try { window.localStorage.setItem(storageKey(name), '0'); } catch { /* ignore */ }
+  }, [reveal, name]);
 
   const toggle = () => {
     setCollapsed((c) => {
@@ -38,7 +51,7 @@ export default function CollapsibleSection({ name, children }) {
   };
 
   return (
-    <div className="section" style={{ position: 'relative' }}>
+    <div id={sectionId(name)} className="section" style={{ position: 'relative', scrollMarginTop: 16 }}>
       <button
         className="chip"
         onClick={toggle}

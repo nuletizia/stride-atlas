@@ -550,6 +550,16 @@ export function useAnalysisRuns() {
 }
 
 // ---------- Period comparison (scatter panels) ----------
+// When a delta counts as a real change. Shared by the compact scatter tiles
+// and the dashboard summary sentence so they never tell different stories.
+export const TREND_HR_BPM = 0.5;       // mean HR delta
+export const TREND_PACE_SEC_KM = 2;    // mean pace delta, seconds per km
+export const TREND_DIST_PCT = 0.1;     // mean distance delta, share of earlier mean
+// Predicates both sides of a comparison are filtered with. Recovery runs sit
+// in their own HR/pace band and would skew either chart.
+export const keepForDurability = (r) => r.type !== 'recovery';
+export const keepForEfficiency = (r) => r.type !== 'recovery' && hasValidHr(r);
+
 // The scatters compare the selected window against the same-length window
 // right before it. `current` is exactly what useAnalysisRuns returns;
 // `prior` is the previous window (exclusions applied, empty for "all").

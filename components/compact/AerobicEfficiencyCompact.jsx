@@ -2,7 +2,8 @@
 
 import { useMemo } from 'react';
 import {
-  useComparisonWindow, pickComparison, hasValidHr, useTweaks, mean,
+  useComparisonWindow, pickComparison, useTweaks, mean,
+  keepForEfficiency, TREND_HR_BPM,
   fmtPace, paceToDisplay, paceUnitLong,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
@@ -17,7 +18,7 @@ export default function AerobicEfficiencyCompact() {
   const { units } = useTweaks();
 
   const computed = useMemo(() => {
-    const keep = (r) => r.type !== 'recovery' && hasValidHr(r);
+    const keep = keepForEfficiency;
     const inView = runs.filter(keep);
     if (inView.length < 4) return null;
     const cmp = pickComparison(inView, priorRuns.filter(keep));
@@ -68,9 +69,9 @@ export default function AerobicEfficiencyCompact() {
   const earlyName = trend && trend.mode === 'prior' ? `previous ${rangeName}` : 'earlier half';
   const lateName = trend && trend.mode === 'prior' ? `last ${rangeName}` : 'recent half';
 
-  const headline = trend && trend.delta < -0.5
+  const headline = trend && trend.delta < -TREND_HR_BPM
     ? `HR down ${Math.abs(trend.delta).toFixed(1)} bpm at similar pace.`
-    : trend && trend.delta > 0.5
+    : trend && trend.delta > TREND_HR_BPM
       ? `HR up ${trend.delta.toFixed(1)} bpm. Watch effort.`
       : trend
         ? `HR holding steady. Keep pushing.`

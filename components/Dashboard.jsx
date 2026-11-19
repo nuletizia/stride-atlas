@@ -4,7 +4,8 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
   DataProvider, TooltipProvider, LinkProvider, TweakProvider,
   HrMaxProvider, useHrMax, ExclusionProvider, useExclusions,
-  useTweaks, useAnalysisRuns, useData, useTooltip, useLink,
+  useTweaks, useAnalysisRuns, useComparisonWindow, pickComparison,
+  keepForDurability, keepForEfficiency, TREND_HR_BPM, TREND_PACE_SEC_KM, TREND_DIST_PCT, useData, useTooltip, useLink,
   fmtDistance, distUnit, kmToDisplay, paceUnit, hasValidHr, isInterrupted, MI_PER_KM, mean,
 } from '@/lib/shared';
 import TimeRangeControl from './TimeRangeControl';
@@ -23,7 +24,8 @@ import TouchDismissHandler from './TouchDismissHandler';
 import Showdown from './Showdown';
 import PanelErrorBoundary from './PanelErrorBoundary';
 import CompactGrid from './CompactGrid';
-import CollapsibleSection from './CollapsibleSection';
+import CollapsibleSection, { sectionId } from './CollapsibleSection';
+import { CompactExpandContext } from './CompactTile';
 import RunAtlasCompact from './compact/RunAtlasCompact';
 import PersonalRecordsCompact from './compact/PersonalRecordsCompact';
 import PaceRibbonCompact from './compact/PaceRibbonCompact';
@@ -224,59 +226,51 @@ function Strong({ children }) {
 }
 
 // Pure-numeric signals shared by the summary sentence and the training-
-// pattern classifier. Returns null when the window is too short or has too
-// few runs to mean anything.
-function computeStrideSignals(runs, units) {
-  if (runs.length < 4) return null;
-  const sorted = [...runs].sort((a, b) => a.date.localeCompare(b.date));
-  const first = new Date(sorted[0].date + 'T00:00:00').getTime();
-  const last = new Date(sorted[sorted.length - 1].date + 'T00:00:00').getTime();
-  const spanDays = Math.max(1, Math.round((last - first) / 86_400_000) + 1);
-  // Below 3 weeks the signal is too noisy to make a meaningful headline.
-  if (spanDays < 21) return null;
+// pattern classifier. Uses the exact comparison the Aerobic Efficiency and
+// Aerobic Durability tiles use (selected window vs the one before it, same
+// filters, same thresholds) so the sentence never contradicts them.
+// Returns null when neither comparison has enough runs.
+function computeStrideSignals(current, prior) {
+  const dist = pickComparison(current.filter(keepForDurability), prior.filter(keepForDurability));
+  const hr = pickComparison(current.filter(keepForEfficiency), prior.filter(keepForEfficiency));
+  if (!dist.enough && !hr.enough) return null;
 
-  // Split-by-count for trend signals, same convention the scatter panels
-  // use, so the summary agrees with the per-panel arrows.
-  const mid = Math.floor(sorted.length / 2);
-  const early = sorted.slice(0, mid);
-  const late = sorted.slice(mid);
-
-  const earlyPace = early.length ? mean(early.map((r) => r.pace)) : null;
-  const latePace = late.length ? mean(late.map((r) => r.pace)) : null;
-  // Convert km-pace delta to display-unit seconds (positive = faster).
-  const paceSec = (earlyPace != null && latePace != null)
-    ? (earlyPace - latePace) * 60 * (units === 'mi' ? 1 / MI_PER_KM : 1)
-    : 0;
-
-  const earlyHr = early.filter(hasValidHr).map((r) => r.hr);
-  const lateHr = late.filter(hasValidHr).map((r) => r.hr);
-  // Need ≥3 valid-HR runs on each side to trust the HR delta. Without
-  // that, treat HR as missing so the categorizer falls back to pace +
-  // distance archetypes.
-  const hrPresent = earlyHr.length >= 3 && lateHr.length >= 3;
+  let paceSecKm = 0, distDeltaKm = 0, distPct = 0;
+  if (dist.enough) {
+    const earlyDist = mean(dist.earlier.map((r) => r.distance));
+    const lateDist = mean(dist.recent.map((r) => r.distance));
+    // + = faster
+    paceSecKm = (mean(dist.earlier.map((r) => r.pace)) - mean(dist.recent.map((r) => r.pace))) * 60;
+    distDeltaKm = lateDist - earlyDist;
+    distPct = earlyDist > 0 ? Math.abs(distDeltaKm / earlyDist) : 0;
+  }
+  const hrPresent = hr.enough;
+  // + = lower HR now
   const hrDelta = hrPresent
-    ? mean(earlyHr) - mean(lateHr)
-    : 0;
-
-  const earlyDist = early.length ? mean(early.map((r) => r.distance)) : null;
-  const lateDist = late.length ? mean(late.map((r) => r.distance)) : null;
-  const distDelta = (earlyDist != null && lateDist != null)
-    ? kmToDisplay(lateDist - earlyDist, units)
+    ? mean(hr.earlier.map((r) => r.hr)) - mean(hr.recent.map((r) => r.hr))
     : 0;
 
   return {
-    paceSec, hrDelta, distDelta, hrPresent, spanDays,
-    paceMeaningful: Math.abs(paceSec) >= 3,
-    hrMeaningful: hrPresent && Math.abs(hrDelta) >= 1.5,
-    distMeaningful: Math.abs(distDelta) >= 0.5,
+    paceSecKm, distDeltaKm, hrDelta, hrPresent,
+    // Which sets were compared, for the lead clause. When the two sets
+    // disagree (one fell back to halves) the lead stays generic.
+    mode: !hrPresent || !dist.enough || hr.mode === dist.mode ? (dist.enough ? dist.mode : hr.mode) : 'mixed',
+    paceMeaningful: dist.enough && Math.abs(paceSecKm) >= TREND_PACE_SEC_KM,
+    hrMeaningful: hrPresent && Math.abs(hrDelta) > TREND_HR_BPM,
+    distMeaningful: dist.enough && distPct >= TREND_DIST_PCT,
   };
+}
+
+function comparisonLead(s, rangeName) {
+  if (s.mode === 'prior' && rangeName) return `Compared to the previous ${rangeName}, `;
+  if (s.mode === 'halves') return 'Compared to the first half of this window, ';
+  return 'Compared to your earlier runs, ';
 }
 
 // One-sentence top-line summary: pace trend + HR efficiency + distance
 // growth, drawing on the same early/recent split logic the scatter
 // panels use. Returns JSX so the deltas can carry bold formatting.
-function buildStrideSummary(runs, units) {
-  const s = computeStrideSignals(runs, units);
+function buildStrideSummary(s, units, lead) {
   if (!s) return null;
 
   const segments = [];
@@ -285,21 +279,22 @@ function buildStrideSummary(runs, units) {
   // runs, " — the lead clause sets the reference frame so each segment
   // doesn't have to re-explain "than what."
   if (s.paceMeaningful) {
-    const better = s.paceSec > 0;
+    const better = s.paceSecKm > 0;
+    const paceSec = s.paceSecKm * (units === 'mi' ? 1 / MI_PER_KM : 1);
     segments.push(
-      <span key="pace">you&rsquo;re now <Strong>{Math.abs(s.paceSec).toFixed(0)}s{paceUnit(units)} {better ? 'faster' : 'slower'}</Strong></span>
+      <span key="pace">you&rsquo;re now <Strong>{Math.abs(paceSec).toFixed(0)}s{paceUnit(units)} {better ? 'faster' : 'slower'}</Strong></span>
     );
   }
   if (s.hrMeaningful) {
     const better = s.hrDelta > 0;
     segments.push(
-      <span key="hr">your heart rate is <Strong>{Math.abs(s.hrDelta).toFixed(0)} bpm {better ? 'lower' : 'higher'}</Strong></span>
+      <span key="hr">your heart rate is <Strong>{Math.abs(s.hrDelta).toFixed(1)} bpm {better ? 'lower' : 'higher'}</Strong></span>
     );
   }
   if (s.distMeaningful) {
-    const better = s.distDelta > 0;
+    const better = s.distDeltaKm > 0;
     segments.push(
-      <span key="dist">your typical run is <Strong>{Math.abs(s.distDelta).toFixed(1)} {distUnit(units)} {better ? 'longer' : 'shorter'}</Strong></span>
+      <span key="dist">your typical run is <Strong>{Math.abs(kmToDisplay(s.distDeltaKm, units)).toFixed(1)} {distUnit(units)} {better ? 'longer' : 'shorter'}</Strong></span>
     );
   }
 
@@ -320,7 +315,7 @@ function buildStrideSummary(runs, units) {
   });
 
   return (
-    <>Compared to your earlier runs, {joined}.</>
+    <>{lead}{joined}.</>
   );
 }
 
@@ -330,9 +325,9 @@ function buildStrideSummary(runs, units) {
 // a mixed window incorrectly.
 function classifyTraining(s) {
   if (!s) return null;
-  const pace = s.paceMeaningful ? (s.paceSec > 0 ? 'faster' : 'slower') : 'flat';
+  const pace = s.paceMeaningful ? (s.paceSecKm > 0 ? 'faster' : 'slower') : 'flat';
   const hr = !s.hrPresent ? 'missing' : s.hrMeaningful ? (s.hrDelta > 0 ? 'lower' : 'higher') : 'flat';
-  const dist = s.distMeaningful ? (s.distDelta > 0 ? 'longer' : 'shorter') : 'flat';
+  const dist = s.distMeaningful ? (s.distDeltaKm > 0 ? 'longer' : 'shorter') : 'flat';
 
   // Priority order: HR-rich archetypes first (more informative), then
   // HR-optional fallbacks. First match wins.
@@ -365,15 +360,22 @@ function classifyTraining(s) {
   return null;
 }
 
+// Two summary lines (14.5px × 1.5 + 6px gap) plus one pattern line
+// (13px × 1.5 + 6px gap).
+const SUMMARY_SLOT_MIN_HEIGHT = 76;
+
 // Body content is split out so it can read `viewMode` from TweakContext.
 // That context isn't available at the root Dashboard level because the
 // provider wraps this body.
 function DashboardBody({ effectiveMode, athleteName, athleteId, runCount }) {
-  const { viewMode, units } = useTweaks();
+  const { viewMode, setViewMode, units } = useTweaks();
+  const { hide: hideTooltip } = useTooltip();
   const filteredRuns = useAnalysisRuns();
+  const { prior: priorRuns, rangeName } = useComparisonWindow();
   const { setLatestRunId } = useLink();
-  const signals = computeStrideSignals(filteredRuns, units);
-  const summary = buildStrideSummary(filteredRuns, units);
+  const signals = computeStrideSignals(filteredRuns, priorRuns);
+  const lead = signals ? comparisonLead(signals, rangeName) : '';
+  const summary = buildStrideSummary(signals, units, lead);
   const pattern = classifyTraining(signals);
   const [canCompact, setCanCompact] = useState(true);
 
@@ -402,6 +404,30 @@ function DashboardBody({ effectiveMode, athleteName, athleteId, runCount }) {
 
   const isCompact = viewMode === 'compact' && canCompact;
 
+  // Compact tile → full view. Remember which section was asked for, switch
+  // modes, then scroll once the full view has rendered.
+  const [expandTarget, setExpandTarget] = useState(null);
+  const openInFull = (target) => {
+    hideTooltip?.();
+    setExpandTarget(target);
+    setViewMode('full');
+  };
+  useEffect(() => {
+    if (isCompact || !expandTarget) return;
+    const raf = requestAnimationFrame(() => {
+      document.getElementById(sectionId(expandTarget))
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setExpandTarget(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isCompact, expandTarget]);
+  const sec = (name) => ({ name, reveal: expandTarget === name });
+  const tile = (target, name, el) => (
+    <CompactExpandContext.Provider value={{ target, onExpand: openInFull }}>
+      <PanelErrorBoundary name={name}>{el}</PanelErrorBoundary>
+    </CompactExpandContext.Provider>
+  );
+
   return (
     <div className="app">
       <ConnectBanner mode={effectiveMode} athleteName={athleteName} athleteId={athleteId} runCount={runCount} />
@@ -411,54 +437,79 @@ function DashboardBody({ effectiveMode, athleteName, athleteId, runCount }) {
           <div className="section-title" style={{ fontSize: 22, marginBottom: 2 }}>
             Progress, <i>in one page.</i>
           </div>
-          {summary && (
+          {/* Fixed-height slot for the summary + pattern lines so the grid
+              below doesn't jump when a range has no trend to report. Sized
+              for a two-line summary plus a one-line pattern. */}
+          <div style={{ minHeight: SUMMARY_SLOT_MIN_HEIGHT }}>
             <div style={{
               fontSize: 14.5, fontFamily: 'var(--serif)', fontStyle: 'italic',
-              color: 'var(--ink)', maxWidth: 720, lineHeight: 1.5, marginBottom: 6,
+              color: summary ? 'var(--ink)' : 'var(--inkSoft)', maxWidth: 720, lineHeight: 1.5, marginBottom: 6,
             }}>
-              {summary}
+              {summary ?? (signals
+                ? <>{lead}{signals.hrPresent ? 'pace, heart rate, and distance are' : 'pace and distance are'} holding steady.</>
+                : <>Not enough runs in this window to read a trend yet. Try a longer range.</>)}
             </div>
-          )}
-          {summary && pattern && (
-            <div style={{
-              fontSize: 13, fontFamily: 'var(--serif)', fontStyle: 'italic',
-              color: 'var(--inkSoft)', maxWidth: 720, lineHeight: 1.5, marginBottom: 6,
-            }}>
-              Looks like <Strong>{pattern.name}</Strong>: {pattern.gloss}.
-            </div>
-          )}
+            {signals && (
+              <div style={{
+                fontSize: 13, fontFamily: 'var(--serif)', fontStyle: 'italic',
+                color: 'var(--inkSoft)', maxWidth: 720, lineHeight: 1.5, marginBottom: 6,
+              }}>
+                {pattern
+                  ? <>Looks like <Strong>{pattern.name}</Strong>: {pattern.gloss}.</>
+                  : <>No single training pattern stands out in this window.</>}
+              </div>
+            )}
+          </div>
           {isCompact && (
             <div style={{ fontSize: 13, color: 'var(--inkSoft)', maxWidth: 620, lineHeight: 1.5 }}>
-              Every panel at a glance. Switch to <b>Full</b> in View to drill in.
+              Every panel at a glance. Click any tile, or switch to <b>Full</b>, to drill in.
             </div>
           )}
         </div>
-        <TimeRangeControl />
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+          <TimeRangeControl />
+          {canCompact && (
+            <div className="seg" role="group" aria-label="Layout">
+              <button
+                className={viewMode === 'compact' ? 'on' : ''}
+                onClick={() => setViewMode('compact')}
+                aria-pressed={viewMode === 'compact'}
+                style={{ padding: '6px 12px' }}
+              >Compact</button>
+              <button
+                className={viewMode === 'full' ? 'on' : ''}
+                onClick={() => setViewMode('full')}
+                aria-pressed={viewMode === 'full'}
+                style={{ padding: '6px 12px' }}
+              >Full</button>
+            </div>
+          )}
+        </div>
       </div>
 
       {isCompact ? (
         <CompactGrid>
-          <PanelErrorBoundary name="Run Atlas"><RunAtlasCompact /></PanelErrorBoundary>
-          <PanelErrorBoundary name="In View"><WindowStatsCompact /></PanelErrorBoundary>
-          <PanelErrorBoundary name="Personal Records"><PersonalRecordsCompact /></PanelErrorBoundary>
-          <PanelErrorBoundary name="Trend Ribbons"><PaceRibbonCompact /></PanelErrorBoundary>
-          <PanelErrorBoundary name="Aerobic Efficiency"><AerobicEfficiencyCompact /></PanelErrorBoundary>
-          <PanelErrorBoundary name="Distance × Pace"><DistancePaceCurveCompact /></PanelErrorBoundary>
-          <PanelErrorBoundary name="Same-Route Duel"><SameRouteDuelCompact /></PanelErrorBoundary>
-          <PanelErrorBoundary name="Week Comparator"><WeekComparatorCompact /></PanelErrorBoundary>
-          <PanelErrorBoundary name="Season Arc"><SeasonArcCompact /></PanelErrorBoundary>
+          {tile('Run Atlas', 'Run Atlas', <RunAtlasCompact />)}
+          {tile('Run Cards', 'In View', <WindowStatsCompact />)}
+          {tile('Personal Records', 'Personal Records', <PersonalRecordsCompact />)}
+          {tile('Trend Ribbons', 'Trend Ribbons', <PaceRibbonCompact />)}
+          {tile('Aerobic Efficiency', 'Aerobic Efficiency', <AerobicEfficiencyCompact />)}
+          {tile('Aerobic Durability', 'Distance × Pace', <DistancePaceCurveCompact />)}
+          {tile('Same-Route Duel', 'Same-Route Duel', <SameRouteDuelCompact />)}
+          {tile('Week Comparator', 'Week Comparator', <WeekComparatorCompact />)}
+          {tile('Season Arc', 'Season Arc', <SeasonArcCompact />)}
         </CompactGrid>
       ) : (
         <>
-          <CollapsibleSection name="Run Atlas"><PanelErrorBoundary name="Run Atlas"><RunAtlas /></PanelErrorBoundary></CollapsibleSection>
-          <CollapsibleSection name="Run Cards"><PanelErrorBoundary name="Run Cards"><RunCards /></PanelErrorBoundary></CollapsibleSection>
-          <CollapsibleSection name="Personal Records"><PanelErrorBoundary name="Personal Records"><PersonalRecords /></PanelErrorBoundary></CollapsibleSection>
-          <CollapsibleSection name="Trend Ribbons"><PanelErrorBoundary name="Trend Ribbons"><PaceRibbon /></PanelErrorBoundary></CollapsibleSection>
-          <CollapsibleSection name="Aerobic Efficiency"><PanelErrorBoundary name="Aerobic Efficiency"><AerobicEfficiency /></PanelErrorBoundary></CollapsibleSection>
-          <CollapsibleSection name="Aerobic Durability"><PanelErrorBoundary name="Aerobic Durability"><DistancePaceCurve /></PanelErrorBoundary></CollapsibleSection>
-          <CollapsibleSection name="Same-Route Duel"><PanelErrorBoundary name="Same-Route Duel"><SameRouteDuel /></PanelErrorBoundary></CollapsibleSection>
-          <CollapsibleSection name="Week Comparator"><PanelErrorBoundary name="Week Comparator"><WeekComparator /></PanelErrorBoundary></CollapsibleSection>
-          <CollapsibleSection name="Season Arc"><PanelErrorBoundary name="Season Arc"><SeasonArc /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection {...sec('Run Atlas')}><PanelErrorBoundary name="Run Atlas"><RunAtlas /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection {...sec('Run Cards')}><PanelErrorBoundary name="Run Cards"><RunCards /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection {...sec('Personal Records')}><PanelErrorBoundary name="Personal Records"><PersonalRecords /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection {...sec('Trend Ribbons')}><PanelErrorBoundary name="Trend Ribbons"><PaceRibbon /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection {...sec('Aerobic Efficiency')}><PanelErrorBoundary name="Aerobic Efficiency"><AerobicEfficiency /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection {...sec('Aerobic Durability')}><PanelErrorBoundary name="Aerobic Durability"><DistancePaceCurve /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection {...sec('Same-Route Duel')}><PanelErrorBoundary name="Same-Route Duel"><SameRouteDuel /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection {...sec('Week Comparator')}><PanelErrorBoundary name="Week Comparator"><WeekComparator /></PanelErrorBoundary></CollapsibleSection>
+          <CollapsibleSection {...sec('Season Arc')}><PanelErrorBoundary name="Season Arc"><SeasonArc /></PanelErrorBoundary></CollapsibleSection>
         </>
       )}
 

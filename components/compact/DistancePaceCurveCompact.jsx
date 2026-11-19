@@ -5,6 +5,7 @@ import {
   useComparisonWindow, pickComparison, useTweaks, mean,
   fmtPace, paceToDisplay, paceUnit, paceUnitLong,
   kmToDisplay, distUnit,
+  keepForDurability, TREND_PACE_SEC_KM, TREND_DIST_PCT,
 } from '@/lib/shared';
 import CompactTile from '../CompactTile';
 import { coreRegion, robustBounds } from '@/lib/coreRegion';
@@ -18,7 +19,7 @@ export default function DistancePaceCurveCompact() {
   const { units } = useTweaks();
 
   const view = useMemo(() => {
-    const keep = (r) => r.type !== 'recovery';
+    const keep = keepForDurability;
     const inView = runs.filter(keep);
     if (!inView.length) return null;
     const cmp = pickComparison(inView, priorRuns.filter(keep));
@@ -69,8 +70,8 @@ export default function DistancePaceCurveCompact() {
     const paceSec = (trend.earlyPace - trend.latePace) * 60;  // + = faster
     const distDeltaKm = trend.lateDist - trend.earlyDist;      // + = longer
     const distDeltaPct = trend.earlyDist > 0 ? Math.abs(distDeltaKm / trend.earlyDist) : 0;
-    const distChanged = distDeltaPct >= 0.1;
-    const paceChanged = Math.abs(paceSec) >= 2;
+    const distChanged = distDeltaPct >= TREND_DIST_PCT;
+    const paceChanged = Math.abs(paceSec) >= TREND_PACE_SEC_KM;
     const distDisp = Math.abs(kmToDisplay(distDeltaKm, units)).toFixed(1);
     const u = distUnit(units);
     const paceStr = Math.abs(paceSec).toFixed(0);
